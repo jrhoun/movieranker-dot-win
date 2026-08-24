@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   discoverByCompany,
+  getPersonCredits,
   searchCompany,
   searchMovies,
   searchPerson,
@@ -21,6 +22,11 @@ export async function GET(req: NextRequest) {
       results = await searchMovies(q);
     } else if (mode === "title") {
       results = await searchMovies(q);
+    } else if (mode === "person-credits") {
+      if (!ref) {
+        return NextResponse.json({ error: "ref required for person-credits" }, { status: 400 });
+      }
+      results = await getPersonCredits(Number(ref));
     } else if (mode === "company-discover") {
       if (!ref) {
         return NextResponse.json({ error: "ref required for company-discover" }, { status: 400 });

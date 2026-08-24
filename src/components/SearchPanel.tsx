@@ -1,0 +1,202 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import type { TmdbCompany, TmdbMovieCredit, TmdbPerson } from "@/lib/tmdb";
+import MoviePosterCard from "./MoviePosterCard";
+
+type Mode = "person" | "company" | "keyword" | "title";
+
+const MODES: { id: Mode; label: string; placeholder: string }[] = [
+  { id: "title", label: "Title", placeholder: "Search movies by title…" },
+  { id: "person", label: "Person", placeholder: "Search a director or actor…" },
+  { id: "company", label: "Studio", placeholder: "Search a studio… e.g. A24" },
+  { id: "keyword", label: "Keyword", placeholder: "Search by theme…" },
+];
+
+const TWO_STEP: Partial<Record<Mode, string>> = { person: "people", company: "studios" };
+
+function SkeletonGrid() {
+  return (
+    <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+      {Array.from({ length: 12 }, (_, i) => (
+        <div key={i} className="animate-pulse">
+          <div className="aspect-[2/3] w-full rounded bg-surface" />
+          <div className="mt-1.5 h-3.5 w-3/4 rounded bg-surface" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function SearchPanel({ onPick }: { onPick: (m: TmdbMovieCredit) => void }) {
+  const [mode, setMode] = useState<Mode>("title");
+  const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
+  const [ref, setRef] = useState<{ id: number; name: string } | null>(null);
+  const [names, setNames] = useState<(TmdbPerson | TmdbCompany)[]>([]);
+  const [movies, setMovies] = useState<TmdbMovieCredit[]>([]);
+  const [loading, setLoading] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // 300ms debounce
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), 300);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  useEffect(() => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
+    const query = debouncedQ.trim();
+
+    async function run() {
+      if (!ref && !query) {
+        setNames([]);
+        setMovies([]);
+        setLoading(false);
+        return;
+      }
+      try {
+        setLoading(true);
+        if (ref) {
+          // credits for a picked person/studio
+          const path =
+            TWO_STEP[mode] === "people"
+              ? `/api/search?mode=person-credits&ref=${ref.id}`
+              : `/api/search?mode=company-discover&ref=${ref.id}`;
+          const res = await fetch(path, { signal: ctrl.signal });
+          const data = await res.json();
+          setMovies((data.results ?? []) as TmdbMovieCredit[]);
+          setNames([]);
+        } else {
+          const m = TWO_STEP[mode] ? mode : mode === "keyword" || mode === "title" ? mode : null;
+          if (!m) return;
+          const res = await fetch(
+            `/api/search?mode=${m}&q=${encodeURIComponent(query)}`,
+            { signal: ctrl.signal },
+          );
+          const data = await res.json();
+          if (TWO_STEP[m]) {
+            setNames((data.results ?? []) as (TmdbPerson | TmdbCompany)[]);
+            setMovies([]);
+          } else {
+            setMovies((data.results ?? []) as TmdbMovieCredit[]);
+            setNames([]);
+          }
+        }
+      } catch (e) {
+        if ((e as Error).name !== "AbortError") {
+          setMovies([]);
+          setNames([]);
+        }
+      } finally {
+        if (!ctrl.signal.aborted) setLoading(false);
+      }
+    }
+    run();
+    return () => ctrl.abort();
+  }, [debouncedQ, mode, ref]);
+
+  function switchMode(next: Mode) {
+    setMode(next);
+    setRef(null);
+    setNames([]);
+    setMovies([]);
+  }
+
+  function pickRef(n: TmdbPerson | TmdbCompany) {
+    setRef({ id: n.id, name: n.name });
+  }
+
+  const showNames = !ref && TWO_STEP[mode] !== undefined && names.length > 0;
+  const showMovies = ref !== null || !TWO_STEP[mode];
+
+  return (
+    <section aria-label="Find movies">
+      {/* mode tabs */}
+      <div role="tablist" aria-label="Search mode" className="flex flex-wrap gap-2">
+        {MODES.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            role="tab"
+            aria-selected={mode === m.id}
+            onClick={() => switchMode(m.id)}
+            className={`min-h-11 rounded-full px-4 text-sm font-medium transition-colors duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+              mode === m.id
+                ? "bg-accent text-bg"
+                : "bg-surface text-muted hover:bg-surface-raised hover:text-text active:bg-surface"
+            }`}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      {/* search input */}
+      <div className="relative mt-3">
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setRef(null);
+          }}
+          placeholder={MODES.find((m) => m.id === mode)?.placeholder}
+          aria-label={MODES.find((m) => m.id === mode)?.placeholder}
+          className="min-h-11 w-full rounded bg-surface px-4 text-text placeholder:text-muted ring-1 ring-white/10 transition-shadow duration-200 ease-out hover:ring-white/20 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent"
+        />
+        {loading && (
+          <span
+            aria-hidden
+            className="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-muted border-t-accent"
+          />
+        )}
+      </div>
+
+      {ref && (
+        <button
+          type="button"
+          onClick={() => setRef(null)}
+          className="mt-3 min-h-11 text-sm text-accent transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+          ← not {ref.name}? back to {TWO_STEP[mode]} search
+        </button>
+      )}
+
+      <p aria-live="polite" className="sr-only">
+        {loading ? "Searching…" : `${movies.length || names.length} results`}
+      </p>
+
+      <div className="mt-4">
+        {loading ? (
+          <SkeletonGrid />
+        ) : showNames ? (
+          <ul className="flex flex-wrap gap-2">
+            {names.map((n) => (
+              <li key={n.id}>
+                <button
+                  type="button"
+                  onClick={() => pickRef(n)}
+                  className="min-h-11 rounded-full bg-surface px-4 text-sm text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-surface-raised hover:ring-white/20 active:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                >
+                  {n.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : showMovies && movies.length > 0 ? (
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+            {movies.map((mv) => (
+              <MoviePosterCard key={mv.tmdbId} movie={mv} onSelect={() => onPick(mv)} />
+            ))}
+          </div>
+        ) : debouncedQ.trim() || ref ? (
+          <p className="py-8 text-center text-sm text-muted">Nothing found. Try another search.</p>
+        ) : null}
+      </div>
+    </section>
+  );
+}
