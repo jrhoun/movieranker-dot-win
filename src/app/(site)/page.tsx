@@ -240,7 +240,7 @@ export default function Home() {
           ))}
         </ol>
         <p className="mt-6 text-center text-sm text-muted">
-          No account needed to play — sign up only to save your masterpiece.
+          No account needed to play — sign up only to save your lists.
         </p>
       </section>
       {/* Tonight's Shortlist (contract "Keep": filmstrip texture, Premiere Night

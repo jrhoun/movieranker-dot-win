@@ -196,12 +196,12 @@ export default function SaveGateSheet({
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label={status === "done" ? "Save your masterpiece" : "Save as draft"}
+        aria-label={status === "done" ? "Save your list" : "Save as draft"}
         className="animate-sheet-up relative max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-xl bg-surface p-5 pb-8 shadow-2xl ring-1 ring-white/10"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold">Save your masterpiece</h2>
+            <h2 className="text-lg font-bold">Save your ranking</h2>
             <p className="mt-0.5 text-xs text-muted">
               {status === "done"
                 ? "Create an account to keep this ranking forever."
