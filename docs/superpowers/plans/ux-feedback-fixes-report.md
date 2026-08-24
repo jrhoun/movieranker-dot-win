@@ -196,6 +196,38 @@ ties are interchangeable by design, and sharpen still surfaces the close calls
 via `estimateRemainingVotes`. Harness history: gap>50 → ~1441–1976 / never /
 never; gap>25 → 643/1505/3202; pure order → 244/490/804; tie-banded → 55/6/6.
 
+### Round 4 — stability requires differentiation
+
+Round 3's 16/20-movie sims hitting stable at exactly 6 votes exposed a
+degenerate hole: an all-1000-elo list sits in ONE giant tie-band, so nothing
+counts as significant movement and the quiet streak fires immediately —
+"celebrating" an insertion-order list with no information. Ruling: stability
+must also require that the field has actually DIFFERENTIATED.
+
+- New `STABILITY_MIN_COMPARISONS = 3`. `isStable(movies,
+  votesSinceOrderChanged, significantOrderChangedAtLeastOnce)` is true only
+  when (a) every ACTIVE (!parked) movie has comparisons >= 3 — real evidence
+  behind each position; (b) a significant cross-band reorder has happened at
+  least once — genuine preference signal exists; (c) no significant movement
+  for STABILITY_VOTES_N=6 consecutive votes — it settled.
+- The play room tracks the once-flag alongside its streak state and ORs each
+  vote's `orderChanged` into it (`ponytail`: not persisted — a resume resets
+  it until the next significant swap, which only ever delays stability).
+- Finish-now remains the always-open door.
+
+**Round-4 simulation results** (same harness/seeds):
+
+| List size | n·log₂n·2 budget | Measured votes to stable |
+|---|---|---|
+| 12 | 88 | 55 |
+| 16 | 128 | 90 |
+| 20 | 174 | 38 |
+
+Within budget at every size for the second round running — now with the
+differentiation guarantees the degenerate round-3 numbers lacked. Full harness
+history: gap>50 → ~1441–1976 / never / never; gap>25 → 643/1505/3202; pure
+order → 244/490/804; tie-band only → 55/6/6; differentiated → 55/90/38.
+
 ## Verification
 
 - `npm test`: **75 passed** (72 prior + 1 park/estimate coverage already present

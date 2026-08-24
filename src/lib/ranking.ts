@@ -107,13 +107,25 @@ export function recordMatchupResult(
   return { movies: next, orderChanged: !same };
 }
 
-/** Quick phase: stability is settled SIGNIFICANT order — the ranking holds once
- * no cross-band movement has occurred for STABILITY_VOTES_N consecutive votes
- * (tie-band swaps don't reset the streak). No gap-floor requirement; sharpen
- * phase afterwards is optional gap tightening (sharpenNextPair); finishing
- * early is always available. */
-export function isStable(order: RankedMovie[], votesSinceOrderChanged: number): boolean {
-  return votesSinceOrderChanged >= STABILITY_VOTES_N;
+/** Every active movie needs at least this many comparisons before stability
+ * can fire — real evidence behind each position. */
+export const STABILITY_MIN_COMPARISONS = 3;
+
+/** Quick phase: stability requires (a) every ACTIVE movie has real evidence
+ * (comparisons >= STABILITY_MIN_COMPARISONS), (b) the field has DIFFERENTIATED
+ * at least once (significant cross-band movement happened — guards against
+ * celebrating an insertion-order list where everything is still tied), and
+ * (c) no significant movement for STABILITY_VOTES_N consecutive votes.
+ * Sharpen phase afterwards is optional gap tightening (sharpenNextPair);
+ * finishing early is always available. */
+export function isStable(
+  movies: RankedMovie[],
+  votesSinceOrderChanged: number,
+  significantOrderChangedAtLeastOnce: boolean,
+): boolean {
+  if (votesSinceOrderChanged < STABILITY_VOTES_N) return false;
+  if (!significantOrderChangedAtLeastOnce) return false;
+  return movies.every((m) => m.parked || m.comparisons >= STABILITY_MIN_COMPARISONS);
 }
 
 /** Remaining work estimate: counts ADJACENT PAIRS WITHIN THE COMFORT BAND

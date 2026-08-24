@@ -10,6 +10,7 @@ import {
   estimateRemainingVotes,
   finalizeRanks,
   isStable,
+  recordMatchupResult,
   type RankedMovie,
 } from "@/lib/ranking";
 import {
@@ -64,6 +65,10 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   const [exitOpen, setExitOpen] = useState(false);
   // set once an OAuth redirect away from the page has begun (leave-warning stays disarmed)
   const [authRedirecting, setAuthRedirecting] = useState(false);
+  // once-flag: has the field EVER significantly reordered? stability requires
+  // genuine differentiation, not just a quiet streak over a still-tied list.
+  // ponytail: room-level and not persisted — a resume resets it until the next
+  // significant swap, which only ever delays stability slightly.
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // last movie state known to be synced to the server (resume mode only)
   const syncedRef = useRef<RankedMovie[] | null>(initial ? initial.movies : null);
@@ -155,11 +160,16 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     saveSession(next);
   }
 
+  const [fieldSplit, setFieldSplit] = useState(false);
   const active = useMemo(() => session?.movies.filter((m) => !m.parked) ?? [], [session]);
-  const stable = !!session && active.length >= 2 && isStable(active, session.votesSinceOrderChange);
+  const stable =
+    !!session &&
+    active.length >= 2 &&
+    isStable(active, session.votesSinceOrderChange, fieldSplit);
 
   function handleVote(winnerId: number, loserId: number) {
     if (!session || settlingLoserId !== null) return;
+    setFieldSplit((f) => f || recordMatchupResult(session.movies, winnerId, loserId).orderChanged);
     const next = applyVote(session, winnerId, loserId);
     setSession(next);
     saveSession(next);

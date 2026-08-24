@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  STABILITY_MIN_COMPARISONS,
   STABILITY_VOTES_N,
   STABLE_ORDER_TOLERANCE,
   SHARPEN_COMFORT_GAP,
@@ -181,18 +182,27 @@ describe("recordMatchupResult", () => {
 });
 
 describe("isStable", () => {
-  test(`stable purely on ${STABILITY_VOTES_N} consecutive no-swap votes, even with tiny gaps`, () => {
-    // gaps of 5 — nowhere near any sharpen threshold, yet quick-phase stable
-    const tinyGaps = [
-      movie({ tmdbId: 1, elo: 1010 }),
-      movie({ tmdbId: 2, elo: 1005 }),
-      movie({ tmdbId: 3, elo: 1000 }),
+  test(`requires ${STABILITY_MIN_COMPARISONS}+ comparisons, a prior significant split, and ${STABILITY_VOTES_N} quiet votes`, () => {
+    const voted = [
+      movie({ tmdbId: 1, elo: 1200, comparisons: 3 }),
+      movie({ tmdbId: 2, elo: 1100, comparisons: 3 }),
+      movie({ tmdbId: 3, elo: 1000, comparisons: 3 }),
     ];
-    expect(isStable(tinyGaps, STABILITY_VOTES_N - 1)).toBe(false);
-    expect(isStable(tinyGaps, STABILITY_VOTES_N)).toBe(true);
-    expect(isStable(tinyGaps, STABILITY_VOTES_N + 50)).toBe(true);
-    // single-movie edge: no adjacent pairs at all
-    expect(isStable([tinyGaps[0]], STABILITY_VOTES_N)).toBe(true);
+    // fresh session: no differentiation -> never stable, however quiet
+    expect(isStable(voted, STABILITY_VOTES_N, false)).toBe(false);
+    expect(isStable(voted, 1000, false)).toBe(false);
+    // one movie without enough evidence -> not stable
+    const thin = [voted[0], voted[1], movie({ tmdbId: 4, elo: 900, comparisons: 2 })];
+    expect(isStable(thin, STABILITY_VOTES_N, true)).toBe(false);
+    // parked movies are exempt from the evidence requirement
+    const parkedThin = [
+      ...voted,
+      movie({ tmdbId: 4, elo: 900, comparisons: 0, parked: true }),
+    ];
+    expect(isStable(parkedThin, STABILITY_VOTES_N - 1, true)).toBe(false);
+    expect(isStable(parkedThin, STABILITY_VOTES_N, true)).toBe(true);
+    // tiny gaps don't matter anymore — differentiation + quiet streak suffice
+    expect(isStable([voted[0], movie({ tmdbId: 4, elo: 1199, comparisons: 3 })], STABILITY_VOTES_N, true)).toBe(true);
   });
 });
 
@@ -216,12 +226,12 @@ describe("estimateRemainingVotes", () => {
 
   test("stability leaves sharpen work: close calls counted, then gone after sharpening", () => {
     let order = [
-      movie({ tmdbId: 1, elo: 1050 }),
-      movie({ tmdbId: 2, elo: 1030 }),
-      movie({ tmdbId: 3, elo: 1000 }),
+      movie({ tmdbId: 1, elo: 1050, comparisons: 3 }),
+      movie({ tmdbId: 2, elo: 1030, comparisons: 3 }),
+      movie({ tmdbId: 3, elo: 1000, comparisons: 3 }),
     ];
-    // order settled (pure vote criterion) while every gap < comfort band
-    expect(isStable(order, STABILITY_VOTES_N)).toBe(true);
+    // differentiated + settled, while every gap < comfort band
+    expect(isStable(order, STABILITY_VOTES_N, true)).toBe(true);
     expect(sharpenNextPair(order)).not.toBeNull();
     expect(estimateRemainingVotes(order)).toBe(4); // 2 close calls
 
@@ -249,11 +259,11 @@ describe("sharpenNextPair", () => {
 
   test(`has work at stability: a ${SHARPEN_GAP_THRESHOLD + 30} gap is above the stability threshold but within comfort`, () => {
     const order = [
-      movie({ tmdbId: 1, elo: 1300 }),
-      movie({ tmdbId: 2, elo: 1220 }), // gap 80: stable, yet sharpenable
-      movie({ tmdbId: 3, elo: 1000 }),
+      movie({ tmdbId: 1, elo: 1300, comparisons: 3 }),
+      movie({ tmdbId: 2, elo: 1220, comparisons: 3 }), // gap 80: stable, yet sharpenable
+      movie({ tmdbId: 3, elo: 1000, comparisons: 3 }),
     ];
-    expect(isStable(order, STABILITY_VOTES_N)).toBe(true);
+    expect(isStable(order, STABILITY_VOTES_N, true)).toBe(true);
     expect(sharpenNextPair(order)).not.toBeNull();
   });
 
@@ -360,6 +370,7 @@ describe("simulation: stability reachable within ~n log n * 2 votes", () => {
     const strength = Array.from({ length: n }, () => rand());
     let movies = Array.from({ length: n }, (_, i) => movie({ tmdbId: i + 1 }));
     let votesSinceOrderChange = 0;
+    let significantOnce = false;
     let votes = 0;
     while (votes < maxVotes) {
       const [a, b] = nextMatchup(movies);
@@ -370,32 +381,37 @@ describe("simulation: stability reachable within ~n log n * 2 votes", () => {
       const loser = winner === a ? b : a;
       const result = recordMatchupResult(movies, winner.tmdbId, loser.tmdbId);
       movies = result.movies;
-      votesSinceOrderChange = result.orderChanged ? 0 : votesSinceOrderChange + 1;
+      if (result.orderChanged) {
+        votesSinceOrderChange = 0;
+        significantOnce = true;
+      } else votesSinceOrderChange++;
       votes++;
-      if (votesSinceOrderChange >= STABILITY_VOTES_N && isStable(movies, votesSinceOrderChange)) {
+      if (
+        votesSinceOrderChange >= STABILITY_VOTES_N &&
+        isStable(movies, votesSinceOrderChange, significantOnce)
+      ) {
         return { converged: true, votes };
       }
     }
     return { converged: false, votes };
   }
 
-  // Round-3 retune: order tracking is significance-tolerant (STABLE_ORDER_
-  // TOLERANCE=30). Adjacent movies within 30 elo are tie-banded — swaps inside
-  // a band don't reset the quiet streak; only cross-band movement does.
+  // Round-4 retune: stability additionally requires DIFFERENTIATION —
+  // STABILITY_MIN_COMPARISONS (3) for every active movie plus a once-flag that
+  // a significant (cross-band) reorder has happened at least once. This closes
+  // round 3's degenerate hole where an all-1000-elo list sat in one giant
+  // tie-band and hit stable at exactly 6 votes with zero information.
   // History of this harness (seeds 1012/1016/1020, 85% favorite consistency):
-  //   gap>50 floor:  ~1441-1976 / never / never (n=12/16/20)
-  //   gap>25 floor:  643 / 1505 / 3202
-  //   pure order:    244 / 490 / 804
-  //   tie-banded:    55 / 6 / 6 — all inside ⌈n·log₂n⌉·2 (88/128/174).
-  // The tiny 16/20 numbers are expected: starting elos are all equal (1000),
-  // so everything starts in ONE band and no swap is significant until spread
-  // develops. Ties are interchangeable by design; sharpen still has work
-  // (estimateRemainingVotes) regardless.
+  //   gap>50 floor:       ~1441-1976 / never / never (n=12/16/20)
+  //   gap>25 floor:       643 / 1505 / 3202
+  //   pure order:         244 / 490 / 804
+  //   tie-banded only:    55 / 6 / 6 (degenerate: no differentiation required)
+  //   differentiated:     55 / 90 / 38 — all inside ⌈n·log₂n⌉·2 (88/128/174).
   test.each([12, 16, 20])("%i movies stabilize within n·log₂n·2 votes", (n) => {
     const budget = Math.ceil(n * Math.log2(n)) * 2;
     const result = simulate(n, 1000 + n, budget);
     console.log(
-      `stability retune r3: ${n} movies -> ${result.converged ? result.votes : "NOT stable"} votes (budget ${budget})`,
+      `stability retune r4: ${n} movies -> ${result.converged ? result.votes : "NOT stable"} votes (budget ${budget})`,
     );
     expect(result.converged).toBe(true);
     expect(result.votes).toBeLessThanOrEqual(budget);
