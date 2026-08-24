@@ -21,7 +21,15 @@ export const HERO_POSTERS: HeroPoster[] = [
   { tmdbId: 603, title: "The Matrix", releaseYear: 1999, posterPath: "/dXNAPwY7VrqMAo51EKhhCJfaGb5.jpg", tilt: 2.7 },
   { tmdbId: 129, title: "Spirited Away", releaseYear: 2001, posterPath: "/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg", tilt: 5.3 },
   { tmdbId: 27205, title: "Inception", releaseYear: 2010, posterPath: "/xlaY2zyzMfkhk0HSC5VUwzoZPU1.jpg", tilt: 8 },
+  { tmdbId: 550, title: "Fight Club", releaseYear: 1999, posterPath: "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg", tilt: 0 },
+  { tmdbId: 120, title: "The Lord of the Rings: The Fellowship of the Ring", releaseYear: 2001, posterPath: "/6oom5QYQ2yQTMJIbnJbk1LtrRUa.jpg", tilt: 0 },
+  { tmdbId: 496243, title: "Parasite", releaseYear: 2019, posterPath: "/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg", tilt: 0 },
+  { tmdbId: 244786, title: "Whiplash", releaseYear: 2014, posterPath: "/7fn624j5lj3xTme2SgiLCeuedmO.jpg", tilt: 0 },
+  { tmdbId: 157336, title: "Interstellar", releaseYear: 2014, posterPath: "/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg", tilt: 0 },
 ];
+
+/** First eight carry the tilted hero fan; the full lineup fills the home filmstrip. */
+export const FAN_POSTERS = HERO_POSTERS.slice(0, 8);
 
 /** Same shape search results use, so hero posters drop straight into the tray. */
 export const HERO_CANDIDATES: TmdbMovieCredit[] = HERO_POSTERS.map((p) => ({

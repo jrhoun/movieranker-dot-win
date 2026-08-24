@@ -7,7 +7,7 @@ import CandidateTray from "@/components/CandidateTray";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import MoviePoster from "@/components/list/MoviePoster";
 import SearchPanel from "@/components/SearchPanel";
-import { HERO_CANDIDATES, HERO_POSTERS } from "@/lib/hero-posters";
+import { HERO_CANDIDATES, FAN_POSTERS, HERO_POSTERS } from "@/lib/hero-posters";
 import type { RankedMovie } from "@/lib/ranking";
 import { clearSession, loadSession, saveSession } from "@/lib/session";
 import type { TmdbMovieCredit } from "@/lib/tmdb";
@@ -124,14 +124,17 @@ export default function Home() {
           </div>
           {/* Fanned marquee of real posters: overlapping, tilted -8°..8°,
               straighten+lift on hover (200ms ease-out; killed by reduced-motion). */}
+          {/* Fanned marquee of real posters: overlapping, tilted -8°..8°,
+              straighten+lift on hover (200ms ease-out; killed by reduced-motion).
+              Slightly dimmed at rest so the Bebas headline above stays dominant. */}
           <ul className="mt-8 flex justify-center px-4 sm:mt-10">
-            {HERO_POSTERS.map((p, i) => {
+            {FAN_POSTERS.map((p, i) => {
               const inTray = candidates.some((c) => c.tmdbId === p.tmdbId);
               return (
                 <li
                   key={p.title}
                   style={{ "--tilt": `${p.tilt}deg`, zIndex: i === 3 ? 10 : i } as React.CSSProperties}
-                  className="relative -mx-3 w-20 origin-bottom rotate-(--tilt) transition-all duration-200 ease-out hover:z-20 hover:rotate-0 hover:-translate-y-2 sm:-mx-4 sm:w-28"
+                  className="relative -mx-3 w-20 origin-bottom rotate-(--tilt) opacity-85 transition-all duration-200 ease-out hover:z-20 hover:rotate-0 hover:-translate-y-2 hover:opacity-100 sm:-mx-4 sm:w-28"
                 >
                   <button
                     type="button"
@@ -237,6 +240,48 @@ export default function Home() {
         <p className="mt-6 text-center text-sm text-muted">
           No account needed to play — sign up only to save your masterpiece.
         </p>
+      </section>
+      {/* Tonight's Shortlist (contract "Keep": filmstrip texture, Premiere Night
+          type): horizontally scrollable uniform 2:3 posters that double as
+          quick-add candidates — same tray toggle as the hero fan. */}
+      <section aria-label="Tonight's shortlist" className="mt-16">
+        <MarqueeHeading as="h2">Tonight&apos;s shortlist</MarqueeHeading>
+        <ul className="mt-8 flex gap-4 overflow-x-auto pb-4">
+          {HERO_POSTERS.map((p) => {
+            const inTray = candidates.some((c) => c.tmdbId === p.tmdbId);
+            return (
+              <li key={p.title} className="w-24 shrink-0 sm:w-32">
+                <button
+                  type="button"
+                  onClick={() =>
+                    toggleCandidate(HERO_CANDIDATES.find((c) => c.tmdbId === p.tmdbId)!)
+                  }
+                  aria-label={`Add ${p.title} (${p.releaseYear}) to your ranking`}
+                  aria-pressed={inTray}
+                  title={inTray ? "Already on your list — tap to remove" : `Add ${p.title}`}
+                  className="group relative block w-full rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                >
+                  <MoviePoster
+                    title={p.title}
+                    posterPath={p.posterPath}
+                    className="shadow-lg transition-transform duration-200 ease-out motion-safe:group-hover:-translate-y-1"
+                  />
+                  {inTray && (
+                    <span
+                      aria-hidden
+                      className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-gold text-xs font-bold text-bg shadow"
+                    >
+                      ✓
+                    </span>
+                  )}
+                </button>
+                <p className={`mt-1 truncate text-xs ${inTray ? "text-gold" : "text-muted"}`}>
+                  {p.releaseYear}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
       </section>
       </main>
     </>
