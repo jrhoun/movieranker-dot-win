@@ -136,6 +136,7 @@ Button appears when stable. Runs targeted binary-insertion comparisons resolving
 - **Type:** one display face for titles/versus moments, one clean sans for UI; clear hierarchy so each screen reads in under a second.
 - **Color:** dark-cinema tokens defined once (background, surface, accent amber, muted text); semantic states (success/warn) derived, not ad-hoc hexes.
 - **States:** every interactive element has designed hover, focus-visible (visible ring — keyboard users included), active, disabled, and loading states; TMDB fetches show skeleton posters, never layout shift.
+- **Posters are sacred:** every poster container enforces the true movie-poster ratio of **2 : 3** (`aspect-[2/3]`, `object-cover`) — never squares, never arbitrary crops. Grids and matchup cards are sized around this ratio so posters always read as movie posters.
 - **Touch targets:** ≥44 px on mobile — tapping a poster mid-argument must be unmissable.
 
 At build time UI work follows the project's design-playbook/craft-guard skills (declaration-first specs, evidence-backed review) so "polished" gets verified against these criteria rather than eyeballed once.
