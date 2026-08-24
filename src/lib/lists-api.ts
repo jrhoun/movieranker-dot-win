@@ -35,7 +35,7 @@ export type DescriptionResult =
 
 /** Trimmed optional description (<=1000 chars, empty -> null) or a 400 message. */
 export function parseDescription(raw: unknown): DescriptionResult {
-  if (raw === undefined) return { ok: true, value: null };
+  if (raw === undefined || raw === null) return { ok: true, value: null };
   if (typeof raw !== "string")
     return { ok: false, error: "description must be a string" };
   const trimmed = raw.trim();

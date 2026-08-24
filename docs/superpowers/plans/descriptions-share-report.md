@@ -56,3 +56,9 @@ Stable-state ("Consensus reached") screen in `play-room.tsx`, minimal diff:
 1. **Schema must be applied before deploy of commit `ca8fbee`**: run the ALTER + recreate `save_list` on the live Supabase, else POSTs with a description fail (and older DBs without the column break the new RPC entirely).
 2. Podium hides ranks 4+ from the stable preview (full order still shown on the finished screen and after saving at `/l/<id>`); easy to add a "+N more" line if missed.
 3. Description is plain text (no markdown/linkification) by design.
+
+## Fix note (null description on PATCH)
+
+OwnerControls sends `description: null` when a user clears the field, but `parseDescription` only treated absent (`undefined`) as valid, so PATCH returned 400. Fixed in `src/lib/lists-api.ts`: JSON `null` is now accepted as "clear" and stored as NULL, for both POST and PATCH (POST semantics unchanged — description optional, absent = null). Non-string non-null values still 400. New test: PATCH with `description: null` records `{description: null}`; POST-absent test already existed.
+
+Verification: `npm test` 9 files / **91 passed** (90+1); `tsc --noEmit`, eslint, `npm run build` all clean.

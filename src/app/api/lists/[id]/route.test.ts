@@ -159,6 +159,15 @@ describe("PATCH /api/lists/[id]", () => {
     expect(listUpdate.args[0]).toEqual({ description: "The story" });
   });
 
+  it("accepts description:null on PATCH to clear it", async () => {
+    const res = await PATCH(patchRequest({ description: null }), ctx);
+    expect(res.status).toBe(204);
+    const listUpdate = currentDb.calls.find(
+      (c) => c.table === "lists" && c.method === "update",
+    )!;
+    expect(listUpdate.args[0]).toEqual({ description: null });
+  });
+
   it("rejects a non-string description with 400", async () => {
     const res = await PATCH(patchRequest({ description: [] }), ctx);
     expect(res.status).toBe(400);
