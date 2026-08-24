@@ -28,6 +28,16 @@ colors:
 - Sections breathe in consistent vertical rhythm; related controls grouped in surface cards.
 
 ## Color Palette & Roles
+- GOLD ACCENT (new): --gold #f5c518 joins the palette alongside amber #f5a524; gold is THE accent of rank numerals, badges, dividers (✦), and primary CTAs on dark.
+- Spotlight glow: radial warm glow (rgba(245,197,24,.12)) behind hero/focal elements.
+- Film grain overlay persists app-wide.
+
+## Imagery Rules (NEW)
+- More imagery everywhere it earns its place:
+  - Home hero: fanned-and-tilted row of real movie posters (TMDB CDN, hardcoded curated set of ~7 classics, rotated -8deg..8deg, overlapping, hover straighten).
+  - Section headers get marquee-style treatment: ✦ divider dots, letterspaced Bebas caps, thin gold rules.
+  - Dark-house surfaces may use dimmed single-poster watermarks at low opacity where space feels empty.
+- Poster ratio rule unchanged: always 2:3.
 
 - [observed] `--color-bg: var(--bg)`
 - [observed] `--color-surface: var(--surface)`
@@ -38,7 +48,14 @@ colors:
 - [observed] `--color-muted: var(--muted)`
 - [observed] `--surface: #17171c`
 
+## Creative Direction: "Premiere Night" [user-directed 2026-08-24]
+The site is a PREMIERE, not a utility. Every surface should feel like the lobby of a grand old cinema: dramatic type, gold on burgundy, spotlights, grain, and movie posters treated like stars on a marquee. If an element feels like a SaaS admin panel, it is wrong.
+
 ## Typography Rules
+### Display Face (NEW)
+- Bebas Neue (next/font/google) for ALL major titles/headers/marquee text: uppercase, tracking-wide, sizes generous (hero text-6xl+, section headers text-3xl+).
+- Geist Sans remains body/UI text; Geist Mono for stats/counters.
+- Hierarchy rule: Bebas caps for anything that would be on a marquee; Geist for everything readable-in-paragraphs.
 
 - [inferred confidence=low] Typography hierarchy is not explicit; infer only from representative rendered surfaces.
 - [inferred confidence=medium] Reuse the existing font stack and derive hierarchy from shared components before introducing new sizes.
