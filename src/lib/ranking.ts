@@ -25,6 +25,7 @@ export function applyWin(
   winnerTmdbId: number,
   loserTmdbId: number,
 ): RankedMovie[] {
+  if (winnerTmdbId === loserTmdbId) throw new Error("winner and loser must differ");
   const winner = movies.find((m) => m.tmdbId === winnerTmdbId);
   const loser = movies.find((m) => m.tmdbId === loserTmdbId);
   if (!winner || !loser) throw new Error("winner and loser must exist in movies");

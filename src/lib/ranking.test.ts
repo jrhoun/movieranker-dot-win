@@ -71,6 +71,18 @@ describe("applyWin", () => {
     applyWin(movies, 1, 2);
     expect(movies).toEqual(snapshot);
   });
+
+  test("throws when winner and loser are the same movie", () => {
+    const movies = [movie({}), movie({ tmdbId: 2 })];
+    // guard must fire before the first-match lookup nets a single +delta
+    expect(() => applyWin(movies, 1, 1)).toThrow("winner and loser must differ");
+  });
+
+  test("throws when winner or loser tmdbId is absent", () => {
+    const movies = [movie({}), movie({ tmdbId: 2 })];
+    expect(() => applyWin(movies, 99, 2)).toThrow();
+    expect(() => applyWin(movies, 1, 99)).toThrow();
+  });
 });
 
 describe("nextMatchup", () => {
@@ -111,6 +123,18 @@ describe("nextMatchup", () => {
     expect(() =>
       nextMatchup([movie({ parked: true }), movie({ tmdbId: 2 })])
     ).toThrow();
+  });
+
+  test("odd-rotation fallback: lone least-compared pairs with closest-rated peer", () => {
+    // 1 has fewest comparisons; among the rest, 3 is closest in elo
+    const movies = [
+      movie({ tmdbId: 1, elo: 1000, comparisons: 0 }),
+      movie({ tmdbId: 2, elo: 1300, comparisons: 2 }),
+      movie({ tmdbId: 3, elo: 1010, comparisons: 2 }),
+      movie({ tmdbId: 4, elo: 1400, comparisons: 2 }),
+    ];
+    const [a, b] = nextMatchup(movies);
+    expect([a.tmdbId, b.tmdbId]).toEqual([1, 3]);
   });
 });
 
@@ -262,7 +286,9 @@ describe("property: planted-order recovery", () => {
     const finalOrder = [...movies]
       .sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId)
       .map((m) => m.tmdbId);
-    expect(finalOrder.slice(0, 3).sort()).toEqual(planted.slice(0, 3));
+    expect(finalOrder.slice(0, 3).sort((a, b) => a - b)).toEqual(
+      [...planted.slice(0, 3)].sort((a, b) => a - b),
+    );
     const rho = spearman(finalOrder, plantedRank);
     expect(rho).toBeGreaterThanOrEqual(0.9);
   });
