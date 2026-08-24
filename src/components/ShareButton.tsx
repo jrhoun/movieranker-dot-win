@@ -66,7 +66,9 @@ export default function ShareButton({ title, url }: { title: string; url: string
   }
 
   const mailto = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(url)}`;
-  const tweetUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`;
+  const shareText = encodeURIComponent(`${title} — ${url}`);
+  const threadsUrl = `https://www.threads.net/intent/post?text=${shareText}`;
+  const blueskyUrl = `https://bsky.app/intent/compose?text=${shareText}`;
 
   return (
     <>
@@ -94,13 +96,23 @@ export default function ShareButton({ title, url }: { title: string; url: string
             </a>
             <a
               role="menuitem"
-              href={tweetUrl}
+              href={threadsUrl}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setOpen(false)}
               className={menuItem}
             >
-              <span aria-hidden="true">𝕏</span> Post to X
+              <span aria-hidden="true">@</span> Post to Threads
+            </a>
+            <a
+              role="menuitem"
+              href={blueskyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className={menuItem}
+            >
+              <span aria-hidden="true">🦋</span> Post to Bluesky
             </a>
             {canNativeShare && (
               <button
