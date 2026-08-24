@@ -531,7 +531,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               <button
                 type="button"
                 onClick={() => setFinished(true)}
-                className="shrink-0 text-xs font-medium text-accent underline-offset-4 transition-colors duration-200 ease-out hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:text-sm"
+                className="inline-flex min-h-11 shrink-0 items-center text-xs font-medium text-accent underline-offset-4 transition-colors duration-200 ease-out hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:text-sm"
               >
                 Finish now →
               </button>

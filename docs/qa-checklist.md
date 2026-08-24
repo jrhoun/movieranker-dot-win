@@ -41,10 +41,11 @@ and Safari if available for the beforeunload prompt.
 
 ## Route: `/r/play` — voting
 
-11. [ ] Focus order from page top: session title area (skip) → Undo button →
-        left poster vote button → left "Haven't seen" → right "Haven't seen"
-        → right poster vote button → parked strip items. Every stop shows a
-        visible accent focus ring.
+11. [ ] Focus order from page top: session title area (skip) → Exit button →
+        Undo button (disabled until the first vote, so Tab skips it) →
+        progress-row "Finish now →" → left poster vote button →
+        left "Haven't seen" → right poster vote button → right "Haven't seen"
+        → parked strip items. Every stop shows a visible accent focus ring.
 12. [ ] Vote with mouse: loser dims/slides up ~220ms, then next pair appears.
         No layout jump of the VS column.
 13. [ ] **Double-tap race test (critical):** tap the LEFT poster twice as fast
