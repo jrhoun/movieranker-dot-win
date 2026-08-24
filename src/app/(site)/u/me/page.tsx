@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import ListCard, { type ListCardData } from "@/components/profile/ListCard";
+import MarqueeHeading from "@/components/MarqueeHeading";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 interface DbList {
@@ -38,7 +39,7 @@ export default async function MyListsPage() {
 
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-4 py-10 sm:max-w-2xl">
-      <h1 className="text-2xl font-bold">Your lists</h1>
+      <MarqueeHeading>Your lists</MarqueeHeading>
       {cards.length > 0 && (
         <p className="mt-1 text-sm text-muted">
           {cards.length} {cards.length === 1 ? "list" : "lists"} ·{" "}

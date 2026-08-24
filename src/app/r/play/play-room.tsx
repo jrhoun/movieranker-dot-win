@@ -42,7 +42,7 @@ function RankedList({ movies }: { movies: RankedMovie[] }) {
         const m = byId.get(r.tmdbId)!;
         return (
           <li key={r.tmdbId} className="flex items-baseline gap-3">
-            <span className="w-6 shrink-0 text-right font-mono text-sm text-accent">
+            <span className="w-6 shrink-0 text-right font-display text-sm text-gold">
               {r.rank}.
             </span>
             <span className="min-w-0 truncate">{m.title}</span>
@@ -54,8 +54,8 @@ function RankedList({ movies }: { movies: RankedMovie[] }) {
   );
 }
 
-// gold / silver / bronze numerals for the podium
-const MEDAL_CLS = ["text-accent", "text-[#c9ced6]", "text-[#cd7f32]"];
+// gold / silver / bronze numerals for the podium (gold per DESIGN.md palette)
+const MEDAL_CLS = ["text-gold", "text-[#c9ced6]", "text-[#cd7f32]"];
 
 function Podium({ movies }: { movies: RankedMovie[] }) {
   const byId = new Map(movies.map((m) => [m.tmdbId, m]));
@@ -77,7 +77,7 @@ function Podium({ movies }: { movies: RankedMovie[] }) {
             <div className="relative">
               <MoviePoster title={m.title} posterPath={m.posterPath} />
               <span
-                className={`absolute -top-2 -left-2 flex size-7 items-center justify-center rounded-full bg-bg font-mono text-sm font-bold ring-1 ring-white/15 ${MEDAL_CLS[i]}`}
+                className={`absolute -top-2 -left-2 flex size-7 items-center justify-center rounded-full bg-bg font-display text-base ring-1 ring-white/15 ${MEDAL_CLS[i]}`}
               >
                 {r.rank}
               </span>
@@ -455,8 +455,9 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           </button>
         </section>
       ) : stable && !sharpening ? (
-        <section className="bg-curtain flex flex-1 flex-col items-center justify-center gap-6 px-4 py-8 text-center">
-          <div className="animate-celebrate w-full max-w-md rounded bg-surface p-5 ring-1 ring-white/10">
+        <section className="relative overflow-hidden bg-curtain flex flex-1 flex-col items-center justify-center gap-6 px-4 py-8 text-center">
+          <div aria-hidden="true" className="spotlight-glow pointer-events-none absolute inset-0" />
+          <div className="animate-celebrate relative w-full max-w-md rounded bg-surface p-5 ring-1 ring-white/10">
             <p className="text-sm uppercase tracking-widest text-accent">Consensus reached</p>
             <div className="mt-4">
               <Podium movies={active} />

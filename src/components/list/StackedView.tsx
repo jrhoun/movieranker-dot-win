@@ -5,7 +5,7 @@ function RankBadge({ rank, big = false }: { rank: number; big?: boolean }) {
   return (
     <span
       aria-hidden="true"
-      className={`absolute -left-1 -top-2 z-10 font-mono font-bold text-accent drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${
+      className={`absolute -left-1 -top-2 z-10 font-display text-gold drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${
         big ? "text-4xl" : "text-xl"
       }`}
     >

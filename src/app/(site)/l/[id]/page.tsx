@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import ListViews from "@/components/list/ListViews";
+import MarqueeHeading from "@/components/MarqueeHeading";
 import OwnerControls from "@/components/list/OwnerControls";
 import ShareButton from "@/components/ShareButton";
 import { withRanks, type ListMovieRow } from "@/lib/list-view";
@@ -72,7 +73,7 @@ export default async function PublicListPage({
     <main className="mx-auto w-full max-w-md flex-1 px-4 py-8 sm:max-w-2xl">
       <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
-          <h1 className="break-words text-2xl font-bold">{list.title}</h1>
+          <MarqueeHeading>{list.title}</MarqueeHeading>
           {list.participants.length > 0 && (
             <p className="mt-1 text-sm text-muted">
               Ranked by {list.participants.join(", ")}

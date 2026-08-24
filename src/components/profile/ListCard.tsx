@@ -70,7 +70,9 @@ export default function ListCard({ list }: { list: ListCardData }) {
           <p className="mt-1 text-xs text-muted">
             <span
               className={`mr-2 inline-block rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${
-                isDraft ? "bg-accent/15 text-accent" : "bg-surface-raised text-muted"
+                isDraft
+                  ? "bg-accent/15 text-accent"
+                  : "bg-surface-raised text-muted ring-1 ring-gold/50"
               }`}
             >
               {isDraft ? "Draft" : "Done"}

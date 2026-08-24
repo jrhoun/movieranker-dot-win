@@ -8,7 +8,7 @@ export default function RowsView({ movies }: { movies: RankedRow[] }) {
         <li key={m.tmdbId} className="flex items-center gap-4 py-3">
           <span
             aria-hidden="true"
-            className="w-7 shrink-0 text-right font-mono text-lg font-bold text-accent"
+            className="w-7 shrink-0 text-right font-display text-lg text-gold"
           >
             {m.rank}
           </span>
