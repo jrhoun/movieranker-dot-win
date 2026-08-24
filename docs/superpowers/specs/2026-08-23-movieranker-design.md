@@ -39,7 +39,7 @@ movieranker.win facilitates and memorializes movie-ranking discussions — "rank
 
 ## Architecture
 
-**Stack:** Next.js (App Router) deployed on Vercel Hobby · [PERSON_NAME] (existing account) for Postgres + Auth · [PERSON_NAME] server-side only, key never exposed to client.
+**Stack:** Next.js (App Router) deployed on Vercel Hobby · Supabase (existing account) for Postgres + Auth · TMDB server-side only, key never exposed to client.
 
 ```
 Browser ──► Next.js (Vercel)
@@ -49,8 +49,8 @@ Posters load client-side directly from TMDB CDN (image.tmdb.org) — zero bandwi
 ```
 
 - **TMDB caching:** all TMDB fetches go through one server module with Next.js `revalidate` caching (searches ~5 min, movie details 24 h). Keeps us inside rate limits and fast.
-- **Auth:** [PERSON_NAME] client-side session + server-side verification on all write routes. Anonymous in-progress sessions live in browser localStorage until saved.
-- **Hosting costs:** $0 until genuine viral traffic ([PERSON_NAME] 100 GB bandwidth/mo, Supabase generous free tier incl. Auth).
+- **Auth:** Supabase client-side session + server-side verification on all write routes. Anonymous in-progress sessions live in browser localStorage until saved.
+- **Hosting costs:** $0 until genuine viral traffic (Vercel 100 GB bandwidth/mo, Supabase generous free tier incl. Auth).
 
 ## Data Model (Supabase Postgres)
 
@@ -124,7 +124,7 @@ Button appears when stable. Runs targeted binary-insertion comparisons resolving
 - **Stacked** — cinematic countdown: top 3 get a podium treatment (large posters, rank numerals), then a clean numbered stack below. Feels like the end of a awards show.
 - **Rows** — Letterboxd-style horizontal rows: compact rank numeral, poster, title/year, one line of metadata (comparisons won, or participant-added notes later). Scannable for longer lists.
 
-Both modes share: dark-cinema styling, true 2:3 posters, participants credited ("Ranked by [PERSON_NAME] & friends"), native Web Share button with copy-link fallback, owner-only edit controls. Publicly viewable logged-out.
+Both modes share: dark-cinema styling, true 2:3 posters, participants credited ("Ranked by you & friends"), native Web Share button with copy-link fallback, owner-only edit controls. Publicly viewable logged-out.
 
 (Innovation room for later revs, noted not built: per-movie vote tallies, head-to-head win percentages, disagreement heat between named participants.)
 
