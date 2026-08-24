@@ -50,5 +50,10 @@ body {
 .animate-fade-in { animation: fade-in 180ms ease-out; }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    /* infinite loops (spin/pulse) would otherwise restart every 0.01ms */
+    animation-iteration-count: 1 !important;
+  }
 }
