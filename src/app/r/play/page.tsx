@@ -210,14 +210,18 @@ export default function PlayRoom({
             <RankedList movies={active} />
           </div>
           {!sharpening && (
-            <div className="flex flex-wrap justify-center gap-3">
-              <button
-                type="button"
-                onClick={startSharpen}
-                className="min-h-11 rounded bg-surface-raised px-5 font-medium transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
-              >
-                Sharpen the list
-              </button>
+            <div className="flex flex-col items-center gap-2">
+              <p className="max-w-sm text-sm text-muted">
+                Some calls are still close — settle them?
+              </p>
+              <div className="flex flex-wrap justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={startSharpen}
+                  className="min-h-11 rounded bg-surface-raised px-5 font-medium transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+                >
+                  Sharpen the list
+                </button>
               <button
                 type="button"
                 onClick={() => setFinished(true)}
@@ -225,6 +229,7 @@ export default function PlayRoom({
               >
                 Finish
               </button>
+              </div>
             </div>
           )}
           {sharpening && <p className="text-sm text-muted">Sharpening — closest call first…</p>}

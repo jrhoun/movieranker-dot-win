@@ -12,6 +12,9 @@ const K = 32;
 
 export const STABILITY_VOTES_N = 6;
 export const SHARPEN_GAP_THRESHOLD = 50;
+/** Pairs within this gap are settled enough to stop the quick phase but close
+ * enough to argue about — Sharpen mode exists to separate them. */
+export const SHARPEN_COMFORT_GAP = 120;
 
 function expectedScore(winnerElo: number, loserElo: number): number {
   return 1 / (1 + Math.pow(10, (loserElo - winnerElo) / 400));
@@ -107,7 +110,7 @@ export function sharpenNextPair(order: RankedMovie[]): [RankedMovie, RankedMovie
   for (let i = 1; i < byElo.length - 1; i++) {
     if (byElo[i].elo - byElo[i + 1].elo < byElo[best].elo - byElo[best + 1].elo) best = i;
   }
-  if (byElo[best].elo - byElo[best + 1].elo > SHARPEN_GAP_THRESHOLD) return null;
+  if (byElo[best].elo - byElo[best + 1].elo > SHARPEN_COMFORT_GAP) return null;
   // ascending-elo order, same convention as nextMatchup
   return [byElo[best + 1], byElo[best]];
 }

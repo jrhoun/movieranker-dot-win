@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   STABILITY_VOTES_N,
+  SHARPEN_COMFORT_GAP,
   SHARPEN_GAP_THRESHOLD,
   applyWin,
   estimateRemainingVotes,
@@ -164,7 +165,7 @@ describe("estimateRemainingVotes", () => {
 });
 
 describe("sharpenNextPair", () => {
-  test("returns adjacent pair with smallest gap when <= threshold", () => {
+  test(`returns adjacent pair with smallest gap when <= ${SHARPEN_COMFORT_GAP}`, () => {
     const order = [
       movie({ tmdbId: 1, elo: 1300 }),
       movie({ tmdbId: 2, elo: 1200 }),
@@ -174,11 +175,21 @@ describe("sharpenNextPair", () => {
     expect([a.tmdbId, b.tmdbId]).toEqual([3, 2]); // gap 20 < gap 100
   });
 
-  test("returns null when no gap <= threshold", () => {
+  test(`has work at stability: a ${SHARPEN_GAP_THRESHOLD + 30} gap is above the stability threshold but within comfort`, () => {
     const order = [
       movie({ tmdbId: 1, elo: 1300 }),
+      movie({ tmdbId: 2, elo: 1220 }), // gap 80: stable, yet sharpenable
+      movie({ tmdbId: 3, elo: 1000 }),
+    ];
+    expect(isStable(order, STABILITY_VOTES_N)).toBe(true);
+    expect(sharpenNextPair(order)).not.toBeNull();
+  });
+
+  test(`returns null when no gap <= ${SHARPEN_COMFORT_GAP}`, () => {
+    const order = [
+      movie({ tmdbId: 1, elo: 1330 }),
       movie({ tmdbId: 2, elo: 1200 }),
-      movie({ tmdbId: 3, elo: 1100 }),
+      movie({ tmdbId: 3, elo: 1070 }),
     ];
     expect(sharpenNextPair(order)).toBeNull();
   });
