@@ -6,11 +6,13 @@
   --color-surface-raised: var(--surface-raised);
   --color-accent: var(--accent);
   --color-accent-red: var(--accent-red);
+  --color-gold: var(--gold);
   --color-text: var(--text);
   --color-muted: var(--muted);
   --radius: var(--radius);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-bebas);
 }
 
 :root {
@@ -19,6 +21,8 @@
   --surface-raised: #1f1f26;
   --accent: #f5a524;
   --accent-red: #e5484d;
+  /* Premiere Night (DESIGN.md): THE accent for rank numerals, badges, dividers (✦), primary CTAs on dark. */
+  --gold: #f5c518;
   --text: #ececf1;
   --muted: #8b8b94;
   --radius: 12px;
@@ -51,6 +55,12 @@ body {
     );
   /* inset boundary shadow for depth */
   box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.55);
+}
+
+/* Spotlight glow (DESIGN.md): reusable radial warm glow behind hero/focal content.
+   Purely static gradient; reduced-motion needs no override. */
+.spotlight-glow {
+  background-image: radial-gradient(ellipse 60% 55% at 50% 35%, rgba(245, 197, 24, 0.12), transparent 70%);
 }
 
 @keyframes celebrate-beat {
