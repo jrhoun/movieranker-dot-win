@@ -54,7 +54,7 @@ export default function ListCard({ list }: { list: ListCardData }) {
         aria-label={isDraft ? `Resume ranking ${list.title}` : `View ${list.title}`}
         className="grid grid-cols-3 gap-px rounded-t bg-surface-raised transition-opacity duration-200 ease-out hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
-        {triptychSlots(list.posters.map((m) => ({ title: m.title, posterPath: m.posterPath }))).map(
+        {triptychSlots(list.posters).map(
           (slot, i) =>
             slot ? (
               <MoviePoster key={i} title={slot.title} posterPath={slot.posterPath} className="rounded-none ring-0" />

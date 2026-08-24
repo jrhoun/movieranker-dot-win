@@ -24,6 +24,8 @@ interface DbMovie {
 }
 
 async function shareUrl(listId: string): Promise<string> {
+  const base = process.env.NEXT_PUBLIC_SITE_URL;
+  if (base) return `${base.replace(/\/+$/, "")}/l/${listId}`;
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "movieranker.win";
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
