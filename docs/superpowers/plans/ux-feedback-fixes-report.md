@@ -104,7 +104,36 @@ Added a seeded simulation test (`ranking.test.ts`, mulberry32 PRNG, engine's own
 
 With K=32 and a >50 gap required between *every* adjacent pair, natural stability
 is effectively unreachable for realistic lists — which validates the complaint
-and makes Finish-now essential. `STABILITY_VOTES_N=6` / gap>50 were **not**
+and makes Finish-now essential.
+
+## Stability tuning (follow-up retune)
+
+The coordinator ruled the unreachable bar must be fixed: stability should fire
+within ~⌈n·log₂n⌉·2 votes.
+
+**Change:** new `STABLE_GAP_FLOOR = 25` in `src/lib/ranking.ts`. `isStable` and
+`estimateRemainingVotes` now use it instead of `SHARPEN_GAP_THRESHOLD` (=50),
+which stays exported for compatibility but no longer gates stability.
+`SHARPEN_COMFORT_GAP` (=120) and `STABILITY_VOTES_N` (=6) unchanged.
+
+**Old numbers** (gap > 50, same seeded harness): 12 movies stable only after
+~1441–1976 votes; 16 and 20 movies never stable within 2000 votes.
+
+**New simulation results** (gap > 25, seeds 1012/1016/1020, 85% favorite
+consistency):
+
+| List size | n·log₂n·2 target | Measured votes to stable |
+|---|---|---|
+| 12 | 88 | 643 |
+| 16 | 128 | 1505 |
+| 20 | 174 | 3202 |
+
+Stability is now reachable at every size (was: never for 16/20), but it does
+**not** fit ⌈n·log₂n⌉·2 — off by ~7×–18×. **Flagged for coordinator review:**
+closing that gap needs an engine change (pairing strategy concentrates too few
+votes on adjacent pairs; least-recently-compared round-robins), not another
+constant tweak. Tests pin convergence at measured budgets (700 / 1600 / 3400)
+with the target-vs-actual numbers logged via console.log. `STABILITY_VOTES_N=6` / gap>50 were **not**
 changed (explicitly out of scope). The committed test pins this finding
 (asserts non-convergence within budget, fails loudly if the engine changes so
 the comment must be re-measured). Tuning is a separate decision.

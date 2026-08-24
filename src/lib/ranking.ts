@@ -11,6 +11,7 @@ export interface RankedMovie {
 const K = 32;
 
 export const STABILITY_VOTES_N = 6;
+export const STABLE_GAP_FLOOR = 25;
 export const SHARPEN_GAP_THRESHOLD = 50;
 /** Pairs within this gap are settled enough to stop the quick phase but close
  * enough to argue about — Sharpen mode exists to separate them. */
@@ -90,7 +91,7 @@ export function isStable(order: RankedMovie[], votesSinceOrderChanged: number): 
   if (votesSinceOrderChanged < STABILITY_VOTES_N) return false;
   const sorted = [...order].sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId);
   return sorted.every(
-    (m, i) => i === sorted.length - 1 || sorted[i].elo - sorted[i + 1].elo > SHARPEN_GAP_THRESHOLD,
+    (m, i) => i === sorted.length - 1 || sorted[i].elo - sorted[i + 1].elo > STABLE_GAP_FLOOR,
   );
 }
 
@@ -98,7 +99,7 @@ export function estimateRemainingVotes(order: RankedMovie[]): number {
   const sorted = [...order].sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId);
   let unstable = 0;
   for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i - 1].elo - sorted[i].elo <= SHARPEN_GAP_THRESHOLD) unstable++;
+    if (sorted[i - 1].elo - sorted[i].elo <= STABLE_GAP_FLOOR) unstable++;
   }
   return Math.max(1, Math.ceil(unstable * 2));
 }
