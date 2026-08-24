@@ -87,3 +87,29 @@ Feedback addressed: (1) plain top nav, (2) home page lacks a first-timer explain
 
 - Emoji icons (🔍/⚔️/🏆) render platform-native rather than brand-styled; swapped for inline SVGs if they ever look off on Windows.
 - Header remains non-sticky (as before). If "on scroll" ever means sticky, add `sticky top-0 z-20` to the `<header>` — one class.
+
+## Round: Letterboxd-pattern richness, bulk selection, expandable tray
+
+Commits: `2658ef1` design: letterboxd-inspired home richness · `79cbafb` feat: bulk add to candidate tray · `879051a` feat: expandable candidate tray
+
+### Improvement 1 — Home richness
+- Hero fan dimmed to `opacity-85` at rest (full on hover) so the Bebas headline stays dominant; fan now uses `FAN_POSTERS` = first 8 of the lineup.
+- Curated poster set extended 7 → 12 (Fight Club, LOTR: Fellowship, Parasite, Whiplash, Interstellar — hand-written TMDB paths, zero live API calls).
+- New "Tonight's Shortlist" section below How-It-Works: marquee heading + horizontally scrollable filmstrip of all 12 posters (uniform 2:3, w-24/w-32, hover lift). Doubles as quick-add: taps route through the same tray toggle as the hero fan, with gold ✓ badge + year tint when selected.
+
+### Improvement 2 — Bulk selection
+- Search results grid gains a header row with result count and a secondary "Add all N" button (disabled once every result is already in the tray); bulk merge goes through the new dedupe-safe `mergeCandidates()` helper (`src/lib/tray.ts`, title-sorted like single adds).
+- `MoviePosterCard` now shows added state: gold ring + ✓ badge overlay; tap toggles add/remove (`aria-pressed`, label flips Add/Remove, title tooltip explains). Individual taps unchanged in behavior except tap-again now removes, per spec.
+
+### Improvement 3 — Expandable tray
+- Collapsed bar: Bebas count ("7 selected"), horizontal 48px-wide 2:3 thumbnail strip with remove-× on each thumb (whole thumb ≥44px hit area), chevron toggle (`aria-expanded`/`aria-controls`), Start-ranking button always visible.
+- Expanded sheet opens upward via the grid-template-rows `0fr→1fr` trick (200ms ease-out; globals.css reduced-motion kill-switch flattens it). Content is `inert` while collapsed so it leaves the tab order. Sheet holds a responsive grid (3/4/6 cols ≈96–160px posters), titles, per-item "× Remove" buttons (≥44px), Clear-all with two-tap confirm (resets on blur/remove).
+- Participant input fixes folded in: placeholder "Add a name… e.g. Sarah", helper line "Just first names — no emails needed.", comma-separated batch entry via `parseParticipantNames()`, visible "+ Add" submit button (Enter still works), chips stay in the collapsed bar so they're legible in both states.
+
+### Verification
+- `npm test` 102 passed (11 files; +6 new for mergeCandidates/parseParticipantNames), `tsc --noEmit` clean, eslint clean, `next build` passes. Each commit typechecks standalone (commit-1 content verified via keep-index stash before committing).
+
+### Concerns
+- The five new TMDB poster paths are from memory; if any 404s, MoviePoster's fallback renders the title — spot-check visually and swap the path.
+- Session title moved into the expanded sheet (collapsed bar kept minimal); default "Movie ranking" still applies if never set.
+- MarqueeHeading gained an "h3" option (tray sheet header) — additive only.
