@@ -43,6 +43,12 @@ body {
 }
 .animate-sheet-up { animation: sheet-up 220ms ease-out; }
 
+@keyframes fade-in {
+  from { transform: translateY(-6px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.animate-fade-in { animation: fade-in 180ms ease-out; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }

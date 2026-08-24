@@ -16,10 +16,13 @@ const btnAlt =
 export default function SaveGateSheet({
   session,
   status,
+  existingId,
   onClose,
 }: {
   session: PlaySession;
   status: "done" | "draft";
+  /** Set when finishing a resumed draft: update the existing list instead of POSTing a new one. */
+  existingId?: string;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -35,18 +38,20 @@ export default function SaveGateSheet({
     savingRef.current = true;
     setBusy(true);
     const ranks = new Map(finalizeRanks(session.movies).map((r) => [r.tmdbId, r.rank]));
-    const res = await fetch("/api/lists", {
-      method: "POST",
+    const payload = {
+      status,
+      movies: session.movies.map((m) => ({
+        ...m,
+        finalRank: status === "done" ? (ranks.get(m.tmdbId) ?? null) : null,
+      })),
+    };
+    const res = await fetch(existingId ? `/api/lists/${existingId}` : "/api/lists", {
+      method: existingId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: session.title,
-        participants: session.participants,
-        status,
-        movies: session.movies.map((m) => ({
-          ...m,
-          finalRank: status === "done" ? (ranks.get(m.tmdbId) ?? null) : null,
-        })),
-      }),
+      // PATCH is partial: only POST needs title/participants
+      body: JSON.stringify(
+        existingId ? payload : { ...payload, title: session.title, participants: session.participants },
+      ),
     });
     if (!res.ok) {
       savingRef.current = false;
@@ -54,7 +59,7 @@ export default function SaveGateSheet({
       setNote("Saving failed — check your connection and try again.");
       return;
     }
-    const { id } = (await res.json()) as { id: string };
+    const id = existingId ?? ((await res.json()) as { id: string }).id;
     clearSession();
     router.push(status === "done" ? `/l/${id}` : "/u/me");
   }

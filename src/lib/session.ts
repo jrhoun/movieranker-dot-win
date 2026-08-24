@@ -40,6 +40,28 @@ export function clearSession(): void {
   } catch {}
 }
 
+export interface ResumedList {
+  id: string;
+  title: string;
+  participants: string[];
+  status: "draft" | "done";
+  movies: RankedMovie[];
+}
+
+/** Sum of per-movie comparison counts (2 per completed vote). */
+export function totalComparisons(s: PlaySession): number {
+  return s.movies.reduce((a, m) => a + m.comparisons, 0);
+}
+
+/** Movies in `after` that are new or changed (elo/comparisons/parked) vs `before`. */
+export function changedMovies(before: RankedMovie[], after: RankedMovie[]): RankedMovie[] {
+  const prev = new Map(before.map((m) => [m.tmdbId, m]));
+  return after.filter((m) => {
+    const p = prev.get(m.tmdbId);
+    return !p || p.elo !== m.elo || p.comparisons !== m.comparisons || p.parked !== m.parked;
+  });
+}
+
 /** Deep copy for undo; nested snapshots dropped so undo stays single-level. */
 export function snapshotForUndo(s: PlaySession): PlaySession {
   const copy = structuredClone(s);

@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   applyVote,
+  changedMovies,
   clearSession,
   loadSession,
   parkMovie,
   saveSession,
   selectNextPair,
+  totalComparisons,
   type PlaySession,
 } from "./session";
 import type { RankedMovie } from "./ranking";
@@ -69,6 +71,41 @@ describe("session", () => {
     });
     expect(() => saveSession({ ...session(), movies: [movie(9)] })).not.toThrow();
     expect(store.get("mr-session")).toBe(original);
+  });
+});
+
+describe("resume helpers", () => {
+  it("totalComparisons sums per-movie counts (2 per vote)", () => {
+    const s = session();
+    expect(totalComparisons(s)).toBe(0);
+    const next = applyVote(s, 1, 2);
+    expect(totalComparisons(next)).toBe(2);
+  });
+
+  it("changedMovies returns only movies a vote touched", () => {
+    const before = [movie(1), movie(2), movie(3)];
+    const voted = applyVote(
+      { title: "T", participants: [], movies: before, votesSinceOrderChange: 0, nudgeShown: false },
+      1,
+      2,
+    ).movies;
+    const changed = changedMovies(before, voted);
+    expect(changed.map((m) => m.tmdbId).sort()).toEqual([1, 2]);
+    // idempotent: diffing against already-synced state yields nothing
+    expect(changedMovies(voted, voted)).toEqual([]);
+  });
+
+  it("changedMovies flags park toggles and brand-new movies", () => {
+    const before = [movie(1), movie(2)];
+    const parked = parkMovie(
+      { title: "T", participants: [], movies: before, votesSinceOrderChange: 0, nudgeShown: false },
+      1,
+      true,
+    ).movies;
+    expect(changedMovies(before, parked).map((m) => m.tmdbId)).toEqual([1]);
+    expect(changedMovies(before, [...before, movie(9)]).map((m) => m.tmdbId)).toEqual([9]);
+    // undo (revert to synced state) is also a change
+    expect(changedMovies(parked, before).map((m) => m.tmdbId)).toEqual([1]);
   });
 });
 

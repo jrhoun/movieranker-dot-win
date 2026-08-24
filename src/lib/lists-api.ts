@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { ResumedList } from "./session";
 
 /** Partial movie payload accepted by POST /api/lists (title required there) and PATCH. */
 export interface MovieInput {
@@ -39,6 +40,45 @@ export async function ownedListId(
 ): Promise<string | null> {
   const { data } = await supabase.from("lists").select("id").eq("id", id);
   return data?.[0]?.id ?? null;
+}
+
+/**
+ * Owner-only draft fetch for /r/play?id=... RLS hides other owners' rows, so a
+ * non-owner or missing id both yield null. Only drafts are resumable.
+ */
+export async function fetchResumableList(
+  // ponytail: real Supabase generics explode TS inference; loose type keeps mocks simple too
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: { from: (t: string) => any },
+  id: string,
+): Promise<ResumedList | null> {
+  const { data: list } = await supabase
+    .from("lists")
+    .select("title,participants,status")
+    .eq("id", id)
+    .single();
+  if (!list || list.status !== "draft") return null;
+
+  const { data: rows } = await supabase
+    .from("list_movies")
+    .select("tmdb_id,title,poster_path,release_year,elo,comparisons,parked")
+    .eq("list_id", id);
+  const movies = ((rows ?? []) as Record<string, unknown>[]).map((r) => ({
+    tmdbId: r.tmdb_id as number,
+    title: r.title as string,
+    posterPath: (r.poster_path as string | null) ?? null,
+    releaseYear: (r.release_year as number | null) ?? null,
+    elo: r.elo as number,
+    comparisons: r.comparisons as number,
+    parked: Boolean(r.parked),
+  }));
+  return {
+    id,
+    title: list.title as string,
+    participants: (list.participants as string[] | null) ?? [],
+    status: list.status as "draft" | "done",
+    movies,
+  };
 }
 
 /** Full list_movies row shape for inserts (POST, PATCH additions). */
