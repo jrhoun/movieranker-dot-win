@@ -10,6 +10,9 @@ export interface RankedMovie {
 
 const K = 32;
 
+export const STABILITY_VOTES_N = 6;
+export const SHARPEN_GAP_THRESHOLD = 50;
+
 function expectedScore(winnerElo: number, loserElo: number): number {
   return 1 / (1 + Math.pow(10, (loserElo - winnerElo) / 400));
 }
@@ -60,4 +63,61 @@ export function nextMatchup(movies: RankedMovie[]): [RankedMovie, RankedMovie] {
     if (sorted[i + 1].elo - sorted[i].elo < sorted[best + 1].elo - sorted[best].elo) best = i;
   }
   return [sorted[best], sorted[best + 1]];
+}
+
+function descOrder(movies: RankedMovie[]): number[] {
+  return [...movies]
+    .sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId)
+    .map((m) => m.tmdbId);
+}
+
+export function recordMatchupResult(
+  movies: RankedMovie[],
+  winnerId: number,
+  loserId: number,
+): { movies: RankedMovie[]; orderChanged: boolean } {
+  const before = descOrder(movies);
+  const next = applyWin(movies, winnerId, loserId);
+  const after = descOrder(next);
+  return { movies: next, orderChanged: before.some((id, i) => after[i] !== id) };
+}
+
+export function isStable(order: RankedMovie[], votesSinceOrderChanged: number): boolean {
+  if (votesSinceOrderChanged < STABILITY_VOTES_N) return false;
+  const sorted = [...order].sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId);
+  return sorted.every(
+    (m, i) => i === sorted.length - 1 || sorted[i].elo - sorted[i + 1].elo > SHARPEN_GAP_THRESHOLD,
+  );
+}
+
+export function estimateRemainingVotes(order: RankedMovie[]): number {
+  const sorted = [...order].sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId);
+  let unstable = 0;
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i - 1].elo - sorted[i].elo <= SHARPEN_GAP_THRESHOLD) unstable++;
+  }
+  return Math.max(1, Math.ceil(unstable * 2));
+}
+
+export function sharpenNextPair(order: RankedMovie[]): [RankedMovie, RankedMovie] | null {
+  if (order.length < 2) return null;
+  // ponytail: O(n log n) re-sort per call; fine at session sizes (~dozens of movies)
+  const byElo = [...order].sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId);
+  let best = 0;
+  for (let i = 1; i < byElo.length - 1; i++) {
+    if (byElo[i].elo - byElo[i + 1].elo < byElo[best].elo - byElo[best + 1].elo) best = i;
+  }
+  if (byElo[best].elo - byElo[best + 1].elo > SHARPEN_GAP_THRESHOLD) return null;
+  // ascending-elo order, same convention as nextMatchup
+  return [byElo[best + 1], byElo[best]];
+}
+
+export function finalizeRanks(movies: RankedMovie[]): { tmdbId: number; rank: number }[] {
+  const sorted = [...movies].sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId);
+  const out: { tmdbId: number; rank: number }[] = [];
+  sorted.forEach((m, i) => {
+    const rank = i > 0 && m.elo === sorted[i - 1].elo ? out[i - 1].rank : i + 1;
+    out.push({ tmdbId: m.tmdbId, rank });
+  });
+  return out;
 }
