@@ -101,3 +101,23 @@ helper now receives `list.posters` directly (identical output).
   pick from multiple keyword matches (two-step like person/company).
 - `Tabs` activates selection on arrow-key movement (automatic activation),
   which both current tablists want since switching is cheap and stateless.
+
+## Fix round (sweep review findings) — b4555df
+
+- **CRITICAL — `save_list` RPC `search_path`**: removed `set search_path = ''`
+  from the SECURITY INVOKER function; that hardening idiom is for SECURITY
+  DEFINER functions and here broke the unqualified `lists`/`list_movies`
+  references at runtime. Comment added so it isn't re-introduced.
+- **IMPORTANT — tabpanel wiring**: `Tabs` now takes an optional
+  `panelId(key)` prop; default keeps `${idPrefix}-panel` (SearchPanel
+  unchanged). `ViewToggle` passes `view-toggle-panel-stacked|rows` to match
+  the actual panels in `ListViews`, removing dangling IDREFs.
+- **MINOR A**: untracked `.pi/tasks/session-13350-13350/*`; added `.pi/tasks/`
+  to `.gitignore`.
+- **MINOR B**: resume card in `page.tsx` is now `role="group"` with
+  `aria-labelledby="resume-title"` instead of a bogus inline alertdialog.
+- **MINOR C**: `.env.local.example` `NEXT_PUBLIC_SITE_URL=` commented out
+  (optional setting).
+
+Verification: `npm test` 72 passed (9 files); `npx tsc --noEmit` clean;
+`npx eslint src --max-warnings 0` clean; `npm run build` passes.

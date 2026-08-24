@@ -19,8 +19,10 @@ export default function Tabs<K extends string>({
   value,
   onSelect,
   tabClassName,
+  panelId,
 }: {
   idPrefix: string;
+  panelId?: (key: K) => string;
   ariaLabel: string;
   options: TabOption<K>[];
   value: K;
@@ -57,7 +59,7 @@ export default function Tabs<K extends string>({
             type="button"
             role="tab"
             aria-selected={active}
-            aria-controls={`${idPrefix}-panel`}
+            aria-controls={panelId ? panelId(o.key) : `${idPrefix}-panel`}
             tabIndex={active ? 0 : -1}
             onClick={() => onSelect(o.key)}
             onKeyDown={(e) => onKeyDown(e, i)}

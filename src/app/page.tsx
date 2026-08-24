@@ -61,7 +61,7 @@ export default function Home() {
       </header>
       {confirmResume && (
         <div
-          role="alertdialog"
+          role="group"
           aria-labelledby="resume-title"
           aria-describedby="resume-desc"
           className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded bg-surface p-4 ring-1 ring-accent"

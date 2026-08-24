@@ -36,7 +36,8 @@ create or replace function save_list(
 ) returns void
 language plpgsql
 security invoker
-set search_path = ''
+-- No `set search_path = ''`: that idiom is for SECURITY DEFINER functions;
+-- here it would break the unqualified lists/list_movies references at runtime.
 as $$
 begin
   insert into lists (id, owner_id, title, participants, status)

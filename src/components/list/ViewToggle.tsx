@@ -19,6 +19,7 @@ export default function ViewToggle({
   return (
     <Tabs
       idPrefix="view-toggle"
+      panelId={(key) => `view-toggle-panel-${key}`}
       ariaLabel="List layout"
       options={OPTIONS}
       value={mode}
