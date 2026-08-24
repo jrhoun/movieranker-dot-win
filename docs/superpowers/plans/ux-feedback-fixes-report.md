@@ -138,6 +138,37 @@ changed (explicitly out of scope). The committed test pins this finding
 (asserts non-convergence within budget, fails loudly if the engine changes so
 the comment must be re-measured). Tuning is a separate decision.
 
+### Round 2 — stability = settled order; gaps move to sharpen phase
+
+The round-1 numbers proved any universal gap floor is structurally too
+expensive, so gap conditions left stability entirely:
+
+- `isStable` = `votesSinceOrderChanged >= STABILITY_VOTES_N` (6). Pure
+  order-settling: quick phase ends when no adjacent pair has swapped for 6
+  consecutive votes, regardless of gap sizes. `STABLE_GAP_FLOOR` deleted.
+- `estimateRemainingVotes` now counts ADJACENT PAIRS WITHIN THE COMFORT BAND
+  (gap <= SHARPEN_COMFORT_GAP=120) — i.e. close calls the optional sharpen
+  phase could tighten. Same ceil(count*2) min-1 formula; room label now reads
+  "~N close calls left". Sharpen phase = optional gap tightening;
+  finish-anytime always available.
+
+**Round-2 simulation results** (same harness/seeds):
+
+| List size | n·log₂n·2 target | Measured votes to stable |
+|---|---|---|
+| 12 | 88 | 244 |
+| 16 | 128 | 490 |
+| 20 | 174 | 804 |
+
+Big improvement over both gap floors (643/1505/3202 at floor 25; ~1441–1976 /
+never / never at floor 50), but still ~2.8×–6.2× over target. **Flagged for
+coordinator review:** early in a session all elos start equal (~1000), so the
+~15% upsets keep swapping close adjacent pairs and resetting the quiet streak.
+Closing the remaining gap needs e.g. warm-start elos or an order-change rule
+that ignores coin-flip swaps between near-equal neighbors — not another
+constant tweak. Tests pin convergence at measured budgets (300 / 560 / 900)
+and log target-vs-actual via console.log.
+
 ## Verification
 
 - `npm test`: **75 passed** (72 prior + 1 park/estimate coverage already present

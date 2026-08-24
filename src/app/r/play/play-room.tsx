@@ -340,7 +340,8 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
                 className="flex size-11 items-center justify-center rounded text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-accent active:text-text"
               >
                 ✕
-              </button>            </div>
+              </button>
+            </div>
           </div>
         )}
 
@@ -451,7 +452,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               <p aria-live="polite" className="text-xs text-muted sm:text-sm">
                 {sharpening
                   ? "Sharpening — closest call first"
-                  : `~${remainingVotes} votes left`}
+                  : `~${remainingVotes} close calls left`}
                 {!sharpening &&
                   remainingVotes >= ESTIMATE_HINT_THRESHOLD &&
                   " — you can also finish anytime"}
@@ -483,7 +484,13 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           session={session}
           status={sheetStatus}
           existingId={initial?.id}
-          onClose={() => setSheetStatus(null)}
+          // Reset the redirect latch too: if OAuth failed in place (auth_error
+          // + sheet closed, no navigation) the latch would stay set forever,
+          // permanently disarming the leave-warning.
+          onClose={() => {
+            setSheetStatus(null);
+            setAuthRedirecting(false);
+          }}
           onAuthRedirect={() => setAuthRedirecting(true)}
         />
       )}

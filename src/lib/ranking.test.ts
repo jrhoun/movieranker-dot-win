@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
   STABILITY_VOTES_N,
-  STABLE_GAP_FLOOR,
   SHARPEN_COMFORT_GAP,
   SHARPEN_GAP_THRESHOLD,
   applyWin,
@@ -157,35 +156,58 @@ describe("recordMatchupResult", () => {
 });
 
 describe("isStable", () => {
-  test(`stable only after ${STABILITY_VOTES_N} votes with all gaps > ${STABLE_GAP_FLOOR}`, () => {
-    const order = [
-      movie({ tmdbId: 1, elo: 1200 }),
-      movie({ tmdbId: 2, elo: 1100 }),
+  test(`stable purely on ${STABILITY_VOTES_N} consecutive no-swap votes, even with tiny gaps`, () => {
+    // gaps of 5 — nowhere near any sharpen threshold, yet quick-phase stable
+    const tinyGaps = [
+      movie({ tmdbId: 1, elo: 1010 }),
+      movie({ tmdbId: 2, elo: 1005 }),
       movie({ tmdbId: 3, elo: 1000 }),
     ];
-    expect(isStable(order, STABILITY_VOTES_N - 1)).toBe(false);
-    expect(isStable(order, STABILITY_VOTES_N)).toBe(true);
-    expect(isStable(order, STABILITY_VOTES_N + 5)).toBe(true);
-    // one gap exactly at threshold is not stable (must be > threshold)
-    const tight = [order[0], movie({ tmdbId: 2, elo: 1175 }), order[2]];
-    expect(isStable(tight, STABILITY_VOTES_N)).toBe(false);
+    expect(isStable(tinyGaps, STABILITY_VOTES_N - 1)).toBe(false);
+    expect(isStable(tinyGaps, STABILITY_VOTES_N)).toBe(true);
+    expect(isStable(tinyGaps, STABILITY_VOTES_N + 50)).toBe(true);
+    // single-movie edge: no adjacent pairs at all
+    expect(isStable([tinyGaps[0]], STABILITY_VOTES_N)).toBe(true);
   });
 });
 
 describe("estimateRemainingVotes", () => {
-  test("ceil(unstable gaps * 2), min 1", () => {
+  test("counts adjacent pairs within comfort band; ceil(count * 2), min 1", () => {
+    // both gaps > comfort band -> only min-1 left
     const spread = [
       movie({ tmdbId: 1, elo: 1300 }),
       movie({ tmdbId: 2, elo: 1100 }),
       movie({ tmdbId: 3, elo: 900 }),
     ];
-    expect(estimateRemainingVotes(spread)).toBe(1); // 0 unstable gaps -> min 1
+    expect(estimateRemainingVotes(spread)).toBe(1); // 0 close calls -> min 1
+    // both gaps within band -> 2 close calls
     const tight = [
       movie({ tmdbId: 1, elo: 1010 }),
       movie({ tmdbId: 2, elo: 1000 }),
       movie({ tmdbId: 3, elo: 990 }),
     ];
-    expect(estimateRemainingVotes(tight)).toBe(4); // 2 unstable gaps -> ceil(4)
+    expect(estimateRemainingVotes(tight)).toBe(4);
+  });
+
+  test("stability leaves sharpen work: close calls counted, then gone after sharpening", () => {
+    let order = [
+      movie({ tmdbId: 1, elo: 1050 }),
+      movie({ tmdbId: 2, elo: 1030 }),
+      movie({ tmdbId: 3, elo: 1000 }),
+    ];
+    // order settled (pure vote criterion) while every gap < comfort band
+    expect(isStable(order, STABILITY_VOTES_N)).toBe(true);
+    expect(sharpenNextPair(order)).not.toBeNull();
+    expect(estimateRemainingVotes(order)).toBe(4); // 2 close calls
+
+    // simulated sharpen votes push both gaps past the comfort band
+    order = [
+      movie({ tmdbId: 1, elo: 1250 }),
+      movie({ tmdbId: 2, elo: 1110 }),
+      movie({ tmdbId: 3, elo: 970 }),
+    ];
+    expect(sharpenNextPair(order)).toBeNull();
+    expect(estimateRemainingVotes(order)).toBe(1); // min-1
   });
 });
 
@@ -332,23 +354,24 @@ describe("simulation: stability reachable within ~n log n * 2 votes", () => {
     return { converged: false, votes };
   }
 
-  // Retuned: stability gap floor is now STABLE_GAP_FLOOR=25 (was SHARPEN_GAP_
-  // THRESHOLD=50). Under the old bar this same harness needed ~1441-1976 votes
-  // for 12 movies and never converged for 16/20 within 2000 votes.
+  // Round-2 retune: stability is pure order-settling (STABILITY_VOTES_N
+  // consecutive votes with no adjacent swap) — no gap condition. Gap tightening
+  // moved to the optional sharpen phase.
   //
-  // COORDINATOR FLAG: even at floor 25, stability does NOT fit ⌈n·log₂n⌉·2
-  // (measured 643 / 1505 / 3202 votes vs targets 88 / 128 / 174 — the
-  // least-recently-compared pairing spreads votes too thin to build >25 elo
-  // gaps everywhere that fast). Tests below pin convergence at MEASURED
-  // budgets (deterministic seeds), not the aspirational target. Reaching
-  // n·log₂n·2 needs an engine change (pairing strategy or gap dynamics), not
-  // just a smaller constant.
-  const measuredBudgets: Record<number, number> = { 12: 700, 16: 1600, 20: 3400 };
-  test.each([12, 16, 20])("%i movies stabilize within measured vote budget at gap floor 25", (n) => {
+  // COORDINATOR FLAG (round 2): pure order-stability improved massively over
+  // the round-1 gap floors (643/1505/3202) but still does not fit
+  // ⌈n·log₂n⌉·2 — measured 244/490/804 vs targets 88/128/174 for n=12/16/20.
+  // Cause: early on all elos start equal, so ~15% upsets keep swapping close
+  // adjacent pairs and resetting the quiet streak. Tests pin convergence at
+  // MEASURED budgets (deterministic seeds) and log target-vs-actual. Closing
+  // the remaining gap needs e.g. warm-start elos or an order-change threshold
+  // that ignores coin-flip swaps — coordinator's call.
+  const measuredBudgets: Record<number, number> = { 12: 300, 16: 560, 20: 900 };
+  test.each([12, 16, 20])("%i movies stabilize within measured vote budget", (n) => {
     const budget = measuredBudgets[n];
     const result = simulate(n, 1000 + n, budget);
     console.log(
-      `stability retune: ${n} movies -> ${result.converged ? result.votes : "NOT stable"} votes (test budget ${budget}; n·log₂n·2 target ${Math.ceil(n * Math.log2(n)) * 2})`,
+      `stability retune r2: ${n} movies -> ${result.converged ? result.votes : "NOT stable"} votes (test budget ${budget}; n·log₂n·2 target ${Math.ceil(n * Math.log2(n)) * 2})`,
     );
     expect(result.converged).toBe(true);
     expect(result.votes).toBeLessThanOrEqual(budget);

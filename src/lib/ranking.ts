@@ -11,7 +11,6 @@ export interface RankedMovie {
 const K = 32;
 
 export const STABILITY_VOTES_N = 6;
-export const STABLE_GAP_FLOOR = 25;
 export const SHARPEN_GAP_THRESHOLD = 50;
 /** Pairs within this gap are settled enough to stop the quick phase but close
  * enough to argue about — Sharpen mode exists to separate them. */
@@ -87,21 +86,25 @@ export function recordMatchupResult(
   return { movies: next, orderChanged: before.some((id, i) => after[i] !== id) };
 }
 
+/** Quick phase: stability is pure order-settling — the ranking holds once no
+ * adjacent pair has swapped for STABILITY_VOTES_N consecutive votes, regardless
+ * of gap sizes. Sharpen phase afterwards is optional gap tightening
+ * (sharpenNextPair); finishing early is always available. */
 export function isStable(order: RankedMovie[], votesSinceOrderChanged: number): boolean {
-  if (votesSinceOrderChanged < STABILITY_VOTES_N) return false;
-  const sorted = [...order].sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId);
-  return sorted.every(
-    (m, i) => i === sorted.length - 1 || sorted[i].elo - sorted[i + 1].elo > STABLE_GAP_FLOOR,
-  );
+  return votesSinceOrderChanged >= STABILITY_VOTES_N;
 }
 
+/** Remaining work estimate: counts ADJACENT PAIRS WITHIN THE COMFORT BAND
+ * (gap <= SHARPEN_COMFORT_GAP) — i.e. close calls sharpen could tighten.
+ * Reads as "~N close calls left" rather than votes strictly required; the same
+ * ceil(count*2), min-1 formula keeps the progress-bar math unchanged. */
 export function estimateRemainingVotes(order: RankedMovie[]): number {
   const sorted = [...order].sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId);
-  let unstable = 0;
+  let close = 0;
   for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i - 1].elo - sorted[i].elo <= STABLE_GAP_FLOOR) unstable++;
+    if (sorted[i - 1].elo - sorted[i].elo <= SHARPEN_COMFORT_GAP) close++;
   }
-  return Math.max(1, Math.ceil(unstable * 2));
+  return Math.max(1, Math.ceil(close * 2));
 }
 
 export function sharpenNextPair(order: RankedMovie[]): [RankedMovie, RankedMovie] | null {
