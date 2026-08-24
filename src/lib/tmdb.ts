@@ -1,6 +1,6 @@
 const TMDB_BASE = "https://api.themoviedb.org/3";
 
-const MOVIE_TYPE = ["movie"][0];
+const MOVIE_TYPE = "movie";
 
 export interface TmdbPerson {
   id: number;

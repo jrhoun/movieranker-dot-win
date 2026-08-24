@@ -71,14 +71,13 @@ export default function SearchPanel({ onPick }: { onPick: (m: TmdbMovieCredit) =
           setMovies((data.results ?? []) as TmdbMovieCredit[]);
           setNames([]);
         } else {
-          const m = TWO_STEP[mode] ? mode : mode === "keyword" || mode === "title" ? mode : null;
-          if (!m) return;
+          // mode is a closed union — every value maps to a valid API mode
           const res = await fetch(
-            `/api/search?mode=${m}&q=${encodeURIComponent(query)}`,
+            `/api/search?mode=${mode}&q=${encodeURIComponent(query)}`,
             { signal: ctrl.signal },
           );
           const data = await res.json();
-          if (TWO_STEP[m]) {
+          if (TWO_STEP[mode]) {
             setNames((data.results ?? []) as (TmdbPerson | TmdbCompany)[]);
             setMovies([]);
           } else {

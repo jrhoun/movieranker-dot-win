@@ -39,6 +39,7 @@ export default function ListCard({ list }: { list: ListCardData }) {
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC", // server renders UTC; client must match to avoid hydration mismatch
   });
 
   return (
@@ -47,7 +48,7 @@ export default function ListCard({ list }: { list: ListCardData }) {
       <Link
         href={href}
         aria-label={isDraft ? `Resume ranking ${list.title}` : `View ${list.title}`}
-        className="grid grid-cols-3 gap-px bg-surface-raised transition-opacity duration-200 ease-out hover:opacity-90"
+        className="grid grid-cols-3 gap-px rounded-t bg-surface-raised transition-opacity duration-200 ease-out hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         {triptychSlots(list.posters.map((m) => ({ title: m.title, posterPath: m.posterPath }))).map(
           (slot, i) =>

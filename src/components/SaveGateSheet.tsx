@@ -7,11 +7,11 @@ import { clearSession, type PlaySession } from "@/lib/session";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const inputCls =
-  "h-11 w-full rounded bg-surface-raised px-3 text-sm text-text placeholder:text-muted ring-1 ring-white/10 transition-shadow duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+  "h-11 w-full rounded bg-surface-raised px-3 text-sm text-text placeholder:text-muted ring-1 ring-white/10 transition-shadow duration-150 ease-out hover:ring-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 const btnPrimary =
   "min-h-11 w-full rounded bg-accent px-5 font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50";
 const btnAlt =
-  "flex min-h-11 w-full items-center justify-center gap-2 rounded bg-surface-raised px-5 text-sm font-medium transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]";
+  "flex min-h-11 w-full items-center justify-center gap-2 rounded bg-surface-raised px-5 text-sm font-medium transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50";
 
 export default function SaveGateSheet({
   session,
@@ -45,14 +45,23 @@ export default function SaveGateSheet({
         finalRank: status === "done" ? (ranks.get(m.tmdbId) ?? null) : null,
       })),
     };
-    const res = await fetch(existingId ? `/api/lists/${existingId}` : "/api/lists", {
-      method: existingId ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      // PATCH is partial: only POST needs title/participants
-      body: JSON.stringify(
-        existingId ? payload : { ...payload, title: session.title, participants: session.participants },
-      ),
-    });
+    let res: Response;
+    try {
+      res = await fetch(existingId ? `/api/lists/${existingId}` : "/api/lists", {
+        method: existingId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        // PATCH is partial: only POST needs title/participants
+        body: JSON.stringify(
+          existingId ? payload : { ...payload, title: session.title, participants: session.participants },
+        ),
+      });
+    } catch {
+      // network throw — release the lock so the user can retry
+      savingRef.current = false;
+      setBusy(false);
+      setNote("Saving failed — check your connection and try again.");
+      return;
+    }
     if (!res.ok) {
       savingRef.current = false;
       setBusy(false);
@@ -90,7 +99,7 @@ export default function SaveGateSheet({
     focusables()[0]?.focus();
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        onClose();
+        if (!savingRef.current) onClose();
         return;
       }
       if (e.key !== "Tab") return;
@@ -109,6 +118,11 @@ export default function SaveGateSheet({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  // ignore close attempts (overlay click / Escape / ✕) while a save is in flight
+  function requestClose() {
+    if (!savingRef.current) onClose();
+  }
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
@@ -161,7 +175,7 @@ export default function SaveGateSheet({
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       <div
         className="absolute inset-0 bg-black/60 transition-opacity duration-200 ease-out"
-        onClick={onClose}
+        onClick={requestClose}
         aria-hidden="true"
       />
       <div
@@ -182,9 +196,9 @@ export default function SaveGateSheet({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             aria-label="Close"
-            className="-mr-1 -mt-1 flex size-11 shrink-0 items-center justify-center rounded text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-accent"
+            className="-mr-1 -mt-1 flex size-11 shrink-0 items-center justify-center rounded text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-accent active:text-text"
           >
             ✕
           </button>

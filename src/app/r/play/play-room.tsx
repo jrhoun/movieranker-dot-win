@@ -114,7 +114,10 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   useEffect(() => {
     if (signedIn === null || signedIn || initial || !session) return;
     if (totalComparisons(session) === 0) return;
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = ""; // legacy WebKit/Chrome needs returnValue to prompt
+    };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [signedIn, initial, session]);
@@ -238,7 +241,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
                 type="button"
                 onClick={dismissNudge}
                 aria-label="Dismiss"
-                className="flex size-11 items-center justify-center rounded text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-accent"
+                className="flex size-11 items-center justify-center rounded text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-accent active:text-text"
               >
                 ✕
               </button>
@@ -302,9 +305,11 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           </div>
           {!sharpening && (
             <div className="flex flex-col items-center gap-2">
-              <p className="max-w-sm text-sm text-muted">
-                Some calls are still close — settle them?
-              </p>
+              {canSharpen && (
+                <p className="max-w-sm text-sm text-muted">
+                  Some calls are still close — settle them?
+                </p>
+              )}
               <div className="flex flex-wrap justify-center gap-3">
               {canSharpen ? (
                 <button

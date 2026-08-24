@@ -23,15 +23,17 @@ export async function GET(req: NextRequest) {
     } else if (mode === "title") {
       results = await searchMovies(q);
     } else if (mode === "person-credits") {
-      if (!ref) {
-        return NextResponse.json({ error: "ref required for person-credits" }, { status: 400 });
+      const id = Number(ref);
+      if (!ref || !Number.isInteger(id)) {
+        return NextResponse.json({ error: "numeric ref required for person-credits" }, { status: 400 });
       }
-      results = await getPersonCredits(Number(ref));
+      results = await getPersonCredits(id);
     } else if (mode === "company-discover") {
-      if (!ref) {
-        return NextResponse.json({ error: "ref required for company-discover" }, { status: 400 });
+      const id = Number(ref);
+      if (!ref || !Number.isInteger(id)) {
+        return NextResponse.json({ error: "numeric ref required for company-discover" }, { status: 400 });
       }
-      results = await discoverByCompany(Number(ref));
+      results = await discoverByCompany(id);
     } else {
       return NextResponse.json({ error: `unknown mode: ${mode}` }, { status: 400 });
     }
