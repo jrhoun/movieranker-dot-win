@@ -114,7 +114,10 @@ export default function SearchPanel({ onPick }: { onPick: (m: TmdbMovieCredit) =
   const showMovies = ref !== null || !TWO_STEP[mode];
 
   return (
-    <section aria-label="Find movies">
+    <section
+      aria-label="Find movies"
+      className="rounded-lg bg-surface p-4 ring-1 ring-white/10 sm:p-5"
+    >
       {/* mode tabs */}
       <div className="flex flex-wrap gap-2">
         <Tabs

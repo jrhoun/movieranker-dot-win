@@ -142,12 +142,12 @@ export default function OwnerControls({
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-muted">This is your list.</p>
-          <div className="flex gap-2">
+          <div className="flex gap-1">
             <button
               type="button"
               onClick={() => setEditing(true)}
               disabled={busy}
-              className={`${btn} bg-surface-raised hover:bg-white/10`}
+              className={`${btn} text-muted hover:bg-white/5 hover:text-text`}
             >
               Edit
             </button>
@@ -155,7 +155,7 @@ export default function OwnerControls({
               type="button"
               onClick={() => void remove()}
               disabled={busy}
-              className={`${btn} text-accent-red ring-1 ring-accent-red/40 hover:bg-accent-red/10`}
+              className={`${btn} text-muted hover:bg-accent-red/10 hover:text-accent-red`}
             >
               Delete
             </button>

@@ -16,7 +16,10 @@ export default function ParkedStrip({
   if (movies.length === 0) return null;
   const parkedCount = movies.filter((m) => m.parked).length;
   return (
-    <details open className="px-3 pb-2 sm:px-6">
+    <details
+      open
+      className="border-t border-white/10 bg-surface/95 px-3 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur sm:px-6"
+    >
       <summary className="cursor-pointer list-none text-xs text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
         Your movies ({movies.length})
         {parkedCount > 0 && ` · ${parkedCount} haven't seen`}

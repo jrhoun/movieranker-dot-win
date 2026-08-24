@@ -39,6 +39,12 @@ export default async function MyListsPage() {
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-4 py-10 sm:max-w-2xl">
       <h1 className="text-2xl font-bold">Your lists</h1>
+      {cards.length > 0 && (
+        <p className="mt-1 text-sm text-muted">
+          {cards.length} {cards.length === 1 ? "list" : "lists"} ·{" "}
+          {cards.filter((c) => c.status === "draft").length} in progress
+        </p>
+      )}
 
       {cards.length === 0 ? (
         <div className="mt-10 flex flex-col items-center gap-4 rounded bg-surface p-8 text-center ring-1 ring-white/10">

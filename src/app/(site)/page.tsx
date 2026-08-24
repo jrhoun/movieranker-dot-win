@@ -78,11 +78,10 @@ export default function Home() {
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-72">
-      <header className="py-10 text-center sm:py-14">
-        <h1 className="text-3xl font-bold text-accent sm:text-5xl">movieranker.win</h1>
-        <p className="mt-2 text-lg text-muted sm:text-xl">Settle it once and for all.</p>
-      </header>
+      {/* Body below the curtain hero: one focal composition (search card),
+          no duplicated hero heading and no whitespace voids — the docked tray
+          plus its helper line carry the empty state. */}
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-6 pb-72">
       {confirmResume && (
         <div
           role="group"
