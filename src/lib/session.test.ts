@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearSession, loadSession, saveSession, type PlaySession } from "./session";
+import {
+  applyVote,
+  clearSession,
+  loadSession,
+  parkMovie,
+  saveSession,
+  selectNextPair,
+  type PlaySession,
+} from "./session";
 import type { RankedMovie } from "./ranking";
 
 const store = new Map<string, string>();
@@ -61,5 +69,58 @@ describe("session", () => {
     });
     expect(() => saveSession({ ...session(), movies: [movie(9)] })).not.toThrow();
     expect(store.get("mr-session")).toBe(original);
+  });
+});
+
+describe("voting helpers", () => {
+  // gaps of 100 so a single K=32 vote never flips order unless stated
+  const three = (): PlaySession => ({
+    title: "T",
+    participants: [],
+    movies: [
+      { ...movie(1), elo: 1200 },
+      { ...movie(2), elo: 1100 },
+      { ...movie(3), elo: 1000 },
+    ],
+    votesSinceOrderChange: 5,
+    nudgeShown: false,
+  });
+
+  it("applyVote stores a single-level undo snapshot without mutating the original", () => {
+    const s = three();
+    const next = applyVote(s, 2, 1);
+    expect(next.votesSinceOrderChange).toBe(6);
+    expect(next.undoSnapshot!.votesSinceOrderChange).toBe(5);
+    expect(next.undoSnapshot!.undoSnapshot).toBeUndefined();
+    expect(next.undoSnapshot!.movies.find((m) => m.tmdbId === 1)?.elo).toBe(1200);
+    expect(s.movies[1].elo).toBe(1100); // untouched
+  });
+
+  it("applyVote resets the counter when an upset changes the order", () => {
+    const s = three();
+    s.movies[0].elo = 1010; // m1 barely above the tied pair
+    const next = applyVote(s, 3, 1); // m3 jumps over m1
+    const order = [...next.movies]
+      .sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId)
+      .map((m) => m.tmdbId);
+    expect(order).toEqual([2, 3, 1]);
+    expect(next.votesSinceOrderChange).toBe(0);
+  });
+
+  it("parkMovie toggles immutably and selectNextPair honors parking + sharpen mode", () => {
+    const s = three();
+    const parked = parkMovie(s, 2, true);
+    expect(parked.movies[1].parked).toBe(true);
+    expect(s.movies[1].parked).toBe(false);
+    expect(selectNextPair(parked, false)!.map((m) => m.tmdbId)).toEqual([3, 1]);
+    expect(selectNextPair({ ...s, movies: s.movies.map((m) => ({ ...m, parked: true })) }, false)).toBeNull();
+
+    const tight = three();
+    tight.movies = [
+      { ...movie(1), elo: 1200 },
+      { ...movie(2), elo: 1160 }, // 40 gap to m1, sharpenable
+      { ...movie(3), elo: 1000 },
+    ];
+    expect(selectNextPair(tight, true)!.map((m) => m.tmdbId)).toEqual([2, 1]);
   });
 });
