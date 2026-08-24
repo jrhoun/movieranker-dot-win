@@ -44,3 +44,11 @@ Date: 2026-08-24 · Branch: master · Scope: all surfaces per DESIGN.md "Premier
 ## Concerns
 
 - None blocking. Note: `MarqueeHeading` renders rules that flex-shrink around long list titles; verified acceptable at narrow widths via break-words behavior, but eyeball a very long real-world list title after deploy.
+
+## Hero posters are real candidates (40d6b20)
+
+- `hero-posters.ts`: added hardcoded `tmdbId` + `releaseYear` per entry; exported `HERO_CANDIDATES` mapped to the same `TmdbMovieCredit` shape search results use.
+- Home hero: each fan poster is now a button (full poster hit area ≥44px, gold focus-visible ring, existing hover straighten+lift kept). Click toggles the movie in/out of the candidate tray via the same state flow as search picks; `aria-pressed` reflects in-tray status, `aria-label` = "Add <title> to your ranking", native tooltip covers "already on your list — tap to remove". Removed the old `aria-hidden` from the fan list.
+- Tray empty-state copy updated to "Tap a poster up top — or search below — to build your list."
+- Motion: all transitions are 200ms ease-out Tailwind classes, killed globally by the existing `prefers-reduced-motion` block in globals.css.
+- No pure logic extracted beyond a constant mapping (no new unit test needed); no live TMDB calls added.
