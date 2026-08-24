@@ -1,0 +1,13 @@
+{
+  "cast": [
+    { "id": 603, "media_type": "movie", "title": "The Matrix", "poster_path": "/f89U3ADr1oiBw9P7iNrfJ6eb7BA.jpg", "release_date": "1999-03-30", "popularity": 90.1 },
+    { "id": 27205, "media_type": "movie", "title": "Inception", "poster_path": "/9gk7adHYeDvHkCSEqAvQNLV5Uge.jpg", "release_date": "2010-07-15", "popularity": 55.3 },
+    { "id": 166424, "media_type": "tv", "name": "Person of Interest", "poster_path": "/1YRJ8ggv2jLZQu5E4V6Q9ZAs9tO.jpg", "first_air_date": "2011-09-22", "popularity": 99.0 },
+    { "id": 42, "media_type": "movie", "title": "No Date Movie", "poster_path": null, "release_date": "", "popularity": 10.0 },
+    { "id": 43, "media_type": "movie", "title": "Obscurity", "poster_path": "/obscure.jpg", "release_date": "2001-06-01", "popularity": 0.6 }
+  ],
+  "crew": [
+    { "id": 27205, "media_type": "movie", "title": "Inception", "poster_path": "/9gk7adHYeDvHkCSEqAvQNLV5Uge.jpg", "release_date": "2010-07-15", "popularity": 55.3, "job": "Director" },
+    { "id": 27206, "media_type": "movie", "title": "Tenet", "poster_path": "/tenet.jpg", "release_date": "2020-08-26", "popularity": 40.0, "job": "Director" }
+  ]
+}
