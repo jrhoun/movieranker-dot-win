@@ -125,9 +125,20 @@ Button appears when stable. Runs targeted binary-insertion comparisons resolving
 
 **Error handling:** TMDB outage → friendly retry state on search; ranking itself works fully offline-from-TMDB since candidates are stored locally during play. Lost link → irrelevant: drafts and finished lists live in the profile. Auth failure → clear retry, session data preserved in localStorage throughout.
 
-## Art Direction — Dark Cinema
+## Design & UX — Dark Cinema
 
-Near-black background (#0d0d10 range), warm amber/red accents, subtle film-grain texture. Poster art is the hero; cards are posters with minimal chrome. Big bold type; the two-up vote screen fills the viewport (it will be cast to TVs). Mobile-first responsive.
+**Feel:** near-black background (#0d0d10 range), warm amber/red accents, subtle film-grain texture. Poster art is the hero; cards are posters with minimal chrome. Big bold type; the two-up vote screen fills the viewport (it will be cast to TVs). Mobile-first responsive.
+
+**Polish standard** — everything feels considered, nothing decorative-for-its-own-sake:
+
+- **Motion:** 150–250 ms ease-out micro-transitions only. Poster cards lift ~2px on hover; the losing matchup card dims and slides out as the winner settles forward; the progress bar eases rather than jumps; the stable-state celebration is one short beat, not confetti spam. Respect `prefers-reduced-motion` throughout.
+- **Spacing & rhythm:** consistent 4 pt-based scale (Tailwind defaults), generous whitespace around the vote pair — the matchup IS the page.
+- **Type:** one display face for titles/versus moments, one clean sans for UI; clear hierarchy so each screen reads in under a second.
+- **Color:** dark-cinema tokens defined once (background, surface, accent amber, muted text); semantic states (success/warn) derived, not ad-hoc hexes.
+- **States:** every interactive element has designed hover, focus-visible (visible ring — keyboard users included), active, disabled, and loading states; TMDB fetches show skeleton posters, never layout shift.
+- **Touch targets:** ≥44 px on mobile — tapping a poster mid-argument must be unmissable.
+
+At build time UI work follows the project's design-playbook/craft-guard skills (declaration-first specs, evidence-backed review) so "polished" gets verified against these criteria rather than eyeballed once.
 
 ## Testing
 
