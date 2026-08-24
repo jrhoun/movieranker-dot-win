@@ -25,11 +25,15 @@ export default function ListCard({ list }: { list: ListCardData }) {
   async function remove() {
     if (!window.confirm(`Delete "${list.title}" permanently? This can't be undone.`)) return;
     setBusy(true);
-    const res = await fetch(`/api/lists/${list.id}`, { method: "DELETE" });
-    if (!res.ok) {
+    let res: Response;
+    try {
+      res = await fetch(`/api/lists/${list.id}`, { method: "DELETE" });
+    } catch {
       setBusy(false);
       return;
     }
+    setBusy(false);
+    if (!res.ok) return;
     router.refresh();
   }
 

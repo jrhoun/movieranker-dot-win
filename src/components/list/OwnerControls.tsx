@@ -36,11 +36,18 @@ export default function OwnerControls({
     }
     setBusy(true);
     setNote(null);
-    const res = await fetch(`/api/lists/${listId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: editTitle.trim(), participants: parts }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(`/api/lists/${listId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editTitle.trim(), participants: parts }),
+      });
+    } catch {
+      setBusy(false);
+      setNote("Saving failed — try again.");
+      return;
+    }
     setBusy(false);
     if (!res.ok) {
       setNote("Saving failed — try again.");
@@ -54,7 +61,15 @@ export default function OwnerControls({
     if (!window.confirm("Delete this list permanently? This can't be undone.")) return;
     setBusy(true);
     setNote(null);
-    const res = await fetch(`/api/lists/${listId}`, { method: "DELETE" });
+    let res: Response;
+    try {
+      res = await fetch(`/api/lists/${listId}`, { method: "DELETE" });
+    } catch {
+      setBusy(false);
+      setNote("Delete failed — try again.");
+      return;
+    }
+    setBusy(false);
     if (!res.ok) {
       setBusy(false);
       setNote("Delete failed — try again.");

@@ -10,7 +10,7 @@ const MODES: { id: Mode; label: string; placeholder: string }[] = [
   { id: "title", label: "Title", placeholder: "Search movies by title…" },
   { id: "person", label: "Person", placeholder: "Search a director or actor…" },
   { id: "company", label: "Studio", placeholder: "Search a studio… e.g. A24" },
-  { id: "keyword", label: "Keyword", placeholder: "Search by theme…" },
+  { id: "keyword", label: "Keyword", placeholder: "Search movies by title or theme…" },
 ];
 
 const TWO_STEP: Partial<Record<Mode, string>> = { person: "people", company: "studios" };

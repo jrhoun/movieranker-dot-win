@@ -8,7 +8,8 @@ export async function GET(request: NextRequest) {
   if (code) {
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) return NextResponse.redirect(origin);
+    // Back to /r/play so a mid-game sign-in resumes the anonymous session.
+    if (!error) return NextResponse.redirect(`${origin}/r/play`);
   }
   return NextResponse.redirect(`${origin}/?auth_error=1`);
 }

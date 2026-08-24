@@ -17,7 +17,8 @@ export async function createSupabaseServerClient() {
               cookieStore.set(name, value, options);
             }
           } catch {
-            // Called from a Server Component: middleware/session refresh handles it.
+            // No middleware exists yet, so Server Components can't always set
+            // cookies; tokens refresh via the Supabase client on the browser side.
           }
         },
       },

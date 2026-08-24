@@ -55,6 +55,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   const [sharpening, setSharpening] = useState(false);
   const [finished, setFinished] = useState(false);
   const [sheetStatus, setSheetStatus] = useState<"done" | "draft" | null>(null);
+  const [authNotice, setAuthNotice] = useState(false);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // last movie state known to be synced to the server (resume mode only)
   const syncedRef = useRef<RankedMovie[] | null>(initial ? initial.movies : null);
@@ -88,12 +89,26 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     createSupabaseBrowserClient()
       .auth.getUser()
       .then(({ data }) => {
-        if (!cancelled) setSignedIn(!!data.user);
+        if (cancelled) return;
+        const signed = !!data.user;
+        setSignedIn(signed);
+        // Consume ?auth_error=1 left by a failed OAuth round-trip.
+        if (new URLSearchParams(window.location.search).has("auth_error")) {
+          setAuthNotice(true);
+          window.history.replaceState(null, "", "/r/play");
+        }
+        // OAuth conversion: signing in mid-game lands back here without an id —
+        // auto-open the save gate so the local session persists immediately
+        // (SaveGateSheet performs the save once it sees the signed-in user).
+        if (signed && !initial) {
+          const s = loadSession();
+          if (s && s.movies.length > 0) setSheetStatus((prev) => prev ?? "draft");
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initial]);
 
   // Resume sync: per-action PATCH of only the movies the last action changed
   // (votes are >=1s apart behind the settle animation, so no debounce needed).
@@ -202,6 +217,14 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   return (
     <main className="mx-auto flex min-h-dvh w-full flex-col">
       <header className="flex items-center justify-between gap-3 px-4 pt-3 sm:px-6">
+        {authNotice && (
+          <p
+            role="alert"
+            className="min-w-0 truncate text-xs text-accent-red sm:text-sm"
+          >
+            Sign-in failed — still playing as a guest.
+          </p>
+        )}
         <div className="min-w-0">
           <h1 className="truncate text-lg font-bold sm:text-2xl">{session.title}</h1>
           {session.participants.length > 0 && (
@@ -303,14 +326,12 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
             <p className="text-sm uppercase tracking-widest text-accent">Consensus reached</p>
             <RankedList movies={active} />
           </div>
-          {!sharpening && (
-            <div className="flex flex-col items-center gap-2">
-              {canSharpen && (
-                <p className="max-w-sm text-sm text-muted">
-                  Some calls are still close — settle them?
-                </p>
-              )}
-              <div className="flex flex-wrap justify-center gap-3">
+          {canSharpen && (
+            <p className="max-w-sm text-sm text-muted">
+              Some calls are still close — settle them?
+            </p>
+          )}
+          <div className="flex flex-wrap justify-center gap-3">
               {canSharpen ? (
                 <button
                   type="button"
@@ -329,9 +350,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               >
                 Finish
               </button>
-              </div>
-            </div>
-          )}
+          </div>
           {sharpening && <p className="text-sm text-muted">Sharpening — closest call first…</p>}
         </section>
       ) : pair ? (

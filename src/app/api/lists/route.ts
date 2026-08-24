@@ -32,16 +32,22 @@ export async function POST(request: Request) {
   if (typeof title !== "string" || !title.trim()) return invalid("title required");
   if (status !== "draft" && status !== "done")
     return invalid("status must be 'draft' or 'done'");
-  if (!Array.isArray(participants)) return invalid("participants array required");
+  if (!Array.isArray(participants) || participants.some((p) => typeof p !== "string"))
+    return invalid("participants must be an array of strings");
+  // Reject malformed numeric/string fields before they reach the DB insert.
   if (
     !Array.isArray(movies) ||
-    movies.some(
-      (m) =>
-        m === null ||
-        typeof m !== "object" ||
-        !Number.isInteger((m as MovieInput).tmdbId) ||
-        typeof (m as MovieInput).title !== "string",
-    )
+    movies.some((raw) => {
+      if (raw === null || typeof raw !== "object") return true;
+      const m = raw as MovieInput;
+      return (
+        !Number.isInteger(m.tmdbId) ||
+        typeof m.title !== "string" ||
+        (m.elo !== undefined && (typeof m.elo !== "number" || !Number.isFinite(m.elo))) ||
+        (m.comparisons !== undefined && (!Number.isInteger(m.comparisons) || m.comparisons < 0)) ||
+        (m.finalRank != null && !Number.isInteger(m.finalRank))
+      );
+    })
   )
     return invalid("movies must be objects with tmdbId and title");
 

@@ -15,6 +15,8 @@ create table list_movies (
   elo real not null default 1000, comparisons int not null default 0,
   parked boolean not null default false, final_rank int
 );
+create unique index list_movies_list_tmdb_unique on list_movies (list_id, tmdb_id);
+alter table lists add constraint lists_status_check check (status in ('draft','ranking','done'));
 alter table lists enable row level security;
 create policy "owner all" on lists for all using (auth.uid() = owner_id);
 alter table list_movies enable row level security;
