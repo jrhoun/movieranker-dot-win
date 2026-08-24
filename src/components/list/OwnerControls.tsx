@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 const inputCls =
-  "h-11 w-full rounded bg-bg px-3 text-sm text-text placeholder:text-muted ring-1 ring-white/10 transition-shadow duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+  "h-11 w-full rounded bg-bg px-3 text-sm text-text placeholder:text-muted ring-1 ring-white/10 transition-shadow duration-150 ease-out hover:ring-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 const btn =
   "min-h-11 rounded px-4 text-sm font-medium transition-all duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50";
 
@@ -88,7 +88,7 @@ export default function OwnerControls({
             <button
               type="submit"
               disabled={busy}
-              className={`${btn} bg-accent font-semibold text-bg`}
+              className={`${btn} bg-accent font-semibold text-bg hover:-translate-y-0.5`}
             >
               Save
             </button>
@@ -101,7 +101,7 @@ export default function OwnerControls({
                 setNote(null);
               }}
               disabled={busy}
-              className={`${btn} bg-surface-raised`}
+              className={`${btn} bg-surface-raised hover:bg-white/10`}
             >
               Cancel
             </button>
@@ -115,7 +115,7 @@ export default function OwnerControls({
               type="button"
               onClick={() => setEditing(true)}
               disabled={busy}
-              className={`${btn} bg-surface-raised`}
+              className={`${btn} bg-surface-raised hover:bg-white/10`}
             >
               Edit
             </button>

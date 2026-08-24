@@ -28,7 +28,7 @@ export default function ViewToggle({
           type="button"
           onClick={() => onChange(o.key)}
           className={`min-h-11 rounded px-5 text-sm transition-colors duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-            mode === o.key ? "bg-accent font-semibold text-bg" : "text-muted hover:text-text"
+            mode === o.key ? "bg-accent font-semibold text-bg" : "text-muted hover:text-text active:text-text"
           }`}
         >
           {o.label}

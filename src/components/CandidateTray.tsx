@@ -47,7 +47,7 @@ export default function CandidateTray({
                 onClick={() => onRemove(m.tmdbId)}
                 aria-label={`Remove ${m.title}`}
                 title={`Remove ${m.title}`}
-                className="group relative min-h-11 min-w-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                className="group relative min-h-11 min-w-11 rounded transition-transform duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-95"
               >
                 <span className="block aspect-[2/3] w-14 overflow-hidden rounded ring-1 ring-white/15 transition-all duration-200 ease-out group-hover:-translate-y-0.5 group-hover:ring-accent-red">
                   {m.posterPath ? (
@@ -128,7 +128,7 @@ export default function CandidateTray({
                   type="button"
                   onClick={() => onParticipantsChange(participants.filter((x) => x !== p))}
                   aria-label={`Remove participant ${p}`}
-                  className="flex min-h-11 items-center gap-1 rounded-full bg-bg px-3 py-1 text-xs text-muted ring-1 ring-white/10 transition-colors duration-200 ease-out hover:text-accent-red focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  className="flex min-h-11 items-center gap-1 rounded-full bg-bg px-3 py-1 text-xs text-muted ring-1 ring-white/10 transition-colors duration-200 ease-out hover:text-accent-red active:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   {p} <span aria-hidden>×</span>
                 </button>
