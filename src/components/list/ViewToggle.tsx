@@ -1,5 +1,7 @@
 "use client";
 
+import Tabs from "../Tabs";
+
 export type ViewMode = "stacked" | "rows";
 
 const OPTIONS: { key: ViewMode; label: string }[] = [
@@ -15,25 +17,17 @@ export default function ViewToggle({
   onChange: (mode: ViewMode) => void;
 }) {
   return (
-    <div
-      role="tablist"
-      aria-label="List layout"
-      className="inline-flex rounded bg-surface-raised p-1 ring-1 ring-white/10"
-    >
-      {OPTIONS.map((o) => (
-        <button
-          key={o.key}
-          role="tab"
-          aria-selected={mode === o.key}
-          type="button"
-          onClick={() => onChange(o.key)}
-          className={`min-h-11 rounded px-5 text-sm transition-colors duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-            mode === o.key ? "bg-accent font-semibold text-bg" : "text-muted hover:text-text active:text-text"
-          }`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
+    <Tabs
+      idPrefix="view-toggle"
+      ariaLabel="List layout"
+      options={OPTIONS}
+      value={mode}
+      onSelect={onChange}
+      tabClassName={(active) =>
+        `min-h-11 rounded px-5 text-sm transition-colors duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+          active ? "bg-accent font-semibold text-bg" : "text-muted hover:text-text active:text-text"
+        }`
+      }
+    />
   );
 }

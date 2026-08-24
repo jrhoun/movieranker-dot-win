@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Tabs from "./Tabs";
 import type { TmdbCompany, TmdbMovieCredit, TmdbPerson } from "@/lib/tmdb";
 import MoviePosterCard from "./MoviePosterCard";
 
@@ -115,23 +116,21 @@ export default function SearchPanel({ onPick }: { onPick: (m: TmdbMovieCredit) =
   return (
     <section aria-label="Find movies">
       {/* mode tabs */}
-      <div role="tablist" aria-label="Search mode" className="flex flex-wrap gap-2">
-        {MODES.map((m) => (
-          <button
-            key={m.id}
-            type="button"
-            role="tab"
-            aria-selected={mode === m.id}
-            onClick={() => switchMode(m.id)}
-            className={`min-h-11 rounded-full px-4 text-sm font-medium transition-colors duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-              mode === m.id
+      <div className="flex flex-wrap gap-2">
+        <Tabs
+          idPrefix="search-mode"
+          ariaLabel="Search mode"
+          options={MODES.map(({ id, label }) => ({ key: id, label }))}
+          value={mode}
+          onSelect={switchMode}
+          tabClassName={(active) =>
+            `min-h-11 rounded-full px-4 text-sm font-medium transition-colors duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+              active
                 ? "bg-accent text-bg"
                 : "bg-surface text-muted hover:bg-surface-raised hover:text-text active:bg-surface"
-            }`}
-          >
-            {m.label}
-          </button>
-        ))}
+            }`
+          }
+        />
       </div>
 
       {/* search input */}
@@ -169,7 +168,13 @@ export default function SearchPanel({ onPick }: { onPick: (m: TmdbMovieCredit) =
         {loading ? "Searching…" : `${movies.length || names.length} results`}
       </p>
 
-      <div className="mt-4">
+      <div
+        role="tabpanel"
+        id="search-mode-panel"
+        aria-labelledby={`search-mode-tab-${mode}`}
+        tabIndex={0}
+        className="mt-4"
+      >
         {loading ? (
           <SkeletonGrid />
         ) : showNames ? (
