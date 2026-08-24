@@ -4,7 +4,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import CandidateTray from "@/components/CandidateTray";
+import MoviePoster from "@/components/list/MoviePoster";
 import SearchPanel from "@/components/SearchPanel";
+import { HERO_POSTERS } from "@/lib/hero-posters";
 import type { RankedMovie } from "@/lib/ranking";
 import { clearSession, loadSession, saveSession } from "@/lib/session";
 import type { TmdbMovieCredit } from "@/lib/tmdb";
@@ -66,16 +68,39 @@ export default function Home() {
 
   return (
     <>
-      {/* Curtain stage band (DESIGN.md): hero text sits on a surface scrim so it
-          never lands on fold crests; muted subtitle is allowed only on the scrim. */}
-      <header className="bg-curtain">
-        <div className="mx-auto w-full max-w-5xl px-4 py-10 text-center sm:py-14">
+      {/* Curtain stage band (DESIGN.md "Premiere Night"): marquee title, gold CTA,
+          and a fanned row of real posters under a spotlight glow. Text sits on a
+          surface scrim so it never lands on fold crests. */}
+      <header className="relative overflow-hidden bg-curtain">
+        <div aria-hidden="true" className="spotlight-glow pointer-events-none absolute inset-0" />
+        <div className="relative mx-auto w-full max-w-5xl px-4 py-10 text-center sm:py-14">
           <div className="mx-auto inline-block rounded-lg bg-bg/80 px-6 py-4 shadow-lg ring-1 ring-white/10 backdrop-blur-[2px]">
-            <h1 className="text-3xl font-bold text-accent drop-shadow sm:text-5xl">
+            <h1 className="font-display text-6xl uppercase leading-none tracking-widest text-text drop-shadow sm:text-7xl">
+              <span aria-hidden="true" className="mr-3 align-middle text-gold">✦</span>
               movieranker.win
+              <span aria-hidden="true" className="ml-3 align-middle text-gold">✦</span>
             </h1>
             <p className="mt-2 text-lg text-muted sm:text-xl">Settle it once and for all.</p>
+            <a
+              href="#start"
+              className="mt-4 inline-block min-h-11 rounded-full bg-gold px-6 text-sm font-bold leading-[44px] uppercase tracking-wide text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            >
+              Start ranking
+            </a>
           </div>
+          {/* Fanned marquee of real posters: overlapping, tilted -8°..8°,
+              straighten+lift on hover (200ms ease-out; killed by reduced-motion). */}
+          <ul aria-hidden="true" className="mt-8 flex justify-center px-4 sm:mt-10">
+            {HERO_POSTERS.map((p, i) => (
+              <li
+                key={p.title}
+                style={{ "--tilt": `${p.tilt}deg`, zIndex: i === 3 ? 10 : i } as React.CSSProperties}
+                className="relative -mx-3 w-20 origin-bottom rotate-(--tilt) transition-all duration-200 ease-out hover:z-20 hover:rotate-0 hover:-translate-y-2 sm:-mx-4 sm:w-28"
+              >
+                <MoviePoster title={p.title} posterPath={p.posterPath} className="shadow-xl" />
+              </li>
+            ))}
+          </ul>
         </div>
       </header>
       {/* Body below the curtain hero: one focal composition (search card),
@@ -131,7 +156,9 @@ export default function Home() {
           </Link>
         </div>
       )}
-      <SearchPanel onPick={addCandidate} />
+      <div id="start">
+        <SearchPanel onPick={addCandidate} />
+      </div>
       <CandidateTray
         candidates={candidates}
         onRemove={(id) =>
