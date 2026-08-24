@@ -65,7 +65,20 @@ export default function Home() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-72">
+    <>
+      {/* Curtain stage band (DESIGN.md): hero text sits on a surface scrim so it
+          never lands on fold crests; muted subtitle is allowed only on the scrim. */}
+      <header className="bg-curtain">
+        <div className="mx-auto w-full max-w-5xl px-4 py-10 text-center sm:py-14">
+          <div className="mx-auto inline-block rounded-lg bg-bg/60 px-6 py-4 shadow-lg ring-1 ring-white/10 backdrop-blur-[2px]">
+            <h1 className="text-3xl font-bold text-accent drop-shadow sm:text-5xl">
+              movieranker.win
+            </h1>
+            <p className="mt-2 text-lg text-muted sm:text-xl">Settle it once and for all.</p>
+          </div>
+        </div>
+      </header>
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-72">
       <header className="py-10 text-center sm:py-14">
         <h1 className="text-3xl font-bold text-accent sm:text-5xl">movieranker.win</h1>
         <p className="mt-2 text-lg text-muted sm:text-xl">Settle it once and for all.</p>
@@ -131,6 +144,7 @@ export default function Home() {
         onTitleChange={setTitle}
         onStart={start}
       />
-    </main>
+      </main>
+    </>
   );
 }

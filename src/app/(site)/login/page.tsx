@@ -86,7 +86,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center px-4 py-12">
+    <main className="bg-curtain flex flex-1 flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-md rounded bg-surface p-6 ring-1 ring-white/10">
         <h1 className="text-xl font-bold">Welcome back</h1>
         <p className="mt-1 text-sm text-muted">Sign in to see your lists.</p>

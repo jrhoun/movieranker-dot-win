@@ -455,7 +455,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           </button>
         </section>
       ) : stable && !sharpening ? (
-        <section className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-8 text-center">
+        <section className="bg-curtain flex flex-1 flex-col items-center justify-center gap-6 px-4 py-8 text-center">
           <div className="animate-celebrate w-full max-w-md rounded bg-surface p-5 ring-1 ring-white/10">
             <p className="text-sm uppercase tracking-widest text-accent">Consensus reached</p>
             <div className="mt-4">
@@ -468,7 +468,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
             </p>
           </div>
           {canSharpen && initialClosePairs !== null && (
-            <p className="max-w-sm text-sm text-muted">
+            <p className="max-w-sm rounded-full bg-surface px-4 py-2 text-sm text-muted ring-1 ring-white/10">
               {closeCallProgress(closePairs, initialClosePairs)} — Sharpen settles them one at
               a time.
             </p>
@@ -483,7 +483,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
                 Sharpen the list
               </button>
             ) : (
-              <p className="text-sm text-muted">
+              <p className="rounded-full bg-surface px-4 py-2 text-sm text-muted ring-1 ring-white/10">
                 No close calls left — ready to finish.
               </p>
             )}
@@ -496,7 +496,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
             </button>
           </div>
           {sharpening && (
-            <p className="text-sm text-muted">
+            <p className="rounded-full bg-surface px-4 py-2 text-sm text-muted ring-1 ring-white/10">
               Sharpening — closest call first…
             </p>
           )}
