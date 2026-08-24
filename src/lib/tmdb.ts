@@ -88,19 +88,11 @@ export async function searchCompany(q: string): Promise<TmdbCompany[]> {
   return data.results ?? [];
 }
 
-export async function discoverByCompany(companyId: number): Promise<TmdbMovieCredit[]> {
-  // ponytail: pages 1-3 fetched concurrently; sequential pages only if TMDB rate-limits
+// ponytail: pages 1-3 fetched concurrently; sequential pages only if TMDB rate-limits
+async function discoverMovies(params: Record<string, string>): Promise<TmdbMovieCredit[]> {
   const pages = await Promise.all(
     [1, 2, 3].map((page) =>
-      tmdbFetch<{ results: TmdbRawCredit[] }>(
-        "/discover/movie",
-        {
-          with_companies: String(companyId),
-          sort_by: "primary_release_date.desc",
-          page: String(page),
-        },
-        3600,
-      ),
+      tmdbFetch<{ results: TmdbRawCredit[] }>("/discover/movie", { ...params, page: String(page) }, 3600),
     ),
   );
   const byId = new Map<number, TmdbMovieCredit>();
@@ -110,6 +102,21 @@ export async function discoverByCompany(companyId: number): Promise<TmdbMovieCre
     }
   }
   return [...byId.values()];
+}
+
+export async function discoverByCompany(companyId: number): Promise<TmdbMovieCredit[]> {
+  return discoverMovies({
+    with_companies: String(companyId),
+    sort_by: "primary_release_date.desc",
+  });
+}
+
+/** Resolve a free-text query to TMDB's top keyword match, then discover by it. */
+export async function searchByKeyword(q: string): Promise<TmdbMovieCredit[]> {
+  const data = await tmdbFetch<{ results?: { id: number }[] }>("/search/keyword", { query: q }, 300);
+  const kw = data.results?.[0];
+  if (!kw) return [];
+  return discoverMovies({ with_keywords: String(kw.id), sort_by: "popularity.desc" });
 }
 
 export async function searchMovies(q: string): Promise<TmdbMovieCredit[]> {

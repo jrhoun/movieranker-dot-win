@@ -1,0 +1,20 @@
+{
+  "id": "b8be0eb18",
+  "name": "Wait for OpenRouter daily reset",
+  "command": "sleep 23460",
+  "description": "Sleeps until ~17:01 PDT when the free-model daily limit resets, then wakes the controller to resume the deferred-minors fix agent",
+  "status": "killed",
+  "outputPath": ".pi/tasks/session-13350-13350/b8be0eb18.output",
+  "cwd": "/home/jrhoun/projects/movieranker-dot-win",
+  "startTime": 1787591914552,
+  "endTime": 1787591990849,
+  "exitCode": null,
+  "signal": "SIGTERM",
+  "pid": 144912,
+  "bytesWritten": 0,
+  "isAgent": false,
+  "notified": true,
+  "notifyOnCompletion": true,
+  "triggerOnCompletion": true,
+  "timeoutSeconds": 24100
+}

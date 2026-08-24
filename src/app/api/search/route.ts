@@ -2,15 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   discoverByCompany,
   getPersonCredits,
+  searchByKeyword,
   searchCompany,
   searchMovies,
   searchPerson,
 } from "@/lib/tmdb";
 
+const Q_MODES = ["person", "company", "keyword", "title"];
+
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q") ?? "";
   const mode = req.nextUrl.searchParams.get("mode");
   const ref = req.nextUrl.searchParams.get("ref");
+
+  if ((Q_MODES as string[]).includes(mode ?? "") && !q.trim()) {
+    return NextResponse.json({ error: "q required" }, { status: 400 });
+  }
 
   try {
     let results: unknown;
@@ -19,7 +26,7 @@ export async function GET(req: NextRequest) {
     } else if (mode === "company") {
       results = await searchCompany(q);
     } else if (mode === "keyword") {
-      results = await searchMovies(q);
+      results = await searchByKeyword(q);
     } else if (mode === "title") {
       results = await searchMovies(q);
     } else if (mode === "person-credits") {
