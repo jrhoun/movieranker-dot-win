@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import MatchupStage from "@/components/MatchupStage";
+import MoviePoster from "@/components/list/MoviePoster";
 import ParkedStrip from "@/components/ParkedStrip";
 import SaveGateSheet from "@/components/SaveGateSheet";
 import {
@@ -50,6 +51,45 @@ function RankedList({ movies }: { movies: RankedMovie[] }) {
         );
       })}
     </ol>
+  );
+}
+
+// gold / silver / bronze numerals for the podium
+const MEDAL_CLS = ["text-accent", "text-[#c9ced6]", "text-[#cd7f32]"];
+
+function Podium({ movies }: { movies: RankedMovie[] }) {
+  const byId = new Map(movies.map((m) => [m.tmdbId, m]));
+  const top3 = finalizeRanks(movies).slice(0, 3);
+  // classic podium: 2nd left, 1st center (larger), 3rd right
+  const layout = [
+    { i: 1, w: "w-1/4" },
+    { i: 0, w: "w-1/3" },
+    { i: 2, w: "w-1/4" },
+  ];
+  return (
+    <div className="flex items-start justify-center gap-3">
+      {layout.map(({ i, w }) => {
+        const r = top3[i];
+        if (!r) return null;
+        const m = byId.get(r.tmdbId)!;
+        return (
+          <div key={r.tmdbId} className={`${w} min-w-0`}>
+            <div className="relative">
+              <MoviePoster title={m.title} posterPath={m.posterPath} />
+              <span
+                className={`absolute -top-2 -left-2 flex size-7 items-center justify-center rounded-full bg-bg font-mono text-sm font-bold ring-1 ring-white/15 ${MEDAL_CLS[i]}`}
+              >
+                {r.rank}
+              </span>
+            </div>
+            <p className="mt-1.5 truncate text-xs font-medium">{m.title}</p>
+            {m.releaseYear != null && (
+              <p className="truncate text-[11px] text-muted">{m.releaseYear}</p>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -418,7 +458,14 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         <section className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-8 text-center">
           <div className="animate-celebrate w-full max-w-md rounded bg-surface p-5 ring-1 ring-white/10">
             <p className="text-sm uppercase tracking-widest text-accent">Consensus reached</p>
-            <RankedList movies={active} />
+            <div className="mt-4">
+              <Podium movies={active} />
+            </div>
+            <p aria-live="polite" className="mt-4 text-center text-xs text-muted">
+              {active.length} movies · {doneVotes} head-to-heads
+              {session.participants.length > 0 &&
+                ` · ${session.participants.length} voter${session.participants.length === 1 ? "" : "s"}`}
+            </p>
           </div>
           {canSharpen && initialClosePairs !== null && (
             <p className="max-w-sm text-sm text-muted">
