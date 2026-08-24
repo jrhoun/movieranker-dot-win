@@ -11,15 +11,18 @@ const btn =
 export default function OwnerControls({
   listId,
   title,
+  description,
   participants,
 }: {
   listId: string;
   title: string;
+  description: string | null;
   participants: string[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(title);
+  const [editDescription, setEditDescription] = useState(description ?? "");
   const [editParticipants, setEditParticipants] = useState(participants.join(", "));
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -41,7 +44,11 @@ export default function OwnerControls({
       res = await fetch(`/api/lists/${listId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: editTitle.trim(), participants: parts }),
+        body: JSON.stringify({
+        title: editTitle.trim(),
+        participants: parts,
+        description: editDescription.trim() || null,
+      }),
       });
     } catch {
       setBusy(false);
@@ -99,6 +106,15 @@ export default function OwnerControls({
             aria-label="Participants, comma-separated"
             className={inputCls}
           />
+          <textarea
+            value={editDescription}
+            onChange={(e) => setEditDescription(e.target.value)}
+            maxLength={1000}
+            rows={3}
+            placeholder="What's the story behind this ranking? (optional)"
+            aria-label="List description"
+            className={`${inputCls} h-auto py-2 leading-relaxed`}
+          />
           <div className="flex gap-2">
             <button
               type="submit"
@@ -112,6 +128,7 @@ export default function OwnerControls({
               onClick={() => {
                 setEditing(false);
                 setEditTitle(title);
+                setEditDescription(description ?? "");
                 setEditParticipants(participants.join(", "));
                 setNote(null);
               }}

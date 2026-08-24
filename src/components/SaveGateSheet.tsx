@@ -35,18 +35,23 @@ export default function SaveGateSheet({
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [showDesc, setShowDesc] = useState(false);
+  const [description, setDescription] = useState("");
 
   async function performSave() {
     if (savingRef.current) return;
     savingRef.current = true;
     setBusy(true);
     const ranks = new Map(finalizeRanks(session.movies).map((r) => [r.tmdbId, r.rank]));
+    const desc = description.trim();
     const payload = {
       status,
       movies: session.movies.map((m) => ({
         ...m,
         finalRank: status === "done" ? (ranks.get(m.tmdbId) ?? null) : null,
       })),
+      // PATCH is partial: only send description when the user wrote one
+      ...(desc ? { description: desc } : {}),
     };
     let res: Response;
     try {
@@ -235,6 +240,28 @@ export default function SaveGateSheet({
             Sign up &amp; save
           </button>
         </form>
+
+        <div className="mt-3">
+          {!showDesc ? (
+            <button
+              type="button"
+              onClick={() => setShowDesc(true)}
+              className="min-h-11 w-full rounded px-2 text-sm text-muted underline-offset-4 transition-colors duration-200 ease-out hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              + Add the story behind this ranking (optional)
+            </button>
+          ) : (
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              maxLength={1000}
+              rows={3}
+              placeholder="What's the story behind this ranking?"
+              aria-label="What's the story behind this ranking?"
+              className={`${inputCls} h-auto py-2 leading-relaxed`}
+            />
+          )}
+        </div>
 
         <div className="my-4 flex items-center gap-3 text-xs text-muted" role="separator">
           <span className="h-px flex-1 bg-white/10" />

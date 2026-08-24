@@ -153,6 +153,32 @@ describe("POST /api/lists", () => {
     expect(res.status).toBe(400);
   });
 
+  it("passes a trimmed description to save_list", async () => {
+    const res = await POST(jsonRequest({ ...doneBody, description: "  Summer flicks  " }));
+    expect(res.status).toBe(201);
+    const rpcCall = currentDb.calls.find((c) => c.table === "rpc:save_list")!;
+    expect((rpcCall.args[0] as { p_description: string }).p_description).toBe(
+      "Summer flicks",
+    );
+  });
+
+  it("sends null description when absent or empty", async () => {
+    const res = await POST(jsonRequest({ ...doneBody, description: "   " }));
+    expect(res.status).toBe(201);
+    const rpcCall = currentDb.calls.find((c) => c.table === "rpc:save_list")!;
+    expect((rpcCall.args[0] as { p_description: string | null }).p_description).toBeNull();
+  });
+
+  it("rejects a non-string description with 400", async () => {
+    const res = await POST(jsonRequest({ ...doneBody, description: 42 }));
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a description over 1000 chars with 400", async () => {
+    const res = await POST(jsonRequest({ ...doneBody, description: "x".repeat(1001) }));
+    expect(res.status).toBe(400);
+  });
+
   it("maps an RLS violation to 403", async () => {
     currentDb = makeDb({
       user: { id: "u-1" },

@@ -5,11 +5,13 @@ import {
   dbErrorResponse,
   fullMovieRow,
   invalid,
+  parseDescription,
   type MovieInput,
 } from "@/lib/lists-api";
 
 interface PostBody {
   title?: unknown;
+  description?: unknown;
   participants?: unknown;
   status?: unknown;
   movies?: unknown;
@@ -30,6 +32,9 @@ export async function POST(request: Request) {
 
   const { title, participants, status, movies } = body;
   if (typeof title !== "string" || !title.trim()) return invalid("title required");
+  const parsed = parseDescription(body.description);
+  if (!parsed.ok) return invalid(parsed.error);
+  const description = parsed.value;
   if (status !== "draft" && status !== "done")
     return invalid("status must be 'draft' or 'done'");
   if (!Array.isArray(participants) || participants.some((p) => typeof p !== "string"))
@@ -56,6 +61,7 @@ export async function POST(request: Request) {
   const { error } = await supabase.rpc("save_list", {
     p_id: id,
     p_title: title,
+    p_description: description,
     p_participants: participants,
     p_status: status,
     p_movies: (movies as MovieInput[]).map((m) => fullMovieRow(m, id)),

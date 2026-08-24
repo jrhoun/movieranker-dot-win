@@ -4,6 +4,7 @@ create table lists (
   id text primary key,
   owner_id uuid not null references auth.users(id),
   title text not null,
+  description text,
   participants text[] not null default '{}',
   status text not null default 'draft',
   created_at timestamptz not null default now()
@@ -32,7 +33,8 @@ create policy "anyone reads done movies" on list_movies for select using (
 -- SECURITY INVOKER so RLS applies to the caller. NOTE: re-run this RPC after
 -- any future schema change (drop/recreate below).
 create or replace function save_list(
-  p_id text, p_title text, p_participants text[], p_status text, p_movies jsonb
+  p_id text, p_title text, p_description text,
+  p_participants text[], p_status text, p_movies jsonb
 ) returns void
 language plpgsql
 security invoker
@@ -40,8 +42,8 @@ security invoker
 -- here it would break the unqualified lists/list_movies references at runtime.
 as $$
 begin
-  insert into lists (id, owner_id, title, participants, status)
-  values (p_id, auth.uid(), p_title, p_participants, p_status);
+  insert into lists (id, owner_id, title, description, participants, status)
+  values (p_id, auth.uid(), p_title, p_description, p_participants, p_status);
 
   insert into list_movies
     (list_id, tmdb_id, title, poster_path, release_year, elo, comparisons, parked, final_rank)
@@ -55,3 +57,7 @@ begin
   );
 end;
 $$;
+
+-- For existing databases:
+-- ALTER TABLE lists ADD COLUMN description text;
+-- Then re-run the save_list RPC above (drop/recreate) so POSTs can set it.

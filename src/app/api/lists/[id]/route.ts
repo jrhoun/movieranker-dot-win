@@ -5,11 +5,13 @@ import {
   fullMovieRow,
   invalid,
   ownedListId,
+  parseDescription,
   type MovieInput,
 } from "@/lib/lists-api";
 
 interface PatchBody {
   title?: unknown;
+  description?: unknown;
   participants?: unknown;
   status?: unknown;
   movies?: unknown;
@@ -54,6 +56,11 @@ export async function PATCH(
     if (typeof body.title !== "string" || !body.title.trim())
       return invalid("title must be a non-empty string");
     listUpdate.title = body.title;
+  }
+  if (body.description !== undefined) {
+    const parsed = parseDescription(body.description);
+    if (!parsed.ok) return invalid(parsed.error);
+    listUpdate.description = parsed.value;
   }
   if (body.participants !== undefined) {
     if (!Array.isArray(body.participants))

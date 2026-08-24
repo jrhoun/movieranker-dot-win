@@ -150,6 +150,25 @@ describe("PATCH /api/lists/[id]", () => {
     expect(res.status).toBe(400);
   });
 
+  it("updates the description (trimmed, empty clears it)", async () => {
+    const res = await PATCH(patchRequest({ description: "  The story  " }), ctx);
+    expect(res.status).toBe(204);
+    const listUpdate = currentDb.calls.find(
+      (c) => c.table === "lists" && c.method === "update",
+    )!;
+    expect(listUpdate.args[0]).toEqual({ description: "The story" });
+  });
+
+  it("rejects a non-string description with 400", async () => {
+    const res = await PATCH(patchRequest({ description: [] }), ctx);
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a description over 1000 chars with 400", async () => {
+    const res = await PATCH(patchRequest({ description: "x".repeat(1001) }), ctx);
+    expect(res.status).toBe(400);
+  });
+
   it("maps an RLS violation on the list update to 403", async () => {
     currentDb = makeDb({
       user: { id: "u-1" },

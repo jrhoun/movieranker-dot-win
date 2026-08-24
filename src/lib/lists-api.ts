@@ -28,6 +28,22 @@ export function invalid(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
 }
 
+/** Optional list description accepted by POST/PATCH /api/lists. */
+export type DescriptionResult =
+  | { ok: true; value: string | null }
+  | { ok: false; error: string };
+
+/** Trimmed optional description (<=1000 chars, empty -> null) or a 400 message. */
+export function parseDescription(raw: unknown): DescriptionResult {
+  if (raw === undefined) return { ok: true, value: null };
+  if (typeof raw !== "string")
+    return { ok: false, error: "description must be a string" };
+  const trimmed = raw.trim();
+  if (trimmed.length > 1000)
+    return { ok: false, error: "description must be at most 1000 characters" };
+  return { ok: true, value: trimmed === "" ? null : trimmed };
+}
+
 /**
  * Returns the list id if visible+owned by the caller (RLS hides other owners'
  * rows), else null. Used as an ownership precheck for PATCH/DELETE.

@@ -9,6 +9,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 interface DbList {
   id: string;
   title: string;
+  description: string | null;
   participants: string[];
   status: string;
   owner_id: string;
@@ -43,7 +44,7 @@ export default async function PublicListPage({
   // RLS: public sees only status='done'; owners also see their drafts.
   const { data: list } = await supabase
     .from("lists")
-    .select("id,title,participants,status,owner_id")
+    .select("id,title,description,participants,status,owner_id")
     .eq("id", id)
     .maybeSingle<DbList>();
 
@@ -77,6 +78,11 @@ export default async function PublicListPage({
               Ranked by {list.participants.join(", ")}
             </p>
           )}
+          {list.description && (
+            <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted">
+              {list.description}
+            </p>
+          )}
         </div>
         <ShareButton title={list.title} url={await shareUrl(id)} />
       </header>
@@ -86,6 +92,7 @@ export default async function PublicListPage({
           <OwnerControls
             listId={id}
             title={list.title}
+            description={list.description}
             participants={list.participants}
           />
         </div>
