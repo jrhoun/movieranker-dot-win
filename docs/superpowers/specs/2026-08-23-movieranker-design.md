@@ -26,7 +26,7 @@ movieranker.win facilitates and memorializes movie-ranking discussions — "rank
 3. Hybrid ranking engine: quick approximate phase → optional "sharpen" refinement.
 4. **Supabase Auth accounts**, required only at save time: email + password, magic link, and OAuth (Google, Microsoft).
 5. Minimal profile / "My Lists" page: saved lists, drafts and finished.
-6. Finished list page: ranked posters, participants credited, public share link (viewable without login).
+6. Finished list page — **viewing lists is a core part of the loop, not an afterthought**: ranked posters with participants credited, multiple polished view modes, public share link (viewable without login).
 7. Art direction: dark cinema.
 
 ### Explicitly out of v1 (designed-for-later, built-never-yet)
@@ -119,7 +119,14 @@ Button appears when stable. Runs targeted binary-insertion comparisons resolving
 
 **Save gate (at Finish):** signup/login sheet (email+password, magic link, Google, Microsoft). On success the draft + Elo state POSTs to the server and becomes an owned list under `/l/<id>`. User may also save-and-quit mid-session as a resumable draft.
 
-**List `/l/<id>`** — ranked poster wall, participants credited ("Ranked by [PERSON_NAME] & friends"), native Web Share button with copy-link fallback. Publicly viewable logged-out; only the owner sees edit controls.
+**List `/l/<id>`** — the payoff screen; reviewing a list deserves the same craft as making one. Two switchable view modes (toggle remembers per visitor):
+
+- **Stacked** — cinematic countdown: top 3 get a podium treatment (large posters, rank numerals), then a clean numbered stack below. Feels like the end of a awards show.
+- **Rows** — Letterboxd-style horizontal rows: compact rank numeral, poster, title/year, one line of metadata (comparisons won, or participant-added notes later). Scannable for longer lists.
+
+Both modes share: dark-cinema styling, true 2:3 posters, participants credited ("Ranked by [PERSON_NAME] & friends"), native Web Share button with copy-link fallback, owner-only edit controls. Publicly viewable logged-out.
+
+(Innovation room for later revs, noted not built: per-movie vote tallies, head-to-head win percentages, disagreement heat between named participants.)
 
 **Profile `/u/me`** — "My Lists": finished lists and resumable drafts. Bare-bones in v1.
 
