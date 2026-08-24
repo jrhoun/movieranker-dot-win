@@ -285,14 +285,6 @@ export default function SaveGateSheet({
           >
             Continue with Google
           </button>
-          <button
-            type="button"
-            onClick={() => handleOAuth("azure")}
-            disabled={busy}
-            className={btnAlt}
-          >
-            Continue with Microsoft
-          </button>
         </div>
 
         {note && (
