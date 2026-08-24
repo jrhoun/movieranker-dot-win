@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { safeNext } from "@/lib/redirect";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -8,8 +9,8 @@ export async function GET(request: NextRequest) {
   if (code) {
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    // Back to /r/play so a mid-game sign-in resumes the anonymous session.
-    if (!error) return NextResponse.redirect(`${origin}/r/play`);
+    // Back to where sign-in started (mid-game save passes ?next=/r/play).
+    if (!error) return NextResponse.redirect(`${origin}${safeNext(searchParams.get("next"))}`);
   }
   return NextResponse.redirect(`${origin}/?auth_error=1`);
 }

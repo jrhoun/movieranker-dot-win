@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import SignInLink from "@/components/SignInLink";
 
 const linkCls =
   "flex min-h-11 items-center rounded px-3 text-sm font-medium transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
@@ -38,9 +39,7 @@ export default async function SiteHeader() {
               </form>
             </>
           ) : (
-            <Link href="/login" className={linkCls}>
-              Sign in
-            </Link>
+            <SignInLink className={linkCls} />
           )}
         </nav>
       </div>

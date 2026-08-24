@@ -4,6 +4,17 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { safeNext } from "@/lib/redirect";
+
+// ?next= is passed by links to /login; the callback route re-validates it.
+function requestedNext(): string | null {
+  return new URLSearchParams(window.location.search).get("next");
+}
+
+function callbackUrl() {
+  const next = requestedNext();
+  return `${window.location.origin}/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ""}`;
+}
 
 const inputCls =
   "h-11 w-full rounded bg-surface-raised px-3 text-sm text-text placeholder:text-muted ring-1 ring-white/10 transition-shadow duration-150 ease-out hover:ring-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
@@ -45,7 +56,7 @@ export default function LoginPage() {
       );
       return;
     }
-    router.push("/u/me");
+    router.push(safeNext(requestedNext()));
   }
 
   async function handleMagicLink() {
@@ -57,7 +68,7 @@ export default function LoginPage() {
     setNote(null);
     const { error } = await createSupabaseBrowserClient().auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: { emailRedirectTo: callbackUrl() },
     });
     setBusy(false);
     setNote(error ? error.message : `Magic link sent to ${email}.`);
@@ -68,7 +79,7 @@ export default function LoginPage() {
     setNote(null);
     const { error } = await createSupabaseBrowserClient().auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: callbackUrl() },
     });
     setBusy(false);
     if (error) setNote(error.message);

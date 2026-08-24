@@ -46,3 +46,18 @@ already returns home).
 
 - `/u/me` keeps its "Your lists" h1 (page content, not duplicate chrome);
   only the shared bar was added above it.
+
+## Return-to-origin after OAuth / magic link sign-in (feat/v1)
+
+**Problem:** `/auth/callback` hardcoded a redirect to `/r/play` after `exchangeCodeForSession`, so header and `/login` sign-ins dumped users into the ranking room.
+
+**Fix:** thread a validated `next` param through every auth entry point.
+
+- `src/lib/redirect.ts` (new): `safeNext()` — relative paths only (`/...`, not `//...`) else `/`. Open-redirect guard.
+- `src/app/auth/callback/route.ts`: redirects to `${origin}${safeNext(?next)}`; error path unchanged (`/?auth_error=1`).
+- `src/components/SaveGateSheet.tsx`: OAuth + magic-link redirect URLs now carry `?next=%2Fr%2Fplay` — mid-game conversion still resumes the draft flow.
+- `src/app/(site)/login/page.tsx`: all methods honor an incoming `?next=` (password sign-in pushes there; OTP/OAuth forward it to the callback).
+- `src/components/SignInLink.tsx` (new, client): header "Sign in" link passes `?next=<pathname>`; omitted on `/login`.
+- Tests: `src/app/auth/callback/route.test.ts` — valid next redirects; `//evil.com` and `https://evil.com` fall back to `/`; missing next → `/`; exchange error → `?auth_error=1`.
+
+**Verification:** 96 tests pass (10 files), tsc clean, eslint clean, production build passes. No live traffic.

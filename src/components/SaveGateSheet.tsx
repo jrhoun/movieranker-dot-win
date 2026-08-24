@@ -162,7 +162,9 @@ export default function SaveGateSheet({
     setNote(null);
     const { error } = await createSupabaseBrowserClient().auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/r/play")}`,
+      },
     });
     setBusy(false);
     setNote(error ? error.message : `Magic link sent to ${email}.`);
@@ -175,7 +177,9 @@ export default function SaveGateSheet({
     onAuthRedirect?.();
     const { error } = await createSupabaseBrowserClient().auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/r/play")}`,
+      },
     });
     setBusy(false);
     if (error) setNote(error.message);
