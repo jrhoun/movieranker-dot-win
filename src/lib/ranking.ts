@@ -132,13 +132,27 @@ export function isStable(
  * (gap <= SHARPEN_COMFORT_GAP) — i.e. close calls sharpen could tighten.
  * Reads as "~N close calls left" rather than votes strictly required; the same
  * ceil(count*2), min-1 formula keeps the progress-bar math unchanged. */
-export function estimateRemainingVotes(order: RankedMovie[]): number {
+/** Raw adjacent-pair count within the comfort band — no vote-estimate floor.
+ * Backs both the ~votes estimate and the resolved-vs-initial progress line. */
+export function countClosePairs(order: RankedMovie[]): number {
   const sorted = [...order].sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId);
   let close = 0;
   for (let i = 1; i < sorted.length; i++) {
     if (sorted[i - 1].elo - sorted[i].elo <= SHARPEN_COMFORT_GAP) close++;
   }
-  return Math.max(1, Math.ceil(close * 2));
+  return close;
+}
+
+export function estimateRemainingVotes(order: RankedMovie[]): number {
+  return Math.max(1, Math.ceil(countClosePairs(order) * 2));
+}
+
+/** Sharpen-phase status line: current-vs-initial so slow progress stays visible
+ * even though one vote moves a pair only ~16–32 elo points. Honest by design:
+ * a vote that nets zero resolutions just holds the fraction steady. */
+export function closeCallProgress(current: number, initial: number): string {
+  if (current <= 0) return "No close calls left — ready to finish.";
+  return `${current} of ${initial} matchups still too close to call`;
 }
 
 export function sharpenNextPair(order: RankedMovie[]): [RankedMovie, RankedMovie] | null {

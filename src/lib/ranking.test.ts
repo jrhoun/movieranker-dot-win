@@ -6,6 +6,8 @@ import {
   SHARPEN_COMFORT_GAP,
   SHARPEN_GAP_THRESHOLD,
   applyWin,
+  closeCallProgress,
+  countClosePairs,
   estimateRemainingVotes,
   finalizeRanks,
   isStable,
@@ -243,6 +245,35 @@ describe("estimateRemainingVotes", () => {
     ];
     expect(sharpenNextPair(order)).toBeNull();
     expect(estimateRemainingVotes(order)).toBe(1); // min-1
+  });
+});
+
+describe("countClosePairs", () => {
+  test("all-equal elos: every adjacent pair is close (n-1)", () => {
+    const tied = Array.from({ length: 19 }, (_, i) => movie({ tmdbId: i + 1 }));
+    expect(countClosePairs(tied)).toBe(18);
+  });
+
+  test("matches the comfort band and ignores parked-free ordering", () => {
+    const spread = [
+      movie({ tmdbId: 1, elo: 1300 }),
+      movie({ tmdbId: 2, elo: 1200 }), // gap exactly at band -> close
+      movie({ tmdbId: 3, elo: 1000 }), // gap 200 -> not close
+    ];
+    expect(countClosePairs(spread)).toBe(1);
+    expect(estimateRemainingVotes(spread)).toBe(2); // ceil(1*2), no floor needed
+  });
+});
+
+describe("closeCallProgress", () => {
+  test("resolved-vs-initial fraction", () => {
+    expect(closeCallProgress(12, 18)).toBe(
+      "12 of 18 matchups still too close to call",
+    );
+  });
+
+  test("zero close calls reads as ready to finish", () => {
+    expect(closeCallProgress(0, 18)).toBe("No close calls left — ready to finish.");
   });
 });
 

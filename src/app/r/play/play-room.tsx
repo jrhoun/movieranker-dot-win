@@ -7,6 +7,8 @@ import MatchupStage from "@/components/MatchupStage";
 import ParkedStrip from "@/components/ParkedStrip";
 import SaveGateSheet from "@/components/SaveGateSheet";
 import {
+  closeCallProgress,
+  countClosePairs,
   estimateRemainingVotes,
   finalizeRanks,
   isStable,
@@ -166,6 +168,15 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     !!session &&
     active.length >= 2 &&
     isStable(active, session.votesSinceOrderChange, fieldSplit);
+
+  // Close-call baseline, captured once when the room first reaches stability.
+  // Absolute counts barely move per vote (~16–32 elo), so progress reads as
+  // resolved-vs-initial instead. Render-phase state init: no first-paint flicker.
+  const [initialClosePairs, setInitialClosePairs] = useState<number | null>(null);
+  if (stable && initialClosePairs === null) {
+    setInitialClosePairs(countClosePairs(active));
+  }
+  const closePairs = countClosePairs(active);
 
   function handleVote(winnerId: number, loserId: number) {
     if (!session || settlingLoserId !== null) return;
@@ -409,9 +420,10 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
             <p className="text-sm uppercase tracking-widest text-accent">Consensus reached</p>
             <RankedList movies={active} />
           </div>
-          {canSharpen && (
+          {canSharpen && initialClosePairs !== null && (
             <p className="max-w-sm text-sm text-muted">
-              Some calls are still close — settle them?
+              {closeCallProgress(closePairs, initialClosePairs)} — Sharpen settles them one at
+              a time.
             </p>
           )}
           <div className="flex flex-wrap justify-center gap-3">
@@ -462,7 +474,9 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               <p aria-live="polite" className="text-xs text-muted sm:text-sm">
                 {sharpening
                   ? "Sharpening — closest call first"
-                  : `~${remainingVotes} close calls left`}
+                  : initialClosePairs !== null
+                    ? closeCallProgress(closePairs, initialClosePairs)
+                    : `~${remainingVotes} close calls left`}
                 {!sharpening &&
                   remainingVotes >= ESTIMATE_HINT_THRESHOLD &&
                   " — you can also finish anytime"}
