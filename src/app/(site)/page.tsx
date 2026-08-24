@@ -70,7 +70,7 @@ export default function Home() {
           never lands on fold crests; muted subtitle is allowed only on the scrim. */}
       <header className="bg-curtain">
         <div className="mx-auto w-full max-w-5xl px-4 py-10 text-center sm:py-14">
-          <div className="mx-auto inline-block rounded-lg bg-bg/60 px-6 py-4 shadow-lg ring-1 ring-white/10 backdrop-blur-[2px]">
+          <div className="mx-auto inline-block rounded-lg bg-bg/80 px-6 py-4 shadow-lg ring-1 ring-white/10 backdrop-blur-[2px]">
             <h1 className="text-3xl font-bold text-accent drop-shadow sm:text-5xl">
               movieranker.win
             </h1>

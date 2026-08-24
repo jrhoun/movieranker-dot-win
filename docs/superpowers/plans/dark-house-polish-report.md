@@ -57,3 +57,18 @@ Scope: DESIGN.md "Space & Usability Principles" applied to dark-house surfaces o
   residue; visual check on staging recommended.
 - ParkedStrip is now visually docked like CandidateTray; confirm the
   "Unsaved" pill (fixed bottom-right) still reads clearly over it.
+
+## Follow-up: scrim contrast bump + 1b8ebc1 self-review (this commit)
+
+- Hero scrim on `src/app/(site)/page.tsx` bumped `bg-bg/60` -> `bg-bg/80`
+  (worst-case fold-crest contrast ~4.2:1 -> AA-passing for regular-weight text).
+- Self-review of 1b8ebc1 against DESIGN.md (Space & Usability + hard rules):
+  - Posters: untouched by the commit; all remain true 2:3. ParkedStrip keeps its
+    own inline 2:3 poster block (pre-existing; swapping to MoviePoster would
+    change TMDB fetch size w92 -> w342, so left as-is).
+  - Motion: only additions are duration-200 ease-out — within the <=250ms rule.
+  - Colors: no new raw hexes; token classes and existing ring-white/10 only.
+  - Targets: touched controls keep >=44px (shared `btn` min-h-11 in
+    OwnerControls; min-h-11 / leading-[44px] on page.tsx resume buttons).
+- Verdict: no violations found; no corrections required beyond the scrim bump.
+- Verification: npm test 96/96, tsc --noEmit clean, eslint clean, next build passes.
