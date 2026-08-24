@@ -29,7 +29,15 @@ function SkeletonGrid() {
   );
 }
 
-export default function SearchPanel({ onPick }: { onPick: (m: TmdbMovieCredit) => void }) {
+export default function SearchPanel({
+  onPick,
+  onAddAll,
+  isSelected,
+}: {
+  onPick: (m: TmdbMovieCredit) => void;
+  onAddAll: (movies: TmdbMovieCredit[]) => void;
+  isSelected: (m: TmdbMovieCredit) => boolean;
+}) {
   const [mode, setMode] = useState<Mode>("title");
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
@@ -195,10 +203,32 @@ export default function SearchPanel({ onPick }: { onPick: (m: TmdbMovieCredit) =
             ))}
           </ul>
         ) : showMovies && movies.length > 0 ? (
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
-            {movies.map((mv) => (
-              <MoviePosterCard key={mv.tmdbId} movie={mv} onSelect={() => onPick(mv)} />
-            ))}
+          <div>
+            {/* results header: "Add all" is a secondary action under the search itself */}
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p aria-live="polite" className="text-sm text-muted">
+                {movies.length} result{movies.length === 1 ? "" : "s"}
+              </p>
+              <button
+                type="button"
+                onClick={() => onAddAll(movies)}
+                disabled={movies.every(isSelected)}
+                title={movies.every(isSelected) ? "All results are already on your list" : undefined}
+                className="min-h-11 rounded-full bg-surface-raised px-4 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:text-muted"
+              >
+                Add all {movies.length}
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+              {movies.map((mv) => (
+                <MoviePosterCard
+                  key={mv.tmdbId}
+                  movie={mv}
+                  selected={isSelected(mv)}
+                  onSelect={() => onPick(mv)}
+                />
+              ))}
+            </div>
           </div>
         ) : debouncedQ.trim() || ref ? (
           <p className="py-8 text-center text-sm text-muted">Nothing found. Try another search.</p>

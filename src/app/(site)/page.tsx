@@ -10,6 +10,7 @@ import SearchPanel from "@/components/SearchPanel";
 import { HERO_CANDIDATES, FAN_POSTERS, HERO_POSTERS } from "@/lib/hero-posters";
 import type { RankedMovie } from "@/lib/ranking";
 import { clearSession, loadSession, saveSession } from "@/lib/session";
+import { mergeCandidates } from "@/lib/tray";
 import type { TmdbMovieCredit } from "@/lib/tmdb";
 
 const STEPS = [
@@ -54,11 +55,7 @@ export default function Home() {
   }, []);
 
   function addCandidate(m: TmdbMovieCredit) {
-    setCandidates((prev) =>
-      prev.some((c) => c.tmdbId === m.tmdbId)
-        ? prev
-        : [...prev, m].sort((a, b) => a.title.localeCompare(b.title)),
-    );
+    setCandidates((prev) => mergeCandidates(prev, [m]));
   }
 
   // hero posters toggle: tap to add, tap again to remove (same tray state as search picks)
@@ -206,13 +203,18 @@ export default function Home() {
         </div>
       )}
       <div id="start">
-        <SearchPanel onPick={addCandidate} />
+        <SearchPanel
+          onPick={toggleCandidate}
+          onAddAll={(movies) => setCandidates((prev) => mergeCandidates(prev, movies))}
+          isSelected={(m) => candidates.some((c) => c.tmdbId === m.tmdbId)}
+        />
       </div>
       <CandidateTray
         candidates={candidates}
         onRemove={(id) =>
           setCandidates((prev) => prev.filter((c) => c.tmdbId !== id))
         }
+        onClearAll={() => setCandidates([])}
         participants={participants}
         onParticipantsChange={setParticipants}
         title={title}
