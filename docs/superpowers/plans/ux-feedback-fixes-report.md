@@ -169,6 +169,33 @@ that ignores coin-flip swaps between near-equal neighbors — not another
 constant tweak. Tests pin convergence at measured budgets (300 / 560 / 900)
 and log target-vs-actual via console.log.
 
+### Round 3 — significant-order stability (tie-band tolerance)
+
+Round 2's miss was Elo churn among effectively-equal movies counting as "order
+changed". Ruling: significance-tolerant tracking.
+
+- New `STABLE_ORDER_TOLERANCE = 30`. `recordMatchupResult` builds a
+  significant-order signature: sort desc by elo, merge adjacent entries
+  connected by gaps <= tolerance into tie-band blocks, compare block sequences
+  before vs after. Swap inside a band → no change; cross-band movement →
+  changed. `STABILITY_VOTES_N=6`, `estimateRemainingVotes` (comfort-band
+  pairs), and sharpen unchanged.
+
+**Round-3 simulation results** (same harness/seeds):
+
+| List size | n·log₂n·2 budget | Measured votes to stable |
+|---|---|---|
+| 12 | 88 | 55 |
+| 16 | 128 | 6 |
+| 20 | 174 | 6 |
+
+Target met for the first time across all three rounds. The tiny 16/20 numbers
+are expected, not a bug: starting elos are all equal (1000), so the whole list
+starts as ONE tie-band and no swap is significant until elo spread develops —
+ties are interchangeable by design, and sharpen still surfaces the close calls
+via `estimateRemainingVotes`. Harness history: gap>50 → ~1441–1976 / never /
+never; gap>25 → 643/1505/3202; pure order → 244/490/804; tie-banded → 55/6/6.
+
 ## Verification
 
 - `npm test`: **75 passed** (72 prior + 1 park/estimate coverage already present

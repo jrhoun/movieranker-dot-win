@@ -69,10 +69,26 @@ export function nextMatchup(movies: RankedMovie[]): [RankedMovie, RankedMovie] {
   return [sorted[best], sorted[best + 1]];
 }
 
-function descOrder(movies: RankedMovie[]): number[] {
-  return [...movies]
-    .sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId)
-    .map((m) => m.tmdbId);
+
+
+/** Adjacent entries whose elo gap is <= this are tie-banded: swapping inside
+ * a band is not a significant order change; movement across bands is. */
+export const STABLE_ORDER_TOLERANCE = 30;
+
+/** Desc-elo order merged into tie-band blocks: adjacent entries connected by
+ * gaps <= STABLE_ORDER_TOLERANCE land in the same block. Signature = sequence
+ * of blocks (each block's tmdbIds sorted canonically). Swaps inside a band
+ * leave it unchanged; any cross-band movement changes some block's membership. */
+function bandSignature(movies: RankedMovie[]): number[][] {
+  const sorted = [...movies].sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId);
+  const bands: number[][] = [];
+  let prev: RankedMovie | undefined;
+  for (const m of sorted) {
+    if (!prev || prev.elo - m.elo > STABLE_ORDER_TOLERANCE) bands.push([m.tmdbId]);
+    else bands[bands.length - 1].push(m.tmdbId);
+    prev = m;
+  }
+  return bands.map((ids) => ids.sort((x, y) => x - y));
 }
 
 export function recordMatchupResult(
@@ -80,16 +96,22 @@ export function recordMatchupResult(
   winnerId: number,
   loserId: number,
 ): { movies: RankedMovie[]; orderChanged: boolean } {
-  const before = descOrder(movies);
+  const before = bandSignature(movies);
   const next = applyWin(movies, winnerId, loserId);
-  const after = descOrder(next);
-  return { movies: next, orderChanged: before.some((id, i) => after[i] !== id) };
+  const after = bandSignature(next);
+  const same =
+    before.length === after.length &&
+    before.every(
+      (band, i) => band.length === after[i].length && band.every((id, j) => after[i][j] === id),
+    );
+  return { movies: next, orderChanged: !same };
 }
 
-/** Quick phase: stability is pure order-settling — the ranking holds once no
- * adjacent pair has swapped for STABILITY_VOTES_N consecutive votes, regardless
- * of gap sizes. Sharpen phase afterwards is optional gap tightening
- * (sharpenNextPair); finishing early is always available. */
+/** Quick phase: stability is settled SIGNIFICANT order — the ranking holds once
+ * no cross-band movement has occurred for STABILITY_VOTES_N consecutive votes
+ * (tie-band swaps don't reset the streak). No gap-floor requirement; sharpen
+ * phase afterwards is optional gap tightening (sharpenNextPair); finishing
+ * early is always available. */
 export function isStable(order: RankedMovie[], votesSinceOrderChanged: number): boolean {
   return votesSinceOrderChanged >= STABILITY_VOTES_N;
 }

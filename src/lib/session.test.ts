@@ -133,10 +133,10 @@ describe("voting helpers", () => {
     expect(s.movies[1].elo).toBe(1100); // untouched
   });
 
-  it("applyVote resets the counter when an upset changes the order", () => {
+  it("applyVote resets the counter when a significant (cross-band) upset changes the order", () => {
     const s = three();
-    s.movies[0].elo = 1010; // m1 barely above the tied pair
-    const next = applyVote(s, 3, 1); // m3 jumps over m1
+    s.movies[0].elo = 1032; // m1 clearly above m3 (> STABLE_ORDER_TOLERANCE)
+    const next = applyVote(s, 3, 1); // m3 jumps over m1 across the band boundary
     const order = [...next.movies]
       .sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId)
       .map((m) => m.tmdbId);
