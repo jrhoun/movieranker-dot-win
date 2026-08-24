@@ -4,12 +4,37 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import CandidateTray from "@/components/CandidateTray";
+import MarqueeHeading from "@/components/MarqueeHeading";
 import MoviePoster from "@/components/list/MoviePoster";
 import SearchPanel from "@/components/SearchPanel";
-import { HERO_POSTERS } from "@/lib/hero-posters";
+import { HERO_CANDIDATES, HERO_POSTERS } from "@/lib/hero-posters";
 import type { RankedMovie } from "@/lib/ranking";
 import { clearSession, loadSession, saveSession } from "@/lib/session";
 import type { TmdbMovieCredit } from "@/lib/tmdb";
+
+const STEPS = [
+  {
+    n: "01",
+    icon: "🔍",
+    alt: "Magnifying glass",
+    title: "Build your list",
+    body: "Search any actor, director, studio, or vibe. Tap the posters worth arguing about.",
+  },
+  {
+    n: "02",
+    icon: "⚔️",
+    alt: "Crossed swords",
+    title: "Battle head-to-head",
+    body: "Movies enter the arena two at a time. Your crew debates, you tap the winner.",
+  },
+  {
+    n: "03",
+    icon: "🏆",
+    alt: "Trophy",
+    title: "Crown the champion",
+    body: "Our engine settles the order and gives you a shareable ranked wall.",
+  },
+];
 
 export default function Home() {
   const router = useRouter();
@@ -34,6 +59,15 @@ export default function Home() {
         ? prev
         : [...prev, m].sort((a, b) => a.title.localeCompare(b.title)),
     );
+  }
+
+  // hero posters toggle: tap to add, tap again to remove (same tray state as search picks)
+  function toggleCandidate(m: TmdbMovieCredit) {
+    if (candidates.some((c) => c.tmdbId === m.tmdbId)) {
+      setCandidates((prev) => prev.filter((c) => c.tmdbId !== m.tmdbId));
+    } else {
+      addCandidate(m);
+    }
   }
 
   function start() {
@@ -90,16 +124,28 @@ export default function Home() {
           </div>
           {/* Fanned marquee of real posters: overlapping, tilted -8°..8°,
               straighten+lift on hover (200ms ease-out; killed by reduced-motion). */}
-          <ul aria-hidden="true" className="mt-8 flex justify-center px-4 sm:mt-10">
-            {HERO_POSTERS.map((p, i) => (
-              <li
-                key={p.title}
-                style={{ "--tilt": `${p.tilt}deg`, zIndex: i === 3 ? 10 : i } as React.CSSProperties}
-                className="relative -mx-3 w-20 origin-bottom rotate-(--tilt) transition-all duration-200 ease-out hover:z-20 hover:rotate-0 hover:-translate-y-2 sm:-mx-4 sm:w-28"
-              >
-                <MoviePoster title={p.title} posterPath={p.posterPath} className="shadow-xl" />
-              </li>
-            ))}
+          <ul className="mt-8 flex justify-center px-4 sm:mt-10">
+            {HERO_POSTERS.map((p, i) => {
+              const inTray = candidates.some((c) => c.tmdbId === p.tmdbId);
+              return (
+                <li
+                  key={p.title}
+                  style={{ "--tilt": `${p.tilt}deg`, zIndex: i === 3 ? 10 : i } as React.CSSProperties}
+                  className="relative -mx-3 w-20 origin-bottom rotate-(--tilt) transition-all duration-200 ease-out hover:z-20 hover:rotate-0 hover:-translate-y-2 sm:-mx-4 sm:w-28"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleCandidate(HERO_CANDIDATES[i])}
+                    aria-label={`Add ${p.title} to your ranking`}
+                    aria-pressed={inTray}
+                    title={inTray ? "Already on your list — tap to remove" : `Add ${p.title}`}
+                    className="block w-full cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                  >
+                    <MoviePoster title={p.title} posterPath={p.posterPath} className="shadow-xl" />
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
       </header>
@@ -170,6 +216,28 @@ export default function Home() {
         onTitleChange={setTitle}
         onStart={start}
       />
+      {/* How It Works (DESIGN.md "Premiere Night"): marquee-headed explainer for
+          first-timers. Static cards; hover lift is motion-safe-only. */}
+      <section aria-label="How it works" className="mt-16">
+        <MarqueeHeading as="h2">How it works</MarqueeHeading>
+        <ol className="mt-8 grid list-none gap-4 sm:grid-cols-3">
+          {STEPS.map((s) => (
+            <li key={s.n}>
+              <div className="h-full rounded-lg bg-surface p-5 ring-1 ring-white/10 transition-transform duration-200 ease-out motion-safe:hover:-translate-y-0.5">
+                <div className="flex items-center justify-between">
+                  <p aria-hidden="true" className="font-display text-3xl leading-none text-gold">{s.n}</p>
+                  <span role="img" aria-label={s.alt} className="text-2xl">{s.icon}</span>
+                </div>
+                <h3 className="mt-3 font-display text-2xl uppercase tracking-wide">{s.title}</h3>
+                <p className="mt-1 text-sm text-muted">{s.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-6 text-center text-sm text-muted">
+          No account needed to play — sign up only to save your masterpiece.
+        </p>
+      </section>
       </main>
     </>
   );

@@ -76,7 +76,7 @@ export default function CandidateTray({
           {!ready && (
             <li className="flex items-center px-2 text-xs text-muted">
               {candidates.length === 0
-                ? "Tap posters above to add them here."
+                ? "Tap a poster up top — or search below — to build your list."
                 : "Add at least one more movie."}
             </li>
           )}
