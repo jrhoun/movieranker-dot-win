@@ -101,17 +101,18 @@ export default function PlayRoom({
   function handleUndo() {
     if (!session?.undoSnapshot || settlingLoserId !== null) return;
     const prev = session.undoSnapshot;
+    // stay in sharpen mode only if the restored list still offers a sharpen pair
+    const stillSharpen = sharpening && selectNextPair(prev, true) !== null;
+    setSharpening(stillSharpen);
     setSession(prev);
     saveSession(prev);
-    setPair(selectNextPair(prev, sharpening));
+    setPair(selectNextPair(prev, stillSharpen));
   }
 
   function startSharpen() {
     if (!session) return;
-    const p = selectNextPair(session, true);
-    if (!p) return; // stable means every gap already clears the threshold
     setSharpening(true);
-    setPair(p);
+    setPair(selectNextPair(session, true));
   }
 
   if (!ready) return <main className="flex-1" />;
@@ -143,14 +144,16 @@ export default function PlayRoom({
             </p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={handleUndo}
-          disabled={!canUndo}
-          className="min-h-11 shrink-0 rounded px-3 text-sm text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-accent active:text-text disabled:pointer-events-none disabled:opacity-40"
-        >
-          Undo
-        </button>
+        {!finished && (
+          <button
+            type="button"
+            onClick={handleUndo}
+            disabled={!canUndo}
+            className="min-h-11 shrink-0 rounded px-3 text-sm text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-accent active:text-text disabled:pointer-events-none disabled:opacity-40"
+          >
+            Undo
+          </button>
+        )}
       </header>
 
       {finished ? (
@@ -203,7 +206,7 @@ export default function PlayRoom({
             Finish
           </button>
         </section>
-      ) : stable ? (
+      ) : stable && !sharpening ? (
         <section className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-8 text-center">
           <div className="animate-celebrate w-full max-w-md rounded bg-surface p-5 ring-1 ring-white/10">
             <p className="text-sm uppercase tracking-widest text-accent">Consensus reached</p>
