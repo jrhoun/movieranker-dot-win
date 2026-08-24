@@ -18,12 +18,15 @@ export default function SaveGateSheet({
   status,
   existingId,
   onClose,
+  onAuthRedirect,
 }: {
   session: PlaySession;
   status: "done" | "draft";
   /** Set when finishing a resumed draft: update the existing list instead of POSTing a new one. */
   existingId?: string;
   onClose: () => void;
+  /** Called when an OAuth redirect away from the page begins (leave-warning must disarm). */
+  onAuthRedirect?: () => void;
 }) {
   const router = useRouter();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -163,6 +166,8 @@ export default function SaveGateSheet({
   async function handleOAuth(provider: "google" | "azure") {
     setBusy(true);
     setNote(null);
+    // page is about to navigate away — host must disarm its leave-warning
+    onAuthRedirect?.();
     const { error } = await createSupabaseBrowserClient().auth.signInWithOAuth({
       provider,
       options: { redirectTo: `${window.location.origin}/auth/callback` },

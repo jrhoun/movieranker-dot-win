@@ -24,19 +24,24 @@ function Side({
       }`}
       aria-hidden={losing}
     >
+      {/* Only the poster frame is the vote target — titles/meta stay outside so
+          stray taps near the card edges don't cast a vote. */}
       <button
         type="button"
         onClick={() => onVote(movie.tmdbId, otherId)}
         aria-label={`Pick ${movie.title} as the winner`}
-        className="group min-h-11 rounded transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+        style={{ touchAction: "manipulation" }}
+        className="group mx-auto block w-fit select-none rounded transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
         disabled={losing}
       >
-        <div className="mx-auto aspect-[2/3] h-[min(62svh,64vw)] overflow-hidden rounded bg-surface ring-1 ring-white/10 transition-all duration-200 ease-out group-hover:ring-accent group-focus-visible:ring-accent group-active:ring-accent">
+        <div className="aspect-[2/3] h-[min(62svh,64vw)] overflow-hidden rounded bg-surface ring-1 ring-white/10 transition-all duration-200 ease-out group-hover:ring-accent group-focus-visible:ring-accent group-active:ring-accent">
           {movie.posterPath ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={`${POSTER_BASE}${movie.posterPath}`}
               alt=""
+              draggable={false}
+              onDragStart={(e) => e.preventDefault()}
               className="h-full w-full object-cover"
             />
           ) : (
@@ -45,11 +50,9 @@ function Side({
             </div>
           )}
         </div>
-        <p className="mt-2 truncate px-1 text-center text-lg font-semibold sm:text-2xl">
-          {movie.title}
-        </p>
-        <p className="text-center text-xs text-muted sm:text-sm">{movie.releaseYear ?? "—"}</p>
       </button>
+      <p className="truncate px-1 text-center text-lg font-semibold sm:text-2xl">{movie.title}</p>
+      <p className="text-center text-xs text-muted sm:text-sm">{movie.releaseYear ?? "—"}</p>
       <button
         type="button"
         onClick={() => onPark(movie.tmdbId)}
@@ -76,7 +79,7 @@ export default function MatchupStage({
   return (
     <section
       aria-label="Which movie is better?"
-      className="grid flex-1 grid-cols-[1fr_auto_1fr] items-center gap-1 sm:gap-3"
+      className="grid flex-1 grid-cols-[1fr_auto_1fr] items-center gap-1 select-none sm:gap-3"
     >
       <Side
         movie={a}
@@ -85,9 +88,7 @@ export default function MatchupStage({
         onVote={onVote}
         onPark={onPark}
       />
-      <p aria-hidden="true" className="px-0.5 text-base font-bold text-accent sm:text-xl">
-        VS
-      </p>
+      <p aria-hidden="true" className="px-0.5 text-base font-bold text-accent sm:text-xl">VS</p>
       <Side
         movie={b}
         otherId={a.tmdbId}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import CandidateTray from "@/components/CandidateTray";
 import SearchPanel from "@/components/SearchPanel";
 import type { RankedMovie } from "@/lib/ranking";
@@ -14,6 +15,16 @@ export default function Home() {
   const [participants, setParticipants] = useState<string[]>([]);
   const [candidates, setCandidates] = useState<TmdbMovieCredit[]>([]);
   const [confirmResume, setConfirmResume] = useState(false);
+  const [hasSaved, setHasSaved] = useState(false);
+
+  useEffect(() => {
+    // async hop so pre-hydration markup matches first client render (same as play room)
+    const t = setTimeout(() => {
+      const s = loadSession();
+      setHasSaved(!!s && s.movies.length >= 2);
+    }, 0);
+    return () => clearTimeout(t);
+  }, []);
 
   function addCandidate(m: TmdbMovieCredit) {
     setCandidates((prev) =>
@@ -94,10 +105,26 @@ export default function Home() {
           </div>
         </div>
       )}
+      {hasSaved && !confirmResume && (
+        <div
+          role="status"
+          className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded bg-surface p-4 ring-1 ring-white/10"
+        >
+          <p className="text-sm">You have a ranking in progress.</p>
+          <Link
+            href="/r/play"
+            className="min-h-11 rounded-full bg-accent px-5 text-sm font-bold leading-[44px] text-bg transition-colors duration-200 ease-out hover:bg-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            Resume
+          </Link>
+        </div>
+      )}
       <SearchPanel onPick={addCandidate} />
       <CandidateTray
         candidates={candidates}
-        onRemove={(id) => setCandidates((prev) => prev.filter((c) => c.tmdbId !== id))}
+        onRemove={(id) =>
+          setCandidates((prev) => prev.filter((c) => c.tmdbId !== id))
+        }
         participants={participants}
         onParticipantsChange={setParticipants}
         title={title}

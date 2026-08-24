@@ -1,0 +1,120 @@
+# Ranking Room UX Feedback Fixes — Report
+
+Branch: `feat/v1` · Date: 2026-02-14 · Scope: `/r/play` room and its components
+
+## Findings fixed
+
+### 1. Undo invisible → visible labeled button
+
+`src/app/r/play/play-room.tsx`
+
+- Header undo is now a standard button: icon **and** text (`↩ Undo`), surface bg,
+  `ring-1 ring-white/10` border, hover/focus-visible/active states, `min-h-11`
+  (44px), visibly dimmed (`disabled:opacity-40`) until a vote has been cast
+  (`canUndo = !!session.undoSnapshot && settlingLoserId === null`). It sits in the
+  header row directly above the progress bar, next to Exit.
+- Keyboard shortcut: none existed before this change (only Escape inside
+  SaveGateSheet), so nothing to preserve. Add one only if users ask.
+
+### 2. Poster drag hijacking clicks — fixed
+
+`src/components/MatchupStage.tsx`, `src/components/ParkedStrip.tsx`
+
+- All vote-stage poster imgs: `draggable={false}` +
+  `onDragStart={(e) => e.preventDefault()}` (belt-and-braces).
+- Clickable wrappers: `select-none` (vote button + matchup grid) and inline
+  `touch-action: manipulation` to kill double-tap zoom delay on mobile.
+
+### 3. Vote hit area = poster frame only — restructured
+
+`src/components/MatchupStage.tsx`
+
+- The `<button>` now wraps exactly the `aspect-[2/3]` poster frame.
+- Title and release year moved **outside** the interactive element (plain `<p>`s).
+- Per-side "Haven't seen" park buttons unchanged, still ≥44px.
+- Posters remain `aspect-[2/3] object-cover`; motion stays 150–250ms ease-out.
+
+### 4. Can't park a movie outside the current matchup + frozen estimate
+
+- **New "Your movies" strip** (`ParkedStrip.tsx`, repurposed): shows *every*
+  movie in the session as a ~56px (`w-14`) 2:3 thumbnail. Tapping toggles the
+  same `parked` flag via the existing `parkMovie` / `handleParkToggle` path.
+  Parked thumbnails are dimmed (`opacity-40`) with an ✕ badge; legend in the
+  summary row. Collapsible everywhere via native `<details open>` (no JS).
+- The old parked-only strip is gone — one strip, one mental model. The
+  "Not enough movies in play" screen wording was updated to point at it.
+- **Estimate recompute verified, no fix needed**: `~N votes left` derives from
+  `estimateRemainingVotes(active)` where `active` filters `!m.parked` from live
+  session state; parking re-renders and drops unstable gaps among active movies
+  immediately. Same for the progress bar's denominator.
+
+### 5. Scary leave-warning during account creation — suppressed
+
+`src/app/r/play/play-room.tsx`, `src/components/SaveGateSheet.tsx`
+
+- The `beforeunload` effect additionally checks `sheetStatus !== null ||
+  authRedirecting` and returns early (disarmed) in those cases.
+- `SaveGateSheet` gained an optional `onAuthRedirect` callback, invoked when an
+  OAuth provider redirect begins (`handleOAuth`); PlayRoom sets
+  `authRedirecting = true`. Once set it intentionally stays latched for the page
+  lifetime — after a real redirect the page reloads anyway; if OAuth fails
+  in-place the sheet remains open and the user can still close it safely.
+- Handler remains armed only for anonymous users with unsaved votes who are not
+  mid-save/signup. Intentional exits use `router.push` (client-side navigation),
+  which never fires `beforeunload`.
+
+## Steering round A/B/C ("could not finish the ranking")
+
+### A. Always-available exit + Finish now
+
+- **Header "← Exit"** control opens an inline choice card (no `window.confirm`):
+  - **Resume later**: anonymous users keep the localStorage session and go home;
+    logged-in draft owners (`initial`) go through the existing save-as-draft
+    SaveGateSheet (PATCH path). Home now shows a passive "You have a ranking in
+    progress → Resume" banner linking `/r/play` when a localStorage session
+    exists (checked post-hydration, `src/app/page.tsx`).
+  - **Abandon**: `clearSession()` then home.
+  - **Keep ranking**: dismisses the card.
+- **"Finish now →"** sits right beside the "~N votes left" text in the voting
+  stage (the one state that previously had no exit) and jumps to the finished
+  screen, which ranks by current Elo via `finalizeRanks` and flows through the
+  normal SaveGateSheet — identical to the stable-screen Finish. The stable /
+  not-enough-movies screens already had Finish buttons.
+
+### B. Progress honesty
+
+- The fake percentage (`comparisons / (active × 2.5)`) heuristic is gone.
+- Bar width now driven by `1 − remaining/(remaining + comparisons)` — starts near
+  0 regardless of list size, converges honestly to full as the estimate shrinks.
+- "~N votes left" (from `estimateRemainingVotes`, recomputed every vote/park) is
+  the primary signal. When remaining ≥ 12 (`ESTIMATE_HINT_THRESHOLD`), the line
+  appends "— you can also finish anytime".
+- Momentum dots skipped (YAGNI; spec allowed).
+
+### C. Stability simulation — numbers reported, constants untouched
+
+Added a seeded simulation test (`ranking.test.ts`, mulberry32 PRNG, engine's own
+`nextMatchup`/`recordMatchupResult`, 85% favorite consistency):
+
+| List size | Budget (⌈n·log₂n⌉·2) | Result within budget | Extended run (2000 votes) |
+|---|---|---|---|
+| 12 | 88 | NOT stable | stable only after ~1441–1976 votes |
+| 16 | 128 | NOT stable | never stable ≤ 2000 votes |
+| 20 | 174 | NOT stable | never stable ≤ 2000 votes |
+
+With K=32 and a >50 gap required between *every* adjacent pair, natural stability
+is effectively unreachable for realistic lists — which validates the complaint
+and makes Finish-now essential. `STABILITY_VOTES_N=6` / gap>50 were **not**
+changed (explicitly out of scope). The committed test pins this finding
+(asserts non-convergence within budget, fails loudly if the engine changes so
+the comment must be re-measured). Tuning is a separate decision.
+
+## Verification
+
+- `npm test`: **75 passed** (72 prior + 1 park/estimate coverage already present
+  + 3 new simulation cases). No new pure helpers were extracted — park toggling
+  reuses tested `parkMovie`/`changedMovies`.
+- `npx tsc --noEmit`: clean.
+- `npx eslint src`: clean.
+- `npm run build`: passes.
+- No live network calls; `.env.local` untouched.

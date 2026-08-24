@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import MatchupStage from "@/components/MatchupStage";
 import ParkedStrip from "@/components/ParkedStrip";
@@ -14,6 +15,7 @@ import {
 import {
   applyVote,
   changedMovies,
+  clearSession,
   loadSession,
   parkMovie,
   saveSession,
@@ -25,6 +27,8 @@ import {
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const NUDGE_COMPARISONS = 10;
+/** At this many estimated votes left, remind users finishing early is fine. */
+const ESTIMATE_HINT_THRESHOLD = 12;
 
 function RankedList({ movies }: { movies: RankedMovie[] }) {
   const byId = new Map(movies.map((m) => [m.tmdbId, m]));
@@ -47,6 +51,7 @@ function RankedList({ movies }: { movies: RankedMovie[] }) {
 }
 
 export default function PlayRoom({ initial }: { initial?: ResumedList }) {
+  const router = useRouter();
   const [session, setSession] = useState<PlaySession | null>(null);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [ready, setReady] = useState(false);
@@ -56,6 +61,9 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   const [finished, setFinished] = useState(false);
   const [sheetStatus, setSheetStatus] = useState<"done" | "draft" | null>(null);
   const [authNotice, setAuthNotice] = useState(false);
+  const [exitOpen, setExitOpen] = useState(false);
+  // set once an OAuth redirect away from the page has begun (leave-warning stays disarmed)
+  const [authRedirecting, setAuthRedirecting] = useState(false);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // last movie state known to be synced to the server (resume mode only)
   const syncedRef = useRef<RankedMovie[] | null>(initial ? initial.movies : null);
@@ -124,18 +132,21 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     }).catch(() => {}); // ponytail: failed syncs dropped silently; full resync if lost votes ever surface
   }, [session, initial]);
 
-  // Leave warning only while an anonymous, unsaved session holds real votes.
+  // Leave warning only while an anonymous, unsaved session holds real votes and
+  // the user is NOT mid-save/signup (sheet open or OAuth redirect in flight).
+  // Intentional exits use client-side routing, which never fires beforeunload.
   // Logged-in resume users are exempt — every action already PATCHes to the server.
   useEffect(() => {
     if (signedIn === null || signedIn || initial || !session) return;
     if (totalComparisons(session) === 0) return;
+    if (sheetStatus !== null || authRedirecting) return;
     const warn = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = ""; // legacy WebKit/Chrome needs returnValue to prompt
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [signedIn, initial, session]);
+  }, [signedIn, initial, session, sheetStatus, authRedirecting]);
 
   function dismissNudge() {
     if (!session) return;
@@ -145,12 +156,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   }
 
   const active = useMemo(() => session?.movies.filter((m) => !m.parked) ?? [], [session]);
-  const parked = useMemo(() => session?.movies.filter((m) => m.parked) ?? [], [session]);
   const stable = !!session && active.length >= 2 && isStable(active, session.votesSinceOrderChange);
-
-  const doneVotes = Math.round((session?.movies.reduce((a, m) => a + m.comparisons, 0) ?? 0) / 2);
-  const targetVotes = Math.max(1, Math.ceil(active.length * 2.5));
-  const pct = Math.min(100, Math.round((doneVotes / targetVotes) * 100));
 
   function handleVote(winnerId: number, loserId: number) {
     if (!session || settlingLoserId !== null) return;
@@ -187,6 +193,22 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     setPair(selectNextPair(prev, stillSharpen));
   }
 
+  // Resume later: logged-in draft owners go through the existing save-as-draft PATCH;
+  // anonymous users keep the localStorage session and just leave (home shows a banner).
+  function handleResumeLater() {
+    setExitOpen(false);
+    if (initial) {
+      setSheetStatus("draft");
+      return;
+    }
+    router.push("/");
+  }
+
+  function handleAbandon() {
+    clearSession();
+    router.push("/");
+  }
+
   function startSharpen() {
     if (!session) return;
     // belt-and-braces: button is hidden when no comfort-band pair exists
@@ -213,15 +235,16 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
 
   const canUndo = !!session.undoSnapshot && settlingLoserId === null;
   const canSharpen = !!selectNextPair(session, true);
+  const remainingVotes = estimateRemainingVotes(active);
+  // Honest convergence: share of votes cast vs. votes still estimated to remain.
+  const doneVotes = Math.round(totalComparisons(session) / 2);
+  const pct = Math.min(100, Math.round((doneVotes / (doneVotes + remainingVotes)) * 100));
 
   return (
     <main className="mx-auto flex min-h-dvh w-full flex-col">
       <header className="flex items-center justify-between gap-3 px-4 pt-3 sm:px-6">
         {authNotice && (
-          <p
-            role="alert"
-            className="min-w-0 truncate text-xs text-accent-red sm:text-sm"
-          >
+          <p role="alert" className="min-w-0 truncate text-xs text-accent-red sm:text-sm">
             Sign-in failed — still playing as a guest.
           </p>
         )}
@@ -234,21 +257,71 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           )}
         </div>
         {!finished && (
-          <button
-            type="button"
-            onClick={handleUndo}
-            disabled={!canUndo}
-            className="min-h-11 shrink-0 rounded px-3 text-sm text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-accent active:text-text disabled:pointer-events-none disabled:opacity-40"
-          >
-            Undo
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setExitOpen((v) => !v)}
+              aria-expanded={exitOpen}
+              className="min-h-11 rounded px-2 text-sm text-muted underline-offset-4 transition-colors duration-200 ease-out hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:text-text"
+            >
+              <span aria-hidden="true">←</span> Exit
+            </button>
+            <button
+              type="button"
+              onClick={handleUndo}
+              disabled={!canUndo}
+              className="flex min-h-11 items-center gap-1.5 rounded bg-surface px-3 text-sm font-medium ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised disabled:pointer-events-none disabled:opacity-40"
+            >
+              <span aria-hidden="true">↩</span> Undo
+            </button>
+          </div>
         )}
       </header>
 
-      {signedIn === false && !initial && !finished && sheetStatus === null &&
-        session.movies.length >= 2 && totalComparisons(session) >= NUDGE_COMPARISONS &&
+      {exitOpen && !finished && (
+        <div
+          role="group"
+          aria-label="Leave the ranking room"
+          className="mx-auto w-full max-w-2xl animate-fade-in px-4 pt-3 sm:px-6"
+        >
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded bg-surface p-3 ring-1 ring-white/10">
+            <p className="min-w-0 flex-1 text-sm text-muted">Leave this ranking?</p>
+            <button
+              type="button"
+              onClick={handleResumeLater}
+              className="min-h-11 rounded bg-surface-raised px-4 text-sm font-medium transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+            >
+              Resume later
+            </button>
+            <button
+              type="button"
+              onClick={handleAbandon}
+              className="min-h-11 rounded bg-surface-raised px-4 text-sm font-medium text-accent-red transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+            >
+              Abandon
+            </button>
+            <button
+              type="button"
+              onClick={() => setExitOpen(false)}
+              className="min-h-11 rounded px-4 text-sm text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:text-text"
+            >
+              Keep ranking
+            </button>
+          </div>
+        </div>
+      )}
+
+      {signedIn === false &&
+        !initial &&
+        !finished &&
+        sheetStatus === null &&
+        session.movies.length >= 2 &&
+        totalComparisons(session) >= NUDGE_COMPARISONS &&
         !session.nudgeShown && (
-          <div className="mx-auto w-full max-w-2xl animate-fade-in px-4 pt-3 sm:px-6" role="status">
+          <div
+            role="status"
+            className="mx-auto w-full max-w-2xl animate-fade-in px-4 pt-3 sm:px-6"
+          >
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded bg-surface p-3 ring-1 ring-white/10">
               <p className="min-w-0 flex-1 text-sm text-muted">
                 Make an account now and this session is safe.
@@ -267,8 +340,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
                 className="flex size-11 items-center justify-center rounded text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-accent active:text-text"
               >
                 ✕
-              </button>
-            </div>
+              </button>            </div>
           </div>
         )}
 
@@ -309,8 +381,8 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         <section className="flex flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
           <h2 className="text-xl font-bold">Not enough movies in play</h2>
           <p className="max-w-sm text-sm text-muted">
-            Fewer than two movies are left. Bring some back from the strip below, or finish with
-            what you have.
+            Fewer than two movies are left. Bring some back via Your movies
+            below, or finish with what you have.
           </p>
           <button
             type="button"
@@ -332,26 +404,32 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
             </p>
           )}
           <div className="flex flex-wrap justify-center gap-3">
-              {canSharpen ? (
-                <button
-                  type="button"
-                  onClick={startSharpen}
-                  className="min-h-11 rounded bg-surface-raised px-5 font-medium transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
-                >
-                  Sharpen the list
-                </button>
-              ) : (
-                <p className="text-sm text-muted">No close calls left — ready to finish.</p>
-              )}
+            {canSharpen ? (
               <button
                 type="button"
-                onClick={() => setFinished(true)}
-                className="min-h-11 rounded bg-accent px-6 font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+                onClick={startSharpen}
+                className="min-h-11 rounded bg-surface-raised px-5 font-medium transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
               >
-                Finish
+                Sharpen the list
               </button>
+            ) : (
+              <p className="text-sm text-muted">
+                No close calls left — ready to finish.
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => setFinished(true)}
+              className="min-h-11 rounded bg-accent px-6 font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+            >
+              Finish
+            </button>
           </div>
-          {sharpening && <p className="text-sm text-muted">Sharpening — closest call first…</p>}
+          {sharpening && (
+            <p className="text-sm text-muted">
+              Sharpening — closest call first…
+            </p>
+          )}
         </section>
       ) : pair ? (
         <section className="flex flex-1 flex-col px-3 pb-2 pt-1 sm:px-6">
@@ -369,11 +447,23 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
                 style={{ width: `${pct}%` }}
               />
             </div>
-            <p aria-live="polite" className="mt-1.5 text-xs text-muted sm:text-sm">
-              {sharpening
-                ? "Sharpening — closest call first"
-                : `~${estimateRemainingVotes(active)} votes left`}
-            </p>
+            <div className="mt-1.5 flex items-baseline justify-between gap-3">
+              <p aria-live="polite" className="text-xs text-muted sm:text-sm">
+                {sharpening
+                  ? "Sharpening — closest call first"
+                  : `~${remainingVotes} votes left`}
+                {!sharpening &&
+                  remainingVotes >= ESTIMATE_HINT_THRESHOLD &&
+                  " — you can also finish anytime"}
+              </p>
+              <button
+                type="button"
+                onClick={() => setFinished(true)}
+                className="shrink-0 text-xs font-medium text-accent underline-offset-4 transition-colors duration-200 ease-out hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:text-sm"
+              >
+                Finish now →
+              </button>
+            </div>
           </div>
           <MatchupStage
             pair={pair}
@@ -384,7 +474,9 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         </section>
       ) : null}
 
-      {!finished && <ParkedStrip movies={parked} onReinstate={(id) => handleParkToggle(id, false)} />}
+      {!finished && (
+        <ParkedStrip movies={session.movies} onToggle={handleParkToggle} />
+      )}
 
       {sheetStatus && (
         <SaveGateSheet
@@ -392,6 +484,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           status={sheetStatus}
           existingId={initial?.id}
           onClose={() => setSheetStatus(null)}
+          onAuthRedirect={() => setAuthRedirecting(true)}
         />
       )}
 

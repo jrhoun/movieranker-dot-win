@@ -293,3 +293,59 @@ describe("property: planted-order recovery", () => {
     expect(rho).toBeGreaterThanOrEqual(0.9);
   });
 });
+
+describe("simulation: stability rarely fires (why Finish-now must exist)", () => {
+  // mulberry32 — tiny deterministic PRNG, test-only
+  function rng(seed: number): () => number {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), a | 1);
+      t = (t + Math.imul(t ^ (t >>> 7), t | 61)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /** Vote with the engine's own pairing until isStable fires; returns vote count. */
+  function simulate(n: number, seed: number): { converged: boolean; votes: number } {
+    const rand = rng(seed);
+    const strength = Array.from({ length: n }, () => rand());
+    let movies = Array.from({ length: n }, (_, i) => movie({ tmdbId: i + 1 }));
+    let votesSinceOrderChange = 0;
+    let votes = 0;
+    while (votes < Math.ceil(n * Math.log2(n)) * 2) {
+      const [a, b] = nextMatchup(movies);
+      const favoriteWins = rand() < 0.85;
+      const favorite = strength[a.tmdbId - 1] > strength[b.tmdbId - 1] ? a : b;
+      const underdog = favorite === a ? b : a;
+      const winner = favoriteWins ? favorite : underdog;
+      const loser = winner === a ? b : a;
+      const result = recordMatchupResult(movies, winner.tmdbId, loser.tmdbId);
+      movies = result.movies;
+      votesSinceOrderChange = result.orderChanged ? 0 : votesSinceOrderChange + 1;
+      votes++;
+      if (votesSinceOrderChange >= STABILITY_VOTES_N && isStable(movies, votesSinceOrderChange)) {
+        return { converged: true, votes };
+      }
+    }
+    return { converged: false, votes };
+  }
+
+  // Measured with a 2000-vote extension of this exact harness:
+  //   12 movies: stable after ~1441-1976 votes (budget here: 88)
+  //   16 movies: NOT stable after 2000 votes
+  //   20 movies: NOT stable after 2000 votes
+  // With K=32 and gap>50 required between EVERY adjacent pair, natural stability
+  // is effectively unreachable for realistic lists. Constants intentionally left
+  // unchanged (separate tuning decision); this test pins the finding so nobody
+  // assumes the stable screen is a viable exit path.
+  test.each([12, 16, 20])("%i movies do NOT stabilize within ~n log n * 2 votes", (n) => {
+    const result = simulate(n, 1000 + n);
+    if (result.converged) {
+      throw new Error(
+        `${n} movies stabilized after only ${result.votes} votes — re-measure and update the comment above`,
+      );
+    }
+    expect(result.converged).toBe(false);
+  });
+});
