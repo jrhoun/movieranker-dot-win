@@ -1,1 +1,1 @@
-- Before push: rewrite commit authors to JR Houn <jr.houn@gmail.com> via git filter (all feat/v1 commits).
+- Merge feat/v1 -> master when ready
