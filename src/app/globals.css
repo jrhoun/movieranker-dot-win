@@ -37,6 +37,12 @@ body {
 }
 .animate-celebrate { animation: celebrate-beat 200ms ease-out; }
 
+@keyframes sheet-up {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.animate-sheet-up { animation: sheet-up 220ms ease-out; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }

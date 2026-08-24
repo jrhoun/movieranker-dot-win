@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import MatchupStage from "@/components/MatchupStage";
 import ParkedStrip from "@/components/ParkedStrip";
+import SaveGateSheet from "@/components/SaveGateSheet";
 import {
   estimateRemainingVotes,
   finalizeRanks,
@@ -39,17 +40,14 @@ function RankedList({ movies }: { movies: RankedMovie[] }) {
   );
 }
 
-export default function PlayRoom({
-  onFinish,
-}: {
-  onFinish?: (session: PlaySession) => void;
-}) {
+export default function PlayRoom() {
   const [session, setSession] = useState<PlaySession | null>(null);
   const [ready, setReady] = useState(false);
   const [pair, setPair] = useState<[RankedMovie, RankedMovie] | null>(null);
   const [settlingLoserId, setSettlingLoserId] = useState<number | null>(null);
   const [sharpening, setSharpening] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [sheetStatus, setSheetStatus] = useState<"done" | "draft" | null>(null);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // async hop so pre-hydration server markup matches first client render
@@ -165,25 +163,23 @@ export default function PlayRoom({
             <p className="text-sm uppercase tracking-widest text-accent">Final order</p>
             <RankedList movies={active} />
           </div>
-          {onFinish && (
+          <div className="flex flex-col items-center gap-2">
             <button
               type="button"
-              onClick={() => onFinish(session)}
+              onClick={() => setSheetStatus("done")}
               className="min-h-11 rounded bg-accent px-6 font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
-            >
-              Confirm &amp; finish
-            </button>
-          )}
-          <div className="text-center">
-            <button
-              type="button"
-              disabled
-              className="min-h-11 cursor-not-allowed rounded bg-surface-raised px-6 font-semibold text-muted"
             >
               Save &amp; finish
             </button>
-            <p className="mt-2 max-w-xs text-xs text-muted">
-              Saving arrives with accounts — your session stays in this browser.
+            <button
+              type="button"
+              onClick={() => setSheetStatus("draft")}
+              className="min-h-11 rounded bg-surface-raised px-5 text-sm font-medium transition-colors duration-200 ease-out hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+            >
+              Save &amp; quit as draft
+            </button>
+            <p className="mt-1 max-w-xs text-xs text-muted">
+              Your ranking lives in this browser until you save it.
             </p>
           </div>
           <button
@@ -276,6 +272,10 @@ export default function PlayRoom({
       ) : null}
 
       {!finished && <ParkedStrip movies={parked} onReinstate={(id) => handleParkToggle(id, false)} />}
+
+      {sheetStatus && (
+        <SaveGateSheet session={session} status={sheetStatus} onClose={() => setSheetStatus(null)} />
+      )}
 
       <p className="pointer-events-none fixed bottom-2 right-3 z-10 rounded-full bg-surface/90 px-3 py-1 text-[11px] text-muted ring-1 ring-white/10">
         Unsaved — lives in this browser
