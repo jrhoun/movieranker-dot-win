@@ -111,6 +111,8 @@ export default function PlayRoom({
 
   function startSharpen() {
     if (!session) return;
+    // belt-and-braces: button is hidden when no comfort-band pair exists
+    if (!selectNextPair(session, true)) return;
     setSharpening(true);
     setPair(selectNextPair(session, true));
   }
@@ -132,6 +134,7 @@ export default function PlayRoom({
   }
 
   const canUndo = !!session.undoSnapshot && settlingLoserId === null;
+  const canSharpen = !!selectNextPair(session, true);
 
   return (
     <main className="mx-auto flex min-h-dvh w-full flex-col">
@@ -218,6 +221,7 @@ export default function PlayRoom({
                 Some calls are still close — settle them?
               </p>
               <div className="flex flex-wrap justify-center gap-3">
+              {canSharpen ? (
                 <button
                   type="button"
                   onClick={startSharpen}
@@ -225,6 +229,9 @@ export default function PlayRoom({
                 >
                   Sharpen the list
                 </button>
+              ) : (
+                <p className="text-sm text-muted">No close calls left — ready to finish.</p>
+              )}
               <button
                 type="button"
                 onClick={() => setFinished(true)}
