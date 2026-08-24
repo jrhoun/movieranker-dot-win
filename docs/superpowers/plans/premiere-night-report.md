@@ -52,3 +52,38 @@ Date: 2026-08-24 · Branch: master · Scope: all surfaces per DESIGN.md "Premier
 - Tray empty-state copy updated to "Tap a poster up top — or search below — to build your list."
 - Motion: all transitions are 200ms ease-out Tailwind classes, killed globally by the existing `prefers-reduced-motion` block in globals.css.
 - No pure logic extracted beyond a constant mapping (no new unit test needed); no live TMDB calls added.
+
+## Design Iteration v1 — Nav Header + How It Works (2026-08-24)
+
+Feedback addressed: (1) plain top nav, (2) home page lacks a first-timer explainer.
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| c9925e0 | design: premiere nav header |
+| 5fbfc6e | feat: how it works section |
+
+### What shipped
+
+1. **Site header** (`src/components/SiteHeader.tsx` + new `src/components/NavLink.tsx`): wordmark is now `✦ MOVIERANKER` in Bebas caps (`font-display text-xl tracking-widest`) with gold ✦; bar switched to `bg-bg/70 backdrop-blur border-b border-gold/20` so it sits over the hero curtain; links are Geist `text-sm uppercase tracking-wide` with gold-text + gold underline (decoration-2, offset-4) on hover, 200ms ease-out; sign out keeps link styling but quieter as a bordered pill (`border-white/15`, muted → text hover). All targets ≥44px (`min-h-11`), focus-visible gold rings preserved, auth-aware logic untouched. Active-page indicator via new 12-line client `NavLink` (`aria-current="page"` on `/u/me`) — server components can't read pathname, hence the one small client leaf.
+2. **How It Works** (`src/app/(site)/page.tsx`): marquee-headed section after the tray inside `<main>` (above the tray's reserved pb-72 clearance). Reuses shared `MarqueeHeading` — gained an optional `as?: "h1" | "h2"` prop (default h1) so the section heading is a proper h2 without duplicating classes. Three numbered surface cards (`bg-surface ring-1 ring-white/10 rounded-lg`) in `grid gap-4 sm:grid-cols-3`: gold Bebas numerals 01/02/03, emoji icons with `role="img"` + labels (🔍/⚔️/🏆 — playful brand per DESIGN.md), Bebas h3 titles, muted body copy. Hover lift `-translate-y-0.5` gated behind `motion-safe:` so reduced-motion users get zero movement (belt-and-suspenders on top of the global reduce override). Reassurance line below in muted: "No account needed to play — sign up only to save your masterpiece."
+
+### Rules compliance
+
+- Motion budget: only the two specified 200ms ease-out transitions added; lift is motion-safe-gated.
+- Contrast: gold #f5c518 and text/muted on bg/surface unchanged from token values already in use; no muted-on-curtain usage introduced.
+- Traffic hygiene: no network calls made; .env.local never read or printed; no live TMDB requests (no imagery added).
+- "On scroll stays slim": header was already slim (py-1.5); kept slim, no scroll JS needed.
+
+### Verification
+
+- `npx tsc --noEmit` — clean
+- `npm run lint` — clean
+- `npm test` — 96/96 passed (10 files)
+- `npm run build` — passes, all routes compile
+
+### Concerns
+
+- Emoji icons (🔍/⚔️/🏆) render platform-native rather than brand-styled; swapped for inline SVGs if they ever look off on Windows.
+- Header remains non-sticky (as before). If "on scroll" ever means sticky, add `sticky top-0 z-20` to the `<header>` — one class.
