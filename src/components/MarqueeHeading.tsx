@@ -7,8 +7,8 @@ export default function MarqueeHeading({
   as: Tag = "h1",
 }: {
   children: React.ReactNode;
-  /** Heading level; sections inside a page use h2. */
-  as?: "h1" | "h2";
+  /** Heading level; sections inside a page use h2/h3. */
+  as?: "h1" | "h2" | "h3";
 }) {
   return (
     <Tag className="flex items-center gap-3 font-display text-3xl uppercase leading-none tracking-[0.12em]">
