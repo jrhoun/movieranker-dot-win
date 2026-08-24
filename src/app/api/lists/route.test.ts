@@ -19,20 +19,20 @@ function makeDb(opts: {
   data?: (table: string) => unknown;
 }): MockDb {
   const calls: Call[] = [];
+  const resolve = async () => {
+    const last = calls[calls.length - 1];
+    if (opts.failOn?.(last))
+      return {
+        data: null,
+        error: { code: "42501", message: "new row violates row-level security policy" },
+      };
+    return { data: opts.data?.("rpc") ?? null, error: null };
+  };
   const client = {
     auth: {
       getUser: async () => ({ data: { user: opts.user ?? null }, error: null }),
     },
     from(table: string) {
-      const resolve = async () => {
-        const last = calls[calls.length - 1];
-        if (opts.failOn?.(last))
-          return {
-            data: null,
-            error: { code: "42501", message: "new row violates row-level security policy" },
-          };
-        return { data: opts.data?.(table) ?? null, error: null };
-      };
       // chainable builder: every method records the call and returns itself,
       // awaiting resolves via `then`
       const obj: Record<string, unknown> = {};
@@ -47,6 +47,10 @@ function makeDb(opts: {
         onRejected?: (e: unknown) => unknown,
       ) => resolve().then(onFulfilled, onRejected);
       return obj;
+    },
+    rpc(name: string, args: unknown) {
+      calls.push({ table: `rpc:${name}`, method: "rpc", args: [args] });
+      return resolve();
     },
   };
   return { client, calls };
@@ -102,32 +106,28 @@ describe("POST /api/lists", () => {
     expect(currentDb.calls).toHaveLength(0);
   });
 
-  it("returns 201 with a nanoid(10) id and inserts list + movies", async () => {
+  it("returns 201 with a nanoid(10) id and saves atomically via save_list rpc", async () => {
     const res = await POST(jsonRequest(doneBody));
     expect(res.status).toBe(201);
     const { id } = (await res.json()) as { id: string };
     expect(id).toMatch(/^[A-Za-z0-9_-]{10}$/);
 
-    const listRow = currentDb.calls.find(
-      (c) => c.table === "lists" && c.method === "insert",
-    )!.args[0] as Record<string, unknown>;
-    expect(listRow).toMatchObject({
-      id,
-      owner_id: "u-1",
-      title: "Movie Night",
-      participants: ["Ana", "Ben"],
-      status: "done",
+    expect(currentDb.calls.filter((c) => c.method === "rpc")).toHaveLength(1);
+    const rpcCall = currentDb.calls.find((c) => c.table === "rpc:save_list")!;
+    expect(rpcCall.args[0]).toMatchObject({
+      p_id: id,
+      p_title: "Movie Night",
+      p_participants: ["Ana", "Ben"],
+      p_status: "done",
     });
-
-    const movieRows = currentDb.calls.find(
-      (c) => c.table === "list_movies" && c.method === "insert",
-    )!.args[0] as Record<string, unknown>[];
+    const movieRows = (
+      rpcCall.args[0] as { p_movies: Record<string, unknown>[] }
+    ).p_movies;
     expect(movieRows.map((r) => [r.tmdb_id, r.final_rank])).toEqual([
       [100, 1],
       [200, 2],
     ]);
     expect(movieRows[0]).toMatchObject({
-      list_id: id,
       title: "Heat",
       poster_path: "/heat.jpg",
       release_year: 1995,
@@ -156,7 +156,7 @@ describe("POST /api/lists", () => {
   it("maps an RLS violation to 403", async () => {
     currentDb = makeDb({
       user: { id: "u-1" },
-      failOn: (c) => c.table === "lists" && c.method === "insert",
+      failOn: (c) => c.table === "rpc:save_list",
     });
     const res = await POST(jsonRequest(doneBody));
     expect(res.status).toBe(403);

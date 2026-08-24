@@ -27,3 +27,30 @@ create policy "anyone reads done lists" on lists for select using (status = 'don
 create policy "anyone reads done movies" on list_movies for select using (
   exists (select 1 from lists l where l.id = list_id and l.status = 'done')
 );
+
+-- Atomic list creation: inserts the list and its movies in one transaction.
+-- SECURITY INVOKER so RLS applies to the caller. NOTE: re-run this RPC after
+-- any future schema change (drop/recreate below).
+create or replace function save_list(
+  p_id text, p_title text, p_participants text[], p_status text, p_movies jsonb
+) returns void
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  insert into lists (id, owner_id, title, participants, status)
+  values (p_id, auth.uid(), p_title, p_participants, p_status);
+
+  insert into list_movies
+    (list_id, tmdb_id, title, poster_path, release_year, elo, comparisons, parked, final_rank)
+  select
+    p_id, tmdb_id, title, poster_path, release_year,
+    coalesce(elo, 1000), coalesce(comparisons, 0),
+    coalesce(parked, false), final_rank
+  from jsonb_to_recordset(p_movies) as x(
+    tmdb_id int, title text, poster_path text, release_year int,
+    elo real, comparisons int, parked boolean, final_rank int
+  );
+end;
+$$;

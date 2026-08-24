@@ -52,21 +52,15 @@ export async function POST(request: Request) {
     return invalid("movies must be objects with tmdbId and title");
 
   const id = nanoid(10);
-  const { error } = await supabase.from("lists").insert({
-    id,
-    owner_id: data.user.id,
-    title,
-    participants,
-    status,
+  // single atomic insert via save_list RPC (schema.sql); RLS applies (invoker rights)
+  const { error } = await supabase.rpc("save_list", {
+    p_id: id,
+    p_title: title,
+    p_participants: participants,
+    p_status: status,
+    p_movies: (movies as MovieInput[]).map((m) => fullMovieRow(m, id)),
   });
   if (error) return dbErrorResponse(error);
-
-  if (movies.length > 0) {
-    const { error } = await supabase
-      .from("list_movies")
-      .insert((movies as MovieInput[]).map((m) => fullMovieRow(m, id)));
-    if (error) return dbErrorResponse(error);
-  }
 
   return NextResponse.json({ id }, { status: 201 });
 }
