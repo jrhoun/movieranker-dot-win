@@ -132,3 +132,21 @@ Commits: `2658ef1` design: letterboxd-inspired home richness · `79cbafb` feat: 
 **Verification.** vitest 102/102 passed (11 files); tsc --noEmit clean; eslint clean; next build succeeded.
 
 **Motion budget.** Only the one-shot shimmer added; reduced-motion kills it via the pre-existing global rule.
+
+## Iteration: Hollywood searchlights + bigger tagline (2026-08-24)
+
+**Scope.** Home hero only (src/app/(site)/home-client.tsx, src/app/globals.css); DESIGN.md Motion amendment.
+
+**Tagline scale.** Both beats bumped ~2 Tailwind steps: beat 1 "Settling the best movies of all time." → `text-xl sm:text-2xl` Geist medium `text-text`; beat 2 "One list at a time." → `text-lg sm:text-xl` `text-muted`, gold underline (`decoration-gold decoration-2 underline-offset-4`) unchanged. Mobile stays balanced via responsive pairs; both sit on the scrim card so contrast over curtain folds is unchanged.
+
+**Searchlight beams.** New `.searchlights` utility in globals.css: two pseudo-element shafts anchored bottom-left/right (-18% inset), each a clip-path wedge (narrow 38–62% at base, full width at top) filled with a gold linear-gradient (rgba(245,197,24,.13) core → transparent 78%), blur(35px), rotated ±16deg from bottom-center origin so the beams cross behind the marquee wordmark. Drift: ±4deg ease-in-out infinite alternate over 22s (left) / 19s (right) — differing durations give counter-phase without extra keyframes. Rendered as a decorative `aria-hidden` div inside the hero header before the content wrapper, so it paints below title/scrim/posters with no z-index juggling.
+
+**Reduced motion.** The pre-existing global rule (duration .01ms + iteration-count 1, no forwards fill) ends both loops instantly → beams render static at base rotation. No new override needed.
+
+**Motion budget.** DESIGN.md Motion section amended per directive: slow ambient atmosphere loops (>10s period) permitted; all loops still die under prefers-reduced-motion; single-beat celebration rule stands.
+
+**Verification.** vitest 117/117 passed (13 files); tsc --noEmit clean; eslint clean; next build passes (first attempt hit the running dev server's lock — unrelated).
+
+**Concerns.**
+- Beam alpha (.09–.13) chosen blind against the fold gradients; if posters read washed out on real hardware, drop to .06/.08.
+- Beams are clipped by the header's overflow-hidden; on very short viewports the crossing point may sit below the fold line — visual-only, no layout impact.
