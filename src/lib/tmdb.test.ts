@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { pickPoster, rankCompanies, searchByKeyword, shapeCredits } from "./tmdb";
+import { getMovieById, pickPoster, rankCompanies, searchByKeyword, shapeCredits } from "./tmdb";
 import fixture from "./fixtures/combined-credits.json";
 
 const allRaw = [...fixture.cast, ...fixture.crew];
@@ -72,6 +72,65 @@ describe("pickPoster", () => {
     );
     expect(pickPoster([], "/primary.jpg")).toBe("/primary.jpg");
     expect(pickPoster([], null)).toBeNull();
+  });
+});
+
+describe("getMovieById", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** Stub fetch for /movie/{id} detail + /movie/{id}/images endpoints. */
+  function stubFetch(detail: unknown, images: unknown) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string | URL) => {
+        const body = String(url).includes("/images") ? images : detail;
+        return { ok: true, json: async () => body } as Response;
+      }),
+    );
+  }
+
+  const DETAIL = {
+    id: 42,
+    title: "Artless",
+    poster_path: null,
+    release_date: "2001-01-01",
+  };
+
+  it("falls back to the images endpoint for en art when primary poster is missing", async () => {
+    stubFetch(DETAIL, { posters: [{ iso_639_1: "en", file_path: "/en.jpg" }] });
+    await expect(getMovieById(42)).resolves.toEqual({
+      tmdbId: 42,
+      title: "Artless",
+      posterPath: "/en.jpg",
+      releaseYear: 2001,
+    });
+  });
+
+  it("keeps the credit with posterPath=null when no art exists anywhere", async () => {
+    stubFetch(DETAIL, { posters: [] });
+    await expect(getMovieById(42)).resolves.toEqual({
+      tmdbId: 42,
+      title: "Artless",
+      posterPath: null,
+      releaseYear: 2001,
+    });
+  });
+
+  it("does not hit the images endpoint when primary art exists", async () => {
+    let imageCalls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string | URL) => {
+        if (String(url).includes("/images")) imageCalls++;
+        return {
+          ok: true,
+          json: async () => ({ ...DETAIL, poster_path: "/primary.jpg" }),
+        } as Response;
+      }),
+    );
+    const credit = await getMovieById(42);
+    expect(credit?.posterPath).toBe("/primary.jpg");
+    expect(imageCalls).toBe(0);
   });
 });
 

@@ -23,8 +23,10 @@ export default function MoviePoster({
           className="h-full w-full object-cover"
         />
       ) : (
-        <div className="flex h-full w-full items-center justify-center p-2 text-center text-xs text-muted">
-          {title}
+        <div className="flex h-full w-full items-center justify-center p-2 text-center">
+          <span className="min-w-0 truncate font-display text-sm uppercase tracking-wide text-text">
+            {title}
+          </span>
         </div>
       )}
     </div>

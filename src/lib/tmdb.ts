@@ -165,12 +165,15 @@ export async function getPreferredPosterPath(
   }
 }
 
-/** Single movie by TMDB id (cached a day); null on failure or missing poster art. */
+/** Single movie by TMDB id (cached a day); null only if the lookup itself fails. */
 export async function getMovieById(id: number): Promise<TmdbMovieCredit | null> {
   try {
     const m = await tmdbFetch<TmdbRawCredit>(`/movie/${id}`, {}, 86400);
-    if (!m.poster_path) return null; // strip needs poster art
-    return toCredit(m);
+    // No primary art: look for en/null-language alternates; if none exist keep
+    // the credit with posterPath=null (MoviePoster renders a placeholder) so
+    // strip/fan/copy counts stay honest instead of silently dropping titles.
+    const posterPath = m.poster_path ?? (await getPreferredPosterPath(id, null));
+    return toCredit({ ...m, poster_path: posterPath });
   } catch {
     return null;
   }
