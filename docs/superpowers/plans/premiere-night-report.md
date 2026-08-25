@@ -499,3 +499,23 @@ TV-distance legibility per DESIGN.md, class-only: room title text-lg/sm:2xl → 
 - n=4 tail: 3/8 swept seeds exceed budget 16 (max 24). Median hits budget; budget 16 ≈ theoretical floor (comparisons gate + differentiation + streak), so this is close to irreducible without weakening evidence gates further.
 - Hysteresis makes differentiation slightly stricter (split needs gap>45 instead of >30); offset by the smaller streak so net effect is faster AND more stable convergence.
 - Sharpen phase remains genuinely long (optional by design; UI never promises completion).
+
+---
+
+## Round: fix — modal poster loading reliability (2025, master @ 7236d81)
+
+**Symptom.** Browse-all modal posters mostly invisible. DOM measurement ruled out layout (122 cards, no overlap); root cause was image loading: modal open fired 100+ concurrent TMDB CDN requests (many lazy-loaded inside a fresh scroll container), stalling frames.
+
+**Changes** (`src/components/SearchPanel.tsx`, `src/components/MoviePosterCard.tsx`):
+
+1. **Eager load in modal**: `MoviePosterCard` gained optional `eager` prop (default false → native `loading="lazy"` preserved in inline grid). BrowseAllModal passes `eager`.
+2. **Smaller variant for grid density**: optional `sizeVariant` prop (`"w342" | "w185"`, default `"w342"`). Modal passes `"w185"` — ~170px-wide 3-4 col cards get half the bytes; 2:3 aspect and behavior unchanged.
+3. **Progressive batch render**: modal renders 30 at a time with a "Show more (N remaining)" button appended to the grid; filter changes reset the count to 30. Chose button over IntersectionObserver sentinel — simplest correct approach, and it's keyboard/screen-reader friendly by construction.
+4. **Skeleton state verified**: container already paints `bg-surface` frame; `alt=""` suppresses broken-image icon flash. No change needed.
+
+**Verification.** tsc clean; eslint clean; vitest 260/260 pass (26 files); production build passes. No live TMDB calls made; .env.local untouched.
+
+**Concerns**
+
+- Eager + w185 means the first batch still fires 30 concurrent requests on modal open; acceptable (browsers queue per-host), but if stalls recur the next lever is staggering or a true virtualized list.
+- "Show more" is a manual affordance rather than auto-loading on scroll — deliberate trade for simplicity; revisit if users report not finding results past batch 1.

@@ -2,16 +2,20 @@
 
 import type { TmdbMovieCredit } from "@/lib/tmdb";
 
-const POSTER_BASE = "https://image.tmdb.org/t/p/w342";
-
 export default function MoviePosterCard({
   movie,
   selected = false,
   onSelect,
+  eager = false,
+  sizeVariant = "w342",
 }: {
   movie: TmdbMovieCredit;
   selected?: boolean;
   onSelect?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  /** Modal grids load immediately; inline grid keeps native lazy loading. */
+  eager?: boolean;
+  /** TMDB poster width path segment; smaller variant for dense modal grids. */
+  sizeVariant?: "w342" | "w185";
 }) {
   return (
     <button
@@ -30,9 +34,9 @@ export default function MoviePosterCard({
         {movie.posterPath ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={`${POSTER_BASE}${movie.posterPath}`}
+            src={`https://image.tmdb.org/t/p/${sizeVariant}${movie.posterPath}`}
             alt=""
-            loading="lazy"
+            loading={eager ? "eager" : "lazy"}
             className="h-full w-full object-cover"
           />
         ) : (

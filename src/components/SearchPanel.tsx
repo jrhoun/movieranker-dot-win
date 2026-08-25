@@ -333,7 +333,12 @@ function BrowseAllModal({
   const selectedCount = movies.filter(isSelected).length;
   // Client-side filter over the same source array; empty query shows everything.
   const [filterQ, setFilterQ] = useState("");
+  // Progressive batch render: cap initial requests so the modal never fires 100+
+  // concurrent TMDB fetches; "Show more" reveals the next chunk.
+  const BATCH = 30;
+  const [visibleCount, setVisibleCount] = useState(BATCH);
   const shown = filterByTitle(movies, filterQ);
+  const visible = shown.slice(0, visibleCount);
 
   // Focus-on-open runs once; restoring focus to the trigger here covers close
   // via ✕, footer Close, overlay click, and Escape alike.
@@ -404,7 +409,10 @@ function BrowseAllModal({
             <input
               type="search"
               value={filterQ}
-              onChange={(e) => setFilterQ(e.target.value)}
+              onChange={(e) => {
+                setFilterQ(e.target.value);
+                setVisibleCount(BATCH);
+              }}
               placeholder="Filter by title…"
               aria-label="Filter results by title"
               className="min-h-11 w-full rounded bg-surface-raised pr-10 pl-4 text-sm text-text ring-1 ring-white/10 transition-shadow duration-200 ease-out hover:ring-white/20 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent"
@@ -422,14 +430,25 @@ function BrowseAllModal({
           </div>
         </div>
         <div className="thin-scrollbar grid flex-1 content-start grid-cols-2 gap-4 overflow-y-auto p-5 sm:grid-cols-3 md:grid-cols-4">
-          {shown.map((mv) => (
+          {visible.map((mv) => (
             <MoviePosterCard
               key={mv.tmdbId}
               movie={mv}
               selected={isSelected(mv)}
               onSelect={(e) => onSelect(mv, movies.indexOf(mv), e)}
+              eager
+              sizeVariant="w185"
             />
           ))}
+          {shown.length > visibleCount && (
+            <button
+              type="button"
+              onClick={() => setVisibleCount((c) => c + BATCH)}
+              className="col-span-full min-h-11 rounded bg-surface-raised px-4 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              Show more ({shown.length - visibleCount} remaining)
+            </button>
+          )}
           {shown.length === 0 && (
             <p className="col-span-full py-8 text-center text-sm text-muted">
               No results match “{filterQ.trim()}”.
