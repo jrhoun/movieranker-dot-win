@@ -144,7 +144,7 @@ export default function SearchPanel({
       className="rounded-lg bg-surface p-4 ring-1 ring-white/10 sm:p-5"
     >
       <p className="text-sm text-muted">
-        Search any actor, director, studio, or movie — tap posters to build tonight&rsquo;s list.
+        Search any actor, director, studio, or movie — tap posters to start building your list.
       </p>
 
       {/* mode tabs */}
