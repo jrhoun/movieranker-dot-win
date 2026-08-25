@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import ListViews from "@/components/list/ListViews";
 import MarqueeHeading from "@/components/MarqueeHeading";
@@ -107,7 +108,17 @@ export default async function PublicListPage({
             </p>
           )}
         </div>
-        <ShareButton title={list.title} url={await shareUrl(id)} />
+        <div className="flex shrink-0 items-center gap-2">
+          {list.status === "done" && (
+            <Link
+              href={`/compare/${id}`}
+              className="flex min-h-11 items-center rounded bg-surface-raised px-5 text-sm font-medium transition-all duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+            >
+              Compare with a friend
+            </Link>
+          )}
+          <ShareButton title={list.title} url={await shareUrl(id)} />
+        </div>
       </header>
 
       {isOwner && (
