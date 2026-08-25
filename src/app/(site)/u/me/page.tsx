@@ -181,8 +181,26 @@ export default async function MyListsPage() {
           Visibility
         </h2>
         <div className="mt-3">
-          <ProfileVisibilityToggle initial={profileVisibility} claimed={claimed} />
+          <ProfileVisibilityToggle initial={profileVisibility} claimed={claimed} handle={profile?.handle} />
         </div>
+        {claimed && profile?.handle && (
+          profileVisibility === "public" ? (
+            <Link
+              href={`/u/${profile.handle}`}
+              className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-gold underline-offset-4 transition-colors duration-200 ease-out hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            >
+              View public profile →
+            </Link>
+          ) : (
+            <span
+              aria-disabled="true"
+              title="Set your profile to public first"
+              className="mt-3 inline-flex min-h-11 cursor-not-allowed items-center text-sm font-medium text-muted opacity-60"
+            >
+              View public profile →
+            </span>
+          )
+        )}
       </section>
 
       <AccountSection />

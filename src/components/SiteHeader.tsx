@@ -24,6 +24,17 @@ export default async function SiteHeader() {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase.auth.getUser();
 
+  // Claimed handle (if any) for the "My profile" link.
+  let handle: string | null = null;
+  if (data.user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("handle")
+      .eq("id", data.user.id)
+      .maybeSingle<{ handle: string | null }>();
+    handle = profile?.handle ?? null;
+  }
+
   return (
     <header className="border-b border-gold/20 bg-bg/70 backdrop-blur">
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-2 px-4 py-1.5">
@@ -41,6 +52,11 @@ export default async function SiteHeader() {
               <NavLink href="/u/me" className={linkCls}>
                 My lists
               </NavLink>
+              {handle && (
+                <NavLink href={`/u/${handle}`} className={linkCls}>
+                  My profile
+                </NavLink>
+              )}
               <form action={signOut}>
                 <button type="submit" className={quietCls}>
                   Sign out

@@ -1,16 +1,21 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 // Stored in profiles.visibility ('public'|'private') via PATCH /api/profile.
 // Requires a claimed handle — the profiles row is created by the claim flow.
+// `handle` personalizes the helper copy once claimed.
 export default function ProfileVisibilityToggle({
   initial,
   claimed,
+  handle,
 }: {
   initial: "public" | "private";
   claimed: boolean;
+  handle?: string | null;
 }) {
+  const router = useRouter();
   const [value, setValue] = useState<"public" | "private">(initial);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -33,6 +38,10 @@ export default function ProfileVisibilityToggle({
       } else if (!res.ok) {
         setValue(previous);
         setError("Couldn't save — try again.");
+      } else {
+        // Sync server-rendered bits that depend on visibility (e.g. the
+        // "View public profile" link on /u/me).
+        router.refresh();
       }
     } catch {
       setValue(previous);
@@ -44,10 +53,12 @@ export default function ProfileVisibilityToggle({
 
   return (
     <div className="rounded bg-surface p-6 ring-1 ring-white/10">
-      <p className="text-sm font-medium">Public profile page (coming with handles)</p>
+      <h3 className="text-sm font-medium">Public profile</h3>
       <p className="mt-1 text-xs text-muted">
         {claimed
-          ? "When public, your stats and level can appear on a shareable profile page later."
+          ? handle
+            ? `Your profile lives at movieranker.win/u/${handle} — set to Public to make it visible.`
+            : "Set to Public to make your profile visible at movieranker.win/u/<handle>."
           : "Claim a handle above to control your visibility."}
       </p>
       <div
@@ -62,7 +73,7 @@ export default function ProfileVisibilityToggle({
             {
               value: "public",
               label: "Public",
-              title: "Your profile page will be viewable by anyone.",
+              title: "Your profile is viewable by anyone at movieranker.win/u/your-handle.",
             },
           ] as const
         ).map((opt) => (
