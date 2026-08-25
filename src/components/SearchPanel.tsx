@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Tabs from "./Tabs";
 import type { TmdbCompany, TmdbMovieCredit, TmdbPerson } from "@/lib/tmdb";
+import { rangeIndices } from "@/lib/tray";
 import MoviePosterCard from "./MoviePosterCard";
 
 type Mode = "person" | "company" | "keyword" | "title";
@@ -46,6 +47,7 @@ export default function SearchPanel({
   const [movies, setMovies] = useState<TmdbMovieCredit[]>([]);
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const lastClickedRef = useRef<number | null>(null);
 
   // 300ms debounce
   useEffect(() => {
@@ -57,6 +59,7 @@ export default function SearchPanel({
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    lastClickedRef.current = null; // new result set: stale shift-anchor would mis-range
 
     const query = debouncedQ.trim();
 
@@ -116,6 +119,20 @@ export default function SearchPanel({
 
   function pickRef(n: TmdbPerson | TmdbCompany) {
     setRef({ id: n.id, name: n.name });
+  }
+
+  function handleSelect(movie: TmdbMovieCredit, index: number, e: React.MouseEvent) {
+    const last = lastClickedRef.current;
+    lastClickedRef.current = index;
+    if (e.shiftKey && last !== null && last !== index) {
+      // shift+click adds the whole inclusive range (only movies not yet picked)
+      for (const i of rangeIndices(last, index)) {
+        const m = movies[i];
+        if (m && !isSelected(m)) onPick(m);
+      }
+    } else {
+      onPick(movie);
+    }
   }
 
   const showNames = !ref && TWO_STEP[mode] !== undefined && names.length > 0;
@@ -230,12 +247,12 @@ export default function SearchPanel({
               </button>
             </div>
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
-              {movies.map((mv) => (
+              {movies.map((mv, i) => (
                 <MoviePosterCard
                   key={mv.tmdbId}
                   movie={mv}
                   selected={isSelected(mv)}
-                  onSelect={() => onPick(mv)}
+                  onSelect={(e) => handleSelect(mv, i, e)}
                 />
               ))}
             </div>

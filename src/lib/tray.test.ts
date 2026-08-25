@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeCandidates, parseParticipantNames } from "./tray";
+import { mergeCandidates, parseParticipantNames, rangeIndices } from "./tray";
 import type { TmdbMovieCredit } from "@/lib/tmdb";
 
 const movie = (tmdbId: number, title: string): TmdbMovieCredit => ({
@@ -24,6 +24,20 @@ describe("mergeCandidates", () => {
   it("returns an equivalent list when everything is a duplicate", () => {
     const existing = [movie(1, "Alien"), movie(2, "Barbie")];
     expect(mergeCandidates(existing, [movie(1, "Alien")])).toEqual(existing);
+  });
+});
+
+describe("rangeIndices", () => {
+  it("returns the inclusive forward range", () => {
+    expect(rangeIndices(0, 3)).toEqual([0, 1, 2, 3]);
+  });
+
+  it("handles reverse selection (clicked above last)", () => {
+    expect(rangeIndices(4, 2)).toEqual([2, 3, 4]);
+  });
+
+  it("single-element range when clicking the same index", () => {
+    expect(rangeIndices(5, 5)).toEqual([5]);
   });
 });
 

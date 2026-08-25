@@ -11,6 +11,12 @@ export function mergeCandidates(
   );
 }
 
+/** Inclusive index range between two positions, either order: (0,3)->[0,1,2,3], (4,2)->[2,3,4]. */
+export function rangeIndices(a: number, b: number): number[] {
+  const [lo, hi] = a <= b ? [a, b] : [b, a];
+  return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
+}
+
 /** Comma-separated participant entry: "Dave, Sarah" -> ["Dave", "Sarah"]. */
 export function parseParticipantNames(draft: string): string[] {
   const names: string[] = [];

@@ -11,7 +11,7 @@ export default function MoviePosterCard({
 }: {
   movie: TmdbMovieCredit;
   selected?: boolean;
-  onSelect?: () => void;
+  onSelect?: (e: React.MouseEvent<HTMLButtonElement>) => void;
 }) {
   return (
     <button
