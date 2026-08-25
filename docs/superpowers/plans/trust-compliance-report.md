@@ -31,3 +31,29 @@ Branch: `master` · Commits: `2e38f17`, `6a64d80`, `547efcf`
 - **Legal text is template-quality, not legal advice** — About/Privacy/Terms should get a real review before being treated as binding.
 - Contact email is the literal placeholder `[CONTACT]` in `src/lib/site.ts` (`CONTACT_EMAIL`) — replace before launch (TODO marked in code).
 - The home page does not yet surface anything special for `/?bye=1` (bare redirect target only); add a farewell toast if desired.
+
+---
+
+# Trust & Safety Round 2 — legal gaps + abuse limits
+
+Branch: `master`
+
+## What shipped
+
+### A. Legal page gaps
+- `src/app/(site)/privacy/page.tsx` — new "Who can use the site" (13+, note on 16+ jurisdictions) and "How long we keep it" sections; "Third parties" extended with processing roles: Supabase (EU/US hosting, auth, database), TMDB (movie metadata/poster images); no other sharing, no sale ever. Existing copy untouched.
+- `src/app/(site)/terms/page.tsx` — new "Your content" (non-exclusive worldwide display license, you own your lists), copyright/reporting line folded into "Movies & posters" via `[CONTACT]` placeholder (`CONTACT_EMAIL` in `src/lib/site.ts`, same marked-editable pattern as About), and "Governing law" (State of Texas; disputes in Texas courts). Existing suspension clause untouched.
+
+### B. Abuse limits
+- New `src/lib/rate-limit.ts`: tiny sliding-window limiter keyed by userId (fallback: first `x-forwarded-for` IP). Constants in `LIMITS`: lists writes 20/min, proposals 5/min, account delete 3/hour. Injected clock → pure and unit-tested.
+- Wired into POST/PATCH/DELETE `/api/lists` (+ `/api/lists/[id]`), POST `/api/proposals`, POST `/api/account/delete` — 429 `{ error }` with `Retry-After` header.
+- `docs/qa-checklist.md`: appended "Abuse & moderation" section (email confirmation ON, proposal queue as content gate, `[CONTACT]` placeholder, rate-limit constants/tuning).
+
+## Verification
+- `npm test` — 148/148 passing (17 files), incl. new rate-limiter tests: limit enforcement + Retry-After value, window-boundary edge (hit at exactly `now - windowMs` is expired; one ms earlier still counts), key isolation, floor of 1s Retry-After.
+- `npx tsc --noEmit` clean · `npx eslint` clean · `next build` passes.
+
+## Notes / concerns
+- **Legal text is template-quality, not legal advice** — recommend a generator/professional review before any EU-facing marketing (COPPA/GDPR age and consent nuances are jurisdiction-specific).
+- Rate limiter is in-memory per instance (`ponytail:` comment in code); upgrade path documented in code and qa-checklist.
+- Account-delete limiter keys directly on userId (no anonymous traffic reaches that route).
