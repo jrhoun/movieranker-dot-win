@@ -118,6 +118,16 @@ describe("POST /api/profile", () => {
     currentDb.writeResult = { error: { message: "boom" } };
     expect((await post("fine-handle-1")).status).toBe(500);
   });
+
+  it("rate-limits claim attempts, counting failures too", async () => {
+    // LIMITS.claimHandle = 5/hour; every failed validation still counts.
+    for (let i = 0; i < 5; i++) {
+      expect((await post("ab")).status).toBe(400);
+    }
+    const res = await post("still-valid-but-blocked");
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBeTruthy();
+  });
 });
 
 describe("PATCH /api/profile", () => {

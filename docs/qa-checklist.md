@@ -177,9 +177,11 @@ and Safari if available for the beforeunload prompt.
         referenced by About, Privacy, and Terms.
 48. [ ] Rate limits (constants live in `src/lib/rate-limit.ts` `LIMITS` —
         tune there): lists writes 20/min per key, proposals 5/min, account
-        delete 3/hour. Keys are userId, falling back to first
-        `x-forwarded-for` IP for anonymous traffic. Exceeding returns 429
-        with a `Retry-After` header.
+        delete 3/hour, profile visibility PATCH 10/min, handle claims
+        **5/hour attempt-based** (runs before validation — failed claims count,
+        so brute-forcing handle variants burns the budget fast). Keys are
+        userId, falling back to first `x-forwarded-for` IP for anonymous
+        traffic. Exceeding returns 429 with a `Retry-After` header.
 49. [ ] Note: limiter is in-memory and resets per serverless instance — fine
         for v1 single-instance; move to Upstash (or similar) if abuse shows
         up across instances.

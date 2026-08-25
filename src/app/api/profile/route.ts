@@ -36,9 +36,11 @@ export async function POST(request: Request) {
   if (!auth.user)
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
 
+  // Attempt-based limiter: runs BEFORE validation so failed attempts burn
+  // the budget too — 5 claim attempts per hour per user.
   const rl = rateLimit(
-    await rateKey("profile", request, auth.user.id),
-    LIMITS.profile,
+    await rateKey("claimHandle", request, auth.user.id),
+    LIMITS.claimHandle,
   );
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 

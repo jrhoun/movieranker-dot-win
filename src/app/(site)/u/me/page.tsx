@@ -91,6 +91,19 @@ export default async function MyListsPage() {
         <h2 id="stats-heading" className="font-display text-xl uppercase tracking-[0.12em]">
           Your premiere night
         </h2>
+        {/* Claimed handle: static chip — permanent by design, no edit affordance. */}
+        {claimed && profile?.handle && (
+          <div className="mt-3">
+            <p className="font-display text-2xl uppercase tracking-[0.14em] text-gold">
+              @{profile.handle}
+              <span aria-hidden="true" className="text-muted">
+               {" "}·{" "}
+              </span>
+              <span className="text-base lowercase tracking-normal">claimed</span>
+            </p>
+            <p className="mt-0.5 text-xs text-muted">Handles are permanent.</p>
+          </div>
+        )}
         <div className="mt-4 flex items-center gap-5">
           <div aria-hidden="true" className="flex flex-col items-center">
             <span className="font-display text-6xl leading-none text-gold [text-shadow:0_0_24px_rgba(245,197,24,0.35)]">

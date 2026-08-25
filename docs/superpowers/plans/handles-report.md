@@ -80,3 +80,33 @@ Spec ✅ / Approved. Deferred minors: Claim button uses --accent not literal gol
 ### Concerns / deferred
 - Achievements are monotonic by construction (counts only grow), so pure derivation is lossless; any future achievement needing history (e.g. Contrarian, Time Capsule) will need real persistence — do not extend this pattern to those.
 - Public profile counts derive from public done lists only, so a user's badge can differ between /u/me and their public page if they keep private/unlisted done lists — intended privacy scoping.
+
+## Hardening round: permanent, abuse-resistant claims
+
+### Vulgarity filter (`src/lib/handles.ts`)
+- `PROFANITY_BLOCKLIST`: ~24 obvious English vulgar terms. Checked via substring matching after leetspeak folding (`0->o, 1->i, 3->e, 4->a, 5->s, 7->t, @->a, $->s`) so `sh1t`, `b17ch`, `a$$hole`, `@sshole` all reject.
+- `isProfane(handle) -> boolean`; wired into `checkHandle` BEFORE the shape regex so symbol-leet spellings report reason `"profane"` (accurate rejection) instead of generic `"invalid"`. New `HandleCheck` reason value; POST /api/profile maps it to "handle contains inappropriate language"; availability endpoint passes it through; claim UI shows it live as the user types. Tests cover plain terms, clean handles, leetspeak variants, and vulgar substrings inside longer handles.
+- ponytail ceiling noted in source: blocklist catches obvious cases only; user reports + admin review cover the rest.
+
+### Two-step confirmed claim (`ClaimHandleCard.tsx`)
+- When the availability check passes, an inline confirmation panel replaces the hint area: "⚠ Handles are permanent and cannot be changed." / "Claiming u/<handle> locks it to your account forever." + [Confirm: Claim u/<handle>] (gold primary) + [Go back] (quiet). Only Confirm fires the POST; "Go back" hides the panel until the handle is edited (re-showable via a quiet "Claim u/<handle>" link).
+- Success replaces the ENTIRE card with static Bebas-gold "@<handle> · claimed" — no edit affordance anywhere (local mirror state covers the window before `router.refresh()` swaps in the server-rendered chip).
+- New explicit 429 feedback: "Too many claim attempts — try again in an hour."
+
+### Claimed display (/u/me)
+- Users who already claimed see a static "@<handle> · claimed" chip under the stats header (Bebas gold), no edit link, plus one-line muted note "Handles are permanent." to set expectations.
+
+### Retry spacing (`src/lib/rate-limit.ts`, POST /api/profile)
+- New `LIMITS.claimHandle` entry: 5/hour per user on its own key (`claimHandle:<userId>`); PATCH visibility keeps the existing 10/min `profile` limit.
+- Attempt-based by construction: the limiter runs BEFORE body parse/validation, so failed AND successful claims burn budget — brute-force enumeration of handle variants is expensive. Route test proves 5 failing attempts then a 429 with Retry-After.
+- qa-checklist.md item 48 updated with the new constants and rationale.
+
+### FUTURE HOOK: handle changes = paid microtransaction (payment provider TBD)
+Handles are deliberately locked after first claim. Changing a handle should become a **microtransaction** (small one-off charge, e.g. rename token) once payments exist — provider not chosen yet (Stripe/Lemon Squeezy/etc.). The permanence lock makes this a clean upsell moment: the confirmation screen is exactly where a future "change your handle for $X" affordance slots in, and users have already been told the choice is forever. Until then there is intentionally NO handle-change path anywhere (UI, API, or DB). When building it: reuse `checkHandle` + `LIMITS.claimHandle`, add a payment webhook before the upsert, and never allow reclaiming a released handle within a cooldown window to prevent handle-squatting flips.
+
+### Verification
+- `npm test`: 185 passed / 21 files (new: isProfane/checkHandle profanity cases incl. leetspeak + substrings; limiter attempt-counting test). `npx tsc --noEmit`: clean. `npx eslint src`: clean (one fix: setState-in-effect replaced with setState-during-render adjustment pattern). `next build`: passes.
+
+### Commits
+- `<commit-1>` feat: vulgarity filter for handles
+- `<commit-2>` feat: permanent handle claim flow

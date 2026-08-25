@@ -6,7 +6,10 @@ export const LIMITS = {
   lists: { limit: 20, windowMs: 60_000 }, // POST/PATCH/DELETE /api/lists
   proposals: { limit: 5, windowMs: 60_000 }, // POST /api/proposals
   accountDelete: { limit: 3, windowMs: 3_600_000 }, // POST /api/account/delete
-  profile: { limit: 10, windowMs: 60_000 }, // POST/PATCH /api/profile
+  profile: { limit: 10, windowMs: 60_000 }, // PATCH /api/profile (visibility)
+  // Handle claims: attempt-based, counts failures AND successes so
+  // brute-force enumeration of handle variants is expensive.
+  claimHandle: { limit: 5, windowMs: 3_600_000 }, // POST /api/profile
 } as const;
 
 const buckets = new Map<string, number[]>();
