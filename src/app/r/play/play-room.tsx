@@ -375,6 +375,17 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     setPair(selectNextPair(session, true));
   }
 
+  // Outside click and Escape both mean "keep ranking" (user feedback): they
+  // dismiss the leave menu exactly like the positive button.
+  useEffect(() => {
+    if (!exitOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setExitOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [exitOpen]);
+
   if (!ready) return <main className="flex-1" />;
 
   if (!session) {
@@ -412,16 +423,22 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full flex-col">
-      <header className="flex items-center justify-between gap-3 px-4 pt-3 sm:px-6">
-        {authNotice && (
-          <p role="alert" className="min-w-0 truncate text-xs text-accent-red sm:text-sm">
-            Sign-in failed — still playing as a guest.
-          </p>
-        )}
-        <div className="min-w-0">
-          <h1 className="truncate text-xl font-bold sm:text-3xl">{session.title}</h1>
+      {/* Slim control strip (user feedback): compact bar, not a banner. The
+          wordmark gives a permanent way back to home; Exit stays the
+          confirm-flow path out. */}
+      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-gold/15 bg-bg/80 px-4 py-2 backdrop-blur sm:px-6">
+        <Link
+          href="/"
+          className="flex shrink-0 items-center gap-1.5 font-display text-lg uppercase tracking-widest text-text transition-colors duration-200 ease-out hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+        >
+          <span aria-hidden="true" className="text-gold">✦</span>
+          movieranker
+        </Link>
+        <div aria-hidden="true" className="h-6 w-px shrink-0 bg-white/10" />
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-lg font-bold leading-tight sm:text-xl">{session.title}</h1>
           {session.themeSlug && (
-            <div className="mt-0.5 flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span
                 className={
                   session.curated
@@ -441,16 +458,10 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
                   Unlock
                 </button>
               )}
-              {session.curated && !finished && (
-                <p className="w-full text-xs font-normal text-muted">
-                  Tonight&apos;s list is locked to its themed movies. Unlocking lets
-                  you add any other movie — but it leaves This Week&apos;s Marquee.
-                </p>
-              )}
             </div>
           )}
           {session.participants.length > 0 && (
-            <p className="truncate text-sm text-muted sm:text-base">
+            <p className="truncate text-xs text-muted sm:text-sm">
               {session.participants.map((p, i) => (
                 <span key={p}>
                   {i > 0 && " · "}
@@ -467,21 +478,27 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               type="button"
               onClick={() => setExitOpen((v) => !v)}
               aria-expanded={exitOpen}
-              className="min-h-11 rounded px-2 text-sm text-muted underline-offset-4 transition-colors duration-200 ease-out hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:text-text"
+              className="min-h-9 rounded px-2 py-1 text-sm text-muted underline-offset-4 transition-colors duration-200 ease-out hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:text-text"
             >
-              <span aria-hidden="true">←</span> Exit
+              Exit
             </button>
             <button
               type="button"
               onClick={handleUndo}
               disabled={!canUndo}
-              className="flex min-h-11 items-center gap-1.5 rounded bg-surface px-3 text-sm font-medium ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised disabled:pointer-events-none disabled:opacity-40"
+              className="flex min-h-9 items-center gap-1.5 rounded bg-surface px-3 py-1 text-sm font-medium ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised disabled:pointer-events-none disabled:opacity-40"
             >
               <span aria-hidden="true">↩</span> Undo
             </button>
           </div>
         )}
       </header>
+
+      {authNotice && (
+        <p role="alert" className="px-4 pt-2 text-xs text-accent-red sm:px-6 sm:text-sm">
+          Sign-in failed — still playing as a guest.
+        </p>
+      )}
 
       {unlockOpen && session.curated && !finished && (
         <div
@@ -514,33 +531,40 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
 
       {exitOpen && !finished && (
         <div
-          role="group"
-          aria-label="Leave the ranking room"
-          className="mx-auto w-full max-w-2xl animate-fade-in px-4 pt-3 sm:px-6"
+          className="fixed inset-0 z-40 flex animate-fade-in items-start justify-center bg-black/60 px-4 pt-24 backdrop-blur-[2px]"
+          onClick={() => setExitOpen(false)}
         >
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded bg-surface p-3 ring-1 ring-white/10">
-            <p className="min-w-0 flex-1 text-sm text-muted">Leave this ranking?</p>
-            <button
-              type="button"
-              onClick={handleResumeLater}
-              className="min-h-11 rounded bg-surface-raised px-4 text-sm font-medium transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
-            >
-              Resume later
-            </button>
-            <button
-              type="button"
-              onClick={handleAbandon}
-              className="min-h-11 rounded bg-surface-raised px-4 text-sm font-medium text-accent-red transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
-            >
-              Abandon
-            </button>
-            <button
-              type="button"
-              onClick={() => setExitOpen(false)}
-              className="min-h-11 rounded px-4 text-sm text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:text-text"
-            >
-              Keep ranking
-            </button>
+          <div
+            role="group"
+            aria-label="Leave the ranking room"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded bg-surface p-4 shadow-2xl ring-1 ring-gold/25"
+          >
+            <p className="text-sm uppercase tracking-widest text-muted">Leave this ranking?</p>
+            <div className="mt-3 flex flex-col gap-2">
+              {/* Positive default first; destructive last and quietest. */}
+              <button
+                type="button"
+                onClick={() => setExitOpen(false)}
+                className="min-h-11 rounded bg-gold px-4 font-semibold text-bg transition-all duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
+              >
+                Keep ranking
+              </button>
+              <button
+                type="button"
+                onClick={handleResumeLater}
+                className="min-h-11 rounded bg-surface-raised px-4 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+              >
+                Resume later
+              </button>
+              <button
+                type="button"
+                onClick={handleAbandon}
+                className="min-h-11 rounded px-4 text-sm font-medium text-accent-red ring-1 ring-accent-red/40 transition-colors duration-200 ease-out hover:bg-accent-red/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-red active:scale-[0.98]"
+              >
+                Abandon ranking
+              </button>
+            </div>
           </div>
         </div>
       )}
