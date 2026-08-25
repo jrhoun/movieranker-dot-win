@@ -122,7 +122,7 @@ export default function CandidateTray({
                     onChange={(e) => setDraft(e.target.value)}
                     placeholder="Add a name… e.g. Sarah"
                     aria-label="Add participant"
-                    className="min-h-11 flex-1 rounded bg-surface-raised px-3 text-sm text-text placeholder:text-muted ring-1 ring-white/10 transition-shadow duration-200 ease-out hover:ring-white/20 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent"
+                    className="min-h-11 w-44 rounded bg-surface-raised px-3 text-sm text-text placeholder:text-muted ring-1 ring-white/10 transition-shadow duration-200 ease-out hover:ring-white/20 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent"
                   />
                   <button
                     type="submit"
