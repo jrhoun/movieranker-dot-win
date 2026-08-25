@@ -237,16 +237,17 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
       )}
       {/* CHOOSE YOUR PREMIERE (user-directed): the site's two entry paths
           become the page's organizing structure. Path A — this week's themed
-          marquee (rotates weekly); Path B — build your own list. Cards stack
-          at 390px (single column by default). */}
+          marquee (rotates weekly); Path B — build your own list. Equal-width
+          columns side by side on desktop (custom list LEFT, marquee RIGHT,
+          ✦ vertical rule between); stacks at 390px marquee-first (DOM order). */}
       <MarqueeHeading as="h2">Choose your premiere</MarqueeHeading>
-      {/* Path A (prominent): THIS WEEK'S MARQUEE — server-resolved theme +
-          movie details. Posters stay tap-to-add candidates, same tray toggle
-          as the hero fan. */}
+      <div className="mt-8 flex flex-col md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-stretch">
+      {/* Path A: THIS WEEK'S MARQUEE — server-resolved theme + movie details.
+          Posters stay tap-to-add candidates, same tray toggle as the hero fan. */}
       {tonight.movies.length > 0 && (
       <section
         aria-label="This week's marquee"
-        className="mt-8 rounded-lg bg-surface p-5 ring-1 ring-gold/40 sm:p-8"
+        className="rounded-lg bg-surface p-5 ring-1 ring-gold/40 sm:p-6 md:col-start-3 md:row-start-1"
       >
         <p className="text-center font-display text-sm uppercase tracking-[0.2em] text-muted">
           This week&apos;s marquee · rotates weekly
@@ -345,16 +346,20 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
         </ul>
       </section>
       )}
-      {/* Gold rule with ✦ center between the two premiere paths. */}
-      <div className="my-8 flex items-center gap-3" role="presentation">
-        <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60" />
+      {/* Gold rule with ✦ center between the two premiere paths:
+          horizontal on mobile, vertical rule between columns on desktop. */}
+      <div
+        className="my-8 flex items-center gap-3 md:mx-3 md:my-0 md:flex-col"
+        role="presentation"
+      >
+        <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60 md:h-full md:min-h-4 md:min-w-0 md:w-px md:flex-none" />
         <span aria-hidden="true" className="text-gold">✦</span>
-        <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60" />
+        <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60 md:h-full md:min-h-4 md:min-w-0 md:w-px md:flex-none" />
       </div>
       {/* Path B: BUILD YOUR OWN LIST — the search panel lives inside this card. */}
       <section
         aria-label="Build your own list"
-        className="rounded-lg bg-surface p-5 ring-1 ring-white/10 sm:p-6"
+        className="rounded-lg bg-surface p-5 ring-1 ring-white/10 sm:p-6 md:col-start-1 md:row-start-1"
       >
         <h3 className="font-display text-3xl uppercase leading-none tracking-wide">Build your own list</h3>
         <p className="mt-1 text-sm text-muted">
@@ -369,6 +374,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
         </div>
         <p className="mt-4 text-sm text-muted">…then share your ranked wall.</p>
       </section>
+      </div>
       <CandidateTray
         candidates={candidates}
         onRemove={(id) =>
