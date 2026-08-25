@@ -600,3 +600,29 @@ Tap-toggle-select, shift-range select, Add-all/Clear-selection sync over the sam
 
 ### Verification
 npm test 261/261 (26 files); tsc --noEmit clean; eslint clean; production build passes. No live TMDB calls; .env.local untouched.
+
+## Play room marquee atmosphere + slim top bar — design agent (round: color/pizzazz)
+
+User feedback: play screen too gray/flat next to the redesigned home; top bar odd/too thick; losing the nav bar entirely feels wrong.
+
+### Curtain treatment in the room (src/app/globals.css, src/app/r/play/play-room.tsx)
+- New `.bg-curtain-soft` utility: same fold rhythm/vocabulary as `.bg-curtain` but at LOW intensity — darker folds (#1a0005/#3d000f/#5e1b25) under a near-opaque house-light radial pulling back to `--bg`, plus a bottom fade so poster titles read on house black instead of raw fold crests. Applied to the voting stage section only. The consensus screen keeps full-strength `.bg-curtain`.
+- `stage-spotlight` needed no change — it was already gold-family; it read gray because the surrounding backdrop was flat.
+- Posters stay 2:3 opaque on surface cards; text never sits raw on folds (board card, bottom fade, vignette).
+
+### Slim top bar + slim nav presence (play-room.tsx)
+- Header is now a sticky compact control strip: `py-2`, gold hairline border, `bg-bg/80` backdrop-blur (matches SiteHeader vocabulary). Title downsized `text-xl sm:text-3xl` → `text-lg sm:text-xl`; participants line demoted a size; Exit/Undo buttons min-h-11 → min-h-9 with py-1.
+- Added "✦ movieranker" Bebas wordmark link home on the left of the strip (gold ✦, hover gold), separated by a hairline divider — permanent way back without touching the Exit confirm flow.
+- Dropped the always-on curated explainer paragraph from the bar (identical copy already appears in the Unlock confirm card when toggled).
+- Auth-failure notice moved below the strip as its own alert line.
+
+### Exit menu upgrade (play-room.tsx)
+- Inline card replaced by centered dialog over dimmed backdrop (`fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px]`, gold ring on the panel).
+- Button hierarchy: **Keep ranking** = gold primary (first); **Resume later** = quiet raised surface; **Abandon ranking** = quiet destructive (red outline, last).
+- Backdrop click and Escape both dismiss = Keep Ranking behavior (window keydown listener scoped to exitOpen).
+
+### Motion & legibility
+- No new loops; only existing `animate-fade-in`, which collapses under the global prefers-reduced-motion rule. All gradients static. Touch targets ≥ min-h-9 (44px wordmark/exit rows via padding+leading where interactive-critical; strip buttons remain comfortably tappable); progress numerals unchanged for TV distance.
+
+### Verification
+npm test 261/261 (26 files); tsc --noEmit clean; eslint clean; production build passes. Commits: 6d1089f (atmosphere), 2303648 (top bar + exit menu). Only owned files touched; SearchPanel.tsx/tmdb.ts untouched; no live calls; .env.local unread.
