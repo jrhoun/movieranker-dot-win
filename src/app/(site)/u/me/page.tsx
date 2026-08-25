@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import ListCard, { type ListCardData } from "@/components/profile/ListCard";
 import MarqueeHeading from "@/components/MarqueeHeading";
+import AccountSection from "@/components/profile/AccountSection";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 interface DbList {
@@ -70,6 +71,8 @@ export default async function MyListsPage() {
           ))}
         </ul>
       )}
+
+      <AccountSection />
     </main>
   );
 }
