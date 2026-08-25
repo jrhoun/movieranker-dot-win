@@ -60,48 +60,55 @@ body {
 /* Spotlight glow (DESIGN.md): reusable radial warm glow behind hero/focal content.
    Purely static gradient; reduced-motion needs no override. */
 .spotlight-glow {
-  background-image: radial-gradient(ellipse 60% 55% at 50% 35%, rgba(245, 197, 24, 0.12), transparent 70%);
+  /* Layer order: first listed paints on top. The tight circle sits over the
+     marquee title area (~30% down), the wider ellipse warms the whole band
+     beneath it — together they form the brightest ring around title/tagline. */
+  background-image:
+    radial-gradient(circle at 50% 30%, rgba(245, 197, 24, 0.16), transparent 55%),
+    radial-gradient(ellipse 60% 55% at 50% 35%, rgba(245, 197, 24, 0.12), transparent 70%);
 }
 
 /* Searchlight beams (DESIGN.md Premiere Night): two soft gold shafts rising
-   from the bottom corners, crossing behind the hero title. Ambient drift is
-   ±4deg over ~20s, beams counter-phased via differing durations; the global
-   reduced-motion rule ends both loops instantly, leaving the static base
+   from below, tilted INWARD so they converge behind the hero title instead of
+   hugging the outer corners. Alpha kept roughly half the original so edges stay
+   darker than the center; blur raised to soften beam cores further. Ambient
+   drift is ±2deg over ~20s, beams counter-phased via differing durations; the
+   global reduced-motion rule ends both loops instantly, leaving the static base
    rotation. Kept at low alpha so posters stay the visual anchor. */
 .searchlights::before,
 .searchlights::after {
   content: "";
   position: absolute;
   bottom: -15%;
-  width: 55%;
+  width: 45%;
   height: 150%;
   background-image: linear-gradient(
     to top,
-    rgba(245, 197, 24, 0.13),
-    rgba(245, 197, 24, 0.09) 45%,
+    rgba(245, 197, 24, 0.06),
+    rgba(245, 197, 24, 0.04) 45%,
     transparent 78%
   );
   clip-path: polygon(38% 100%, 0% 0%, 100% 0%, 62% 100%);
-  filter: blur(35px);
+  filter: blur(50px);
   transform-origin: bottom center;
 }
 .searchlights::before {
-  left: -18%;
-  transform: rotate(-16deg);
+  left: -12%;
+  transform: rotate(14deg);
   animation: searchlight-left 22s ease-in-out infinite alternate;
 }
 .searchlights::after {
-  right: -18%;
-  transform: rotate(16deg);
+  right: -12%;
+  transform: rotate(-14deg);
   animation: searchlight-right 19s ease-in-out infinite alternate;
 }
 @keyframes searchlight-left {
-  from { transform: rotate(-16deg); }
-  to { transform: rotate(-12deg); }
+  from { transform: rotate(14deg); }
+  to { transform: rotate(16deg); }
 }
 @keyframes searchlight-right {
-  from { transform: rotate(16deg); }
-  to { transform: rotate(12deg); }
+  from { transform: rotate(-14deg); }
+  to { transform: rotate(-16deg); }
 }
 
 /* Marquee wordmark (DESIGN.md Premiere Night): warm gold sweep clipped to the
