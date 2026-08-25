@@ -47,6 +47,15 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
         },
         tilt: p.tilt,
       }));
+  // fan caps at 8 posters; surface the rest so visitors know the theme is bigger
+  const overflowCount = liveFan ? tonight.movies.length - fanMovies.length : 0;
+  const scrollToMarquee = () =>
+    document.getElementById("week-marquee")?.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+      block: "start",
+    });
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [participants, setParticipants] = useState<string[]>([]);
@@ -170,11 +179,28 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
                     className="block w-full cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
                   >
                     <MoviePoster title={m.title} posterPath={m.posterPath} className="shadow-xl" />
+                    {overflowCount > 0 && i === fanItems.length - 1 && (
+                      <span
+                        aria-hidden
+                        className="absolute right-1 bottom-1 z-10 rounded-full bg-gold px-1.5 py-0.5 text-xs font-bold text-bg shadow"
+                      >
+                        +{overflowCount}
+                      </span>
+                    )}
                   </button>
                 </li>
               );
             })}
           </ul>
+          {overflowCount > 0 && (
+            <button
+              type="button"
+              onClick={scrollToMarquee}
+              className="mt-2 min-h-11 text-xs text-muted underline decoration-gold/60 decoration-2 underline-offset-4 transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            >
+              +{overflowCount} more in this week&apos;s marquee ↓
+            </button>
+          )}
           {liveFan && (
             <p className="mt-5 font-display text-sm uppercase tracking-[0.2em] text-gold drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]">
               This week&apos;s marquee · {tonight.title}
@@ -246,8 +272,9 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
           Posters stay tap-to-add candidates, same tray toggle as the hero fan. */}
       {tonight.movies.length > 0 && (
       <section
+        id="week-marquee"
         aria-label="This week's marquee"
-        className="rounded-lg bg-surface p-5 ring-1 ring-gold/40 sm:p-6 md:col-start-3 md:row-start-1"
+        className="scroll-mt-6 rounded-lg bg-surface p-5 ring-1 ring-gold/40 sm:p-6 md:col-start-3 md:row-start-1"
       >
         <p className="text-center font-display text-sm uppercase tracking-[0.2em] text-muted">
           This week&apos;s marquee · rotates weekly
