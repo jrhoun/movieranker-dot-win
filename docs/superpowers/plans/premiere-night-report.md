@@ -414,3 +414,30 @@ Reviewer finding: `weeksSinceUtcEpoch = floor(days/7)` anchored the rotation win
 
 ### Verification
 - npm test: 248 passed (25 files); tsc clean; eslint clean; production build passes. No live TMDB calls; .env.local untouched.
+
+## v1 fix round — browse-all usability + winner animation (2026-08-24)
+
+### 1. Browse-all modal unusable — diagnosis + fix
+- Diagnosis: panel height was already bounded (`max-h-[85dvh]`, flex column, `overflow-y-auto` body from ad403c1/742dc05), so the residual "can't see most posters" gap is scroll affordance: the default scrollbar thumb is near-invisible on #17171c and overlay scrollbars hide until scrolled, leaving no visible cue that the grid scrolls.
+- Fix: new `.thin-scrollbar` utility in globals.css (thin track, light rgba(236,236,241,.35) thumb, Firefox `scrollbar-color` + WebKit rules) applied to the modal body. Header (title row + filter input) and footer (N selected + Close) are static flex siblings of the scrolling grid, so they stay pinned while posters scroll.
+
+### 2. In-modal search filter
+- New pure helper `src/lib/search-filter.ts` (`filterByTitle`: case-insensitive title substring, whitespace-trimmed; empty query = all). Tested in `search-filter.test.ts`.
+- Modal header gains a "Filter by title…" input with an inline ✕ clear button (shown only when active); body renders the filtered subset over the same source array, so shift+click range anchors stay exact via `movies.indexOf(mv)`. Empty-filter state shows a muted "No results match" line. All results render unfiltered when the query is empty, so native Ctrl+F covers the full set.
+
+### 3. Unlock help text (/r/play curated mode)
+- Muted helper line added directly under the 🔒 chip row, visible before any click: "Tonight's list is locked to its themed movies. Unlocking lets you add any other movie — but it leaves This Week's Marquee."
+- The confirm card already repeats the consequence ("…this ranking will no longer count as this week's themed list.") — unchanged.
+
+### 4. Links → buttons + winner animation
+(a) Text-style controls converted to DESIGN.md surface buttons (surface bg / raised hover, ring-white/10, min-h-11 ≥44px): the Unlock toggle (was a bare underlined text link), "Finish now →", and "Keep voting". Exit/Join/Undo/etc. were already styled buttons.
+(b) Vote settle upgrade in MatchupStage + globals.css:
+- Loser side: `.loser-bop` = scale 1→0.94→1 bop (~180ms) chained into `.loser-dim` fade to 25% opacity (~200ms, forwards), replacing the old translate/fade.
+- Winner side poster frame: `.winner-gold-pulse` (~250ms gold box-shadow pulse, single beat).
+- Settle timer in play-room bumped 220ms → 400ms so the full sequence completes before the next matchup swaps in.
+- Reduced motion: explicit media override kills both animations; loser is instantly at 25% opacity, no bop/pulse.
+
+### Verification
+- npm test: 251 passed (26 files, incl. new search-filter tests); tsc clean; eslint clean; production build passes.
+- Traffic hygiene: no live calls made; .env.local untouched.
+- Commits: 01eb2e5 (fix: browse-all modal usability), 108d274 (feat: winner bop animation + room button polish).
