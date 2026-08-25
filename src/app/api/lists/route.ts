@@ -6,6 +6,7 @@ import {
   fullMovieRow,
   invalid,
   parseDescription,
+  parseThemeMeta,
   parseVisibility,
   type MovieInput,
 } from "@/lib/lists-api";
@@ -17,6 +18,8 @@ interface PostBody {
   participants?: unknown;
   status?: unknown;
   visibility?: unknown;
+  themeSlug?: unknown;
+  curated?: unknown;
   movies?: unknown;
 }
 
@@ -45,6 +48,8 @@ export async function POST(request: Request) {
     return invalid("status must be 'draft' or 'done'");
   const visibility = parseVisibility(body.visibility);
   if (!visibility.ok) return invalid(visibility.error);
+  const meta = parseThemeMeta(body);
+  if (!meta.ok) return invalid(meta.error);
   if (!Array.isArray(participants) || participants.some((p) => typeof p !== "string"))
     return invalid("participants must be an array of strings");
   // Reject malformed numeric/string fields before they reach the DB insert.
@@ -76,14 +81,24 @@ export async function POST(request: Request) {
   });
   if (error) return dbErrorResponse(error);
 
-  // Visibility is a follow-up owner update so live DBs only need the ALTER —
-  // no save_list signature change to re-run.
+  // Visibility and curated-theme metadata are follow-up owner updates so live
+  // DBs only need the ALTER — no save_list signature change to re-run.
   if (visibility.value !== "unlisted") {
     const { error: visError } = await supabase
       .from("lists")
       .update({ visibility: visibility.value })
       .eq("id", id);
     if (visError) return dbErrorResponse(visError);
+  }
+  if (meta.value.themeSlug) {
+    const { error: themeError } = await supabase
+      .from("lists")
+      .update({
+        theme_slug: meta.value.themeSlug,
+        curated: meta.value.curated,
+      })
+      .eq("id", id);
+    if (themeError) return dbErrorResponse(themeError);
   }
 
   return NextResponse.json({ id }, { status: 201 });

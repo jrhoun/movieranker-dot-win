@@ -53,6 +53,13 @@ describe("session", () => {
     expect(loadSession()).toBeNull();
   });
 
+  it("round-trips curated theme fields", () => {
+    saveSession({ ...session(), themeSlug: "secretly-same-story", curated: true });
+    const loaded = loadSession();
+    expect(loaded?.themeSlug).toBe("secretly-same-story");
+    expect(loaded?.curated).toBe(true);
+  });
+
   it("returns null on corrupted JSON", () => {
     store.set("mr-session", "{not json");
     expect(loadSession()).toBeNull();

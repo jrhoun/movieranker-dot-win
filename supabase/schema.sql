@@ -148,3 +148,10 @@ alter table profiles enable row level security;
 create policy "read any" on profiles for select using (true);
 create policy "write own" on profiles for all
   using (auth.uid() = id) with check (auth.uid() = id);
+
+-- Curated Lock Mode (added after v1): lists born from Tonight's Shortlist.
+-- theme_slug is set when the list originates from the daily theme; curated is
+-- true while the roster is locked to the theme movies. Unlocking flips curated
+-- to false but keeps theme_slug so community stats can still credit it later.
+alter table lists add column if not exists theme_slug text;
+alter table lists add column if not exists curated boolean not null default false;

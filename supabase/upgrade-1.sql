@@ -74,3 +74,7 @@ create policy "read via list" on participant_attributions for select using (
 );
 create policy "remove own claim" on participant_attributions for delete
   using (auth.uid() = user_id);
+
+-- 7. Curated Lock Mode — themed lists from Tonight's Shortlist.
+ALTER TABLE lists ADD COLUMN IF NOT EXISTS theme_slug text;
+ALTER TABLE lists ADD COLUMN IF NOT EXISTS curated boolean NOT NULL DEFAULT false;

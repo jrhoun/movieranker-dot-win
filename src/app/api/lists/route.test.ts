@@ -187,4 +187,47 @@ describe("POST /api/lists", () => {
     const res = await POST(jsonRequest(doneBody));
     expect(res.status).toBe(403);
   });
+
+  it("persists theme_slug + curated via a follow-up update", async () => {
+    const res = await POST(
+      jsonRequest({ ...doneBody, themeSlug: "secretly-same-story", curated: true }),
+    );
+    expect(res.status).toBe(201);
+    const update = currentDb.calls.find(
+      (c) => c.table === "lists" && c.method === "update",
+    );
+    expect(update).toBeDefined();
+    expect(update!.args[0]).toEqual({
+      theme_slug: "secretly-same-story",
+      curated: true,
+    });
+  });
+
+  it("defaults curated to false when a themeSlug is sent alone", async () => {
+    const res = await POST(jsonRequest({ ...doneBody, themeSlug: "noirs" }));
+    expect(res.status).toBe(201);
+    const update = currentDb.calls.find(
+      (c) => c.table === "lists" && c.method === "update",
+    );
+    expect(update!.args[0]).toEqual({ theme_slug: "noirs", curated: false });
+  });
+
+  it("rejects curated without themeSlug with 400", async () => {
+    const res = await POST(jsonRequest({ ...doneBody, curated: true }));
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a non-slug-safe or oversized themeSlug with 400", async () => {
+    for (const themeSlug of ["Not A Slug!!", "", "x".repeat(81), 42]) {
+      const res = await POST(jsonRequest({ ...doneBody, themeSlug }));
+      expect(res.status).toBe(400);
+    }
+  });
+
+  it("rejects a non-boolean curated with 400", async () => {
+    const res = await POST(
+      jsonRequest({ ...doneBody, themeSlug: "noirs", curated: "yes" }),
+    );
+    expect(res.status).toBe(400);
+  });
 });

@@ -56,6 +56,38 @@ export function parseVisibility(
   return { ok: false, error: "visibility must be 'unlisted', 'public' or 'private'" };
 }
 
+const SLUG_RE = /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/i;
+
+export interface ThemeMeta {
+  themeSlug: string | null;
+  curated: boolean;
+}
+
+/** Optional curated-theme metadata; curated requires a themeSlug. */
+export function parseThemeMeta(body: {
+  themeSlug?: unknown;
+  curated?: unknown;
+}): { ok: true; value: ThemeMeta } | { ok: false; error: string } {
+  const { themeSlug, curated } = body;
+  if (curated !== undefined && typeof curated !== "boolean")
+    return { ok: false, error: "curated must be a boolean" };
+  if (themeSlug === undefined || themeSlug === null) {
+    if (curated)
+      return { ok: false, error: "curated is only valid alongside themeSlug" };
+    return { ok: true, value: { themeSlug: null, curated: false } };
+  }
+  if (
+    typeof themeSlug !== "string" ||
+    themeSlug.length > 80 ||
+    !SLUG_RE.test(themeSlug)
+  )
+    return {
+      ok: false,
+      error: "themeSlug must be a slug-safe string of at most 80 characters",
+    };
+  return { ok: true, value: { themeSlug, curated: curated ?? false } };
+}
+
 /**
  * Returns the list id if visible+owned by the caller (RLS hides other owners'
  * rows), else null. Used as an ownership precheck for PATCH/DELETE.
