@@ -34,3 +34,27 @@ Pure helpers: `normalizeHandle` (lowercase+trim), `isValidHandle` (`/^[a-z0-9_-]
 
 ## Review (stage 1)
 Spec ✅ / Approved. Deferred minors: Claim button uses --accent not literal gold (DESIGN.md-consistent); "coming with handles" toggle copy goes stale when handles ship — Stage 2 to fix; truncated third minor in reviewer output accepted as cosmetic.
+
+## Stage 2 — public profile pages
+
+### Built
+- `/u/[handle]` server component (`src/app/(site)/u/[handle]/page.tsx`): handle normalized lowercase before lookup; missing row OR `visibility!=='public'` → styled `not-found.tsx` ("This profile is private or doesn't exist."). Public view: Bebas `@<handle>` marquee + ✦ rule, joined month/year (UTC), stats band (movies ranked, public list count, rank title) all derived ONLY from `visibility='public'` + `status='done'` lists; card grid links `/l/<id>` with poster triptych (MoviePoster + surface fillers); empty state "No public rankings yet." Unlisted lists are link-accessible but excluded from the profile per spec. Unlockables stay on /u/me.
+- Pure shaping in `src/lib/public-profile.ts` (`shapePublicProfile`): filters to public+done again inside the helper as defense-in-depth at the trust boundary, sums movies, derives level via existing `levelFor`. Tests in `src/lib/public-profile.test.ts` cover unlisted/draft/private exclusion from both cards and counts, XP/level math, UTC date shaping, empty input.
+
+### Wiring
+- `/u/me`: "View public profile →" link under the toggle when claimed; enabled → `/u/<handle>`, disabled span with title "Set your profile to public first" while private. Toggle now calls `router.refresh()` after a successful PATCH so the link state follows live visibility changes without a reload.
+- `SiteHeader`: signed-in users with a claimed handle get "My profile" → `/u/<handle>` alongside "My lists"; no handle → header unchanged. One extra `profiles.select(handle)` query for signed-in users only.
+- Stale stage-1 copy fixed: toggle heading now "Public profile", helper reads "Your profile lives at movieranker.win/u/<handle> — set to Public to make it visible." (handle interpolated when known); radio tooltip present tense.
+
+### Verification
+- `npm test`: 175 passed / 21 files (new: public-profile.test.ts).
+- `npx tsc --noEmit`: clean. `npx eslint src`: clean. `next build`: passes; `/u/[handle]` registered.
+
+### Commits
+- `81fed87` feat: public profile pages
+- `b91462f` design: header + toggle wiring
+
+### Concerns / deferred
+- Profile lookup is exact-match on the normalized (lowercase) handle; URLs like `/u/CinePhile_99` work because the page normalizes params before querying.
+- Public-profile card grid is a small inline server component rather than reusing owner `ListCard` (which carries delete/visibility controls); if a third consumer appears, extract a shared read-only card.
+- Header gains one profiles query per request for signed-in users — negligible now; revisit if header perf ever shows up in metrics.
