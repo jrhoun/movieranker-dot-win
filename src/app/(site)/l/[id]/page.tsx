@@ -8,6 +8,7 @@ import ParticipantChips from "@/components/ParticipantChips";
 import ShareButton from "@/components/ShareButton";
 import { withRanks, type ListMovieRow } from "@/lib/list-view";
 import { chipParticipants } from "@/lib/participants";
+import { computeThemeStats, type ThemeRoom } from "@/lib/theme-stats";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 interface DbList {
@@ -17,6 +18,7 @@ interface DbList {
   participants: string[];
   status: string;
   owner_id: string;
+  theme_slug: string | null;
 }
 
 interface DbMovie {
@@ -48,7 +50,7 @@ export default async function PublicListPage({
   // RLS: public sees only status='done'; owners also see their drafts.
   const { data: list } = await supabase
     .from("lists")
-    .select("id,title,description,participants,status,owner_id")
+    .select("id,title,description,participants,status,owner_id,theme_slug")
     .eq("id", id)
     .maybeSingle<DbList>();
 
@@ -91,6 +93,32 @@ export default async function PublicListPage({
     attributions ?? [],
     publicProfiles ?? [],
   );
+
+  // Community Verdict: aggregate every done room sharing this theme. RLS keeps
+  // private rooms out; one query fetches rooms + their movies together.
+  let stats: ReturnType<typeof computeThemeStats> | null = null;
+  if (list.theme_slug && list.status === "done") {
+    const { data: themed } = await supabase
+      .from("lists")
+      .select("id,list_movies(tmdb_id,title,poster_path,elo,parked,final_rank)")
+      .eq("theme_slug", list.theme_slug)
+      .eq("status", "done");
+    const rooms: ThemeRoom[] = ((themed ?? []) as Record<string, unknown>[]).map((r) => ({
+      id: String(r.id),
+      movies: ((Array.isArray(r.list_movies) ? r.list_movies : []) as Record<string, unknown>[]).map(
+        (mv) => ({
+          tmdbId: mv.tmdb_id as number,
+          title: mv.title as string,
+          posterPath: (mv.poster_path as string | null) ?? null,
+          elo: mv.elo as number,
+          parked: Boolean(mv.parked),
+          finalRank: (mv.final_rank as number | null) ?? null,
+        }),
+      ),
+    }));
+    stats = computeThemeStats(rooms);
+  }
+  const pct = (x: number) => `${Math.round(x * 100)}%`;
 
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-4 py-8 sm:max-w-2xl">
@@ -139,6 +167,73 @@ export default async function PublicListPage({
           <ListViews movies={withRanks(rows)} />
         )}
       </div>
+
+      {list.theme_slug && list.status === "done" && stats !== null && stats.rooms >= 1 && (
+        <section aria-label="Community verdict" className="mt-10">
+          {stats.rooms >= 2 ? (
+            <>
+              <MarqueeHeading as="h2">Community Verdict</MarqueeHeading>
+              <p className="mt-1 text-sm text-muted">
+                {stats.rooms} rooms ranked tonight&apos;s theme so far.
+              </p>
+              {stats.championId !== null && (() => {
+                const champ = stats.movies.find((m) => m.tmdbId === stats!.championId)!;
+                return (
+                  <div className="mt-4 rounded bg-surface px-4 py-3 ring-1 ring-gold/40">
+                    <p className="text-sm text-muted">
+                      <span className="font-bold uppercase tracking-wide text-gold">
+                        Undisputed champion
+                      </span>{" "}
+                      — <span className="font-medium text-text">{champ.title}</span>, #1 in all{" "}
+                      {champ.appearances} rooms.
+                    </p>
+                  </div>
+                );
+              })()}
+              <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+                {stats.movies.map((m) => {
+                  const divisive = m.tmdbId === stats!.mostDivisiveId;
+                  return (
+                    <li key={m.tmdbId} className="rounded bg-surface p-3 ring-1 ring-white/10">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="min-w-0 truncate text-sm font-medium text-text">
+                          {m.title}
+                        </span>
+                        <span className="shrink-0 font-mono text-sm text-gold">
+                          {pct(m.pctRankedFirst)} #1
+                        </span>
+                      </div>
+                      {/* Gold bar on surface; static width, no motion needed. */}
+                      <div className="mt-1.5 h-1.5 rounded bg-white/10">
+                        <div
+                          className="h-1.5 rounded bg-gold"
+                          style={{ width: pct(m.pctRankedFirst) }}
+                        />
+                      </div>
+                      <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted">
+                        <span>{pct(m.pctHaventSeen)} haven&apos;t seen</span>
+                        {divisive && (
+                          <span className="uppercase tracking-wide text-accent">Most divisive</span>
+                        )}
+                      </div>
+                      <div className="mt-1 h-1.5 rounded bg-white/10">
+                        <div
+                          className="h-1.5 rounded bg-gold/40"
+                          style={{ width: pct(m.pctHaventSeen) }}
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          ) : (
+            <p className="text-center text-sm italic text-muted">
+              First ranking of tonight&apos;s list — the verdict awaits more rooms.
+            </p>
+          )}
+        </section>
+      )}
     </main>
   );
 }
