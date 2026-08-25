@@ -21,9 +21,9 @@ Auto-generate a beautiful OG/social image for every finished list: top-3 posters
 Track, per movie, how often it wins its head-to-heads across ALL rooms site-wide. Show "% of rooms where Inception beat Interstellar" on the list page. Turns private arguments into a site-wide conversation.
 **Value:** the seed of "what does everyone think?" — our differentiation from Letterboxd made visible. **Effort:** M (aggregation job + UI). **Depends on:** persisting votes (currently deliberately not stored — would need a votes table).
 
-### 3. Hot Takes Thermometer 🌶
-At finish, show each participant's (self-declared, via honor system tap) most contrarian call: "Sarah was the only one who put Tenet above The Prestige." Pure comedy fuel for the room.
-**Value:** laughter at finish = word of mouth. **Effort:** S-M (needs attributed votes — see dependency above). **Depends on:** votes table.
+### 3. Hot Takes Thermometer 🌶 [PARKED pending mechanic decision]
+At finish, surface the most contrarian calls. TWO possible mechanics: (a) attributed — participants tap their name before voting (honor system) enabling "SARAH was the only one…"; (b) unattributed group version — flag only the list's biggest consensus-divergence without naming anyone. User found (a)'s value clear but the mechanic needs deciding; parked until then.
+**Value:** laughter at finish. **Effort:** S-M either way. **Depends on:** votes table; (a) also needs participant attribution.
 
 ### 4. Better List Embeds & Print View 📄
 A print-friendly poster-wall layout (for the fridge) and themed embeds. Small, but finishing rituals matter.
@@ -61,9 +61,9 @@ Site-wide prompt ("This week's marquee: HEIST MOVIES") everyone can rank; live c
 Before ranking begins, each participant secretly predicts the final #1 (or full podium). Score points for accuracy across sessions; season leaderboards. Transforms watching the Elo engine settle into suspense.
 **Value:** the room game gains a meta-game. **Effort:** M-L. **Depends on:** attributed participants (Tier 2 #5).
 
-### 11. Badges & Flair 🏅
-Light achievement set: First Premiere, Marathoner (10+ lists), Contrarian (most outlier picks), Commissioner (ran the most rooms), Time Capsule (rematched a list). Displayed as flair on profiles/lists.
-**Value:** cheap delight, personality. **Effort:** S-M each. **Depends on:** profiles.
+### 11. Levels, Flair & Unlockables 🏅 [user-directed 2026-08-24]
+Steam-profile-style progression: every movie you rank earns XP; levels unlock PROFILE DECORATIONS — avatar frames (wooden → gold → velvet), curtain themes for your profile header, title flair ("Film Buff" → "Commissioner" → "Projectionist"), extra trophy-shelf slots, animated badges. Achievements layer on top (First Premiere, Marathoner 10+ lists, Contrarian, Time Capsule). The decoration shop IS the retention loop: visible status earned through play.
+**Value:** Steam proved decoration-hunting drives decades of engagement. **Effort:** L (XP curve, unlock catalog, profile rendering). **Depends on:** profiles, attributed movies-ranked counts.
 
 ### 12. Reactions 💬
 Lightweight emoji reactions on individual list entries ("💀" on a controversial mid-list placement). No comment threads — reactions only, keeping it light and moderation-free.
