@@ -102,3 +102,16 @@ create policy "anyone reads approved" on shortlist_proposals for select
   using (status = 'approved');
 -- Approve/reject happens via /api/admin/proposals (OWNER_EMAIL-gated, server-side);
 -- no SQL policy grants updates.
+
+-- Profile handles ("Premiere Night" profiles). New table — no ALTERs, so this
+-- block is safe to run on existing databases (run once; see upgrade-1.sql §4).
+create table profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  handle text unique not null,
+  visibility text not null default 'private' check (visibility in ('private','public')),
+  created_at timestamptz not null default now()
+);
+alter table profiles enable row level security;
+create policy "read any" on profiles for select using (true);
+create policy "write own" on profiles for all
+  using (auth.uid() = id) with check (auth.uid() = id);

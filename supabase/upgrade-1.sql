@@ -29,3 +29,15 @@ DROP POLICY IF EXISTS "anyone reads done movies" ON list_movies;
 CREATE POLICY "anyone reads done movies" ON list_movies FOR SELECT USING (
   EXISTS (SELECT 1 FROM lists l WHERE l.id = list_id AND l.status = 'done'
     AND l.visibility IN ('unlisted','public')));
+
+-- 4. Profile handles — new table + policies, no ALTERs. Run once.
+create table if not exists profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  handle text unique not null,
+  visibility text not null default 'private' check (visibility in ('private','public')),
+  created_at timestamptz not null default now()
+);
+alter table profiles enable row level security;
+create policy "read any" on profiles for select using (true);
+create policy "write own" on profiles for all
+  using (auth.uid() = id) with check (auth.uid() = id);
