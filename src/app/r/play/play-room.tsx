@@ -738,7 +738,9 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           )}
         </section>
       ) : pair ? (
-        <section className="flex flex-1 flex-col px-3 pb-2 pt-1 sm:px-6">
+        /* Low-intensity curtain wash (user feedback): burgundy drape vocabulary
+           behind the vote stage, dimmer than the home hero so posters pop. */
+        <section className="bg-curtain-soft relative flex flex-1 flex-col px-3 pb-2 pt-1 sm:px-6">
           {/* Mini marquee board: one trusted "X of ~Y votes" number in Bebas
               gold between thin gold rules; close calls demoted to a chip. */}
           <div className="my-3 rounded bg-surface/80 px-4 py-3 ring-1 ring-white/10">
