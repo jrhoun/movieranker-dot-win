@@ -308,6 +308,33 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
           the hero fan. */}
       {tonight.movies.length > 0 && (
       <section aria-label="Tonight's shortlist" className="mt-16">
+        {/* Two ways in (user-directed): dual-path framing leading into the
+            shortlist. Pure anchors — no new flow, no competition with the
+            hero CTA. Grid stacks to one column under sm (mobile). */}
+        <div className="mx-auto mb-8 grid max-w-2xl gap-3 sm:grid-cols-2">
+          <a
+            href="#rank-tonight"
+            className="rounded bg-surface p-4 ring-1 ring-white/10 transition-colors duration-200 ease-out hover:ring-gold/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+          >
+            <span className="font-display text-xl uppercase tracking-wide text-gold">
+              1 · Rank tonight&apos;s theme
+            </span>
+            <span className="mt-1 block text-sm text-muted">
+              Tonight we&apos;re settling {tonight.title}. Jump in.
+            </span>
+          </a>
+          <a
+            href="#start"
+            className="rounded bg-surface p-4 ring-1 ring-white/10 transition-colors duration-200 ease-out hover:ring-gold/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+          >
+            <span className="font-display text-xl uppercase tracking-wide text-text">
+              2 · Or rank your own list
+            </span>
+            <span className="mt-1 block text-sm text-muted">
+              Search any movies you want, build a custom list.
+            </span>
+          </a>
+        </div>
         <div className="flex items-center gap-3">
           <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60" />
           <p className="font-display text-sm uppercase tracking-[0.2em] text-gold">
@@ -333,7 +360,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
           </p>
         )}
         {tonight.themeSlug && (
-          <div className="mt-5 text-center">
+          <div id="rank-tonight" className="mt-5 scroll-mt-6 text-center">
             <button
               type="button"
               onClick={() => start(true)}

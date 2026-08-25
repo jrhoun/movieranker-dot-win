@@ -62,7 +62,7 @@ export default function CandidateTray({
         >
           <div className="overflow-hidden">
             <section aria-label="Your selections" inert={!open}>
-              <div className="flex items-center justify-between pt-4">
+              <div className="flex items-center justify-between pt-3">
                 <MarqueeHeading as="h3">
                   Your selections ({candidates.length})
                 </MarqueeHeading>
@@ -81,7 +81,7 @@ export default function CandidateTray({
                   </button>
                 )}
               </div>
-              <ul className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+              <ul className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
                 {candidates.map((m) => (
                   <li key={m.tmdbId} className="text-center">
                     <MoviePoster title={m.title} posterPath={m.posterPath} />
@@ -100,39 +100,6 @@ export default function CandidateTray({
                   </li>
                 ))}
               </ul>
-              <div className="mt-4 border-t border-white/10 pt-4">
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => onTitleChange(e.target.value)}
-                  placeholder="List title… e.g. Best Sci-Fi"
-                  aria-label="List title"
-                  className="min-h-11 w-full rounded bg-surface-raised px-3 text-sm text-text placeholder:text-muted ring-1 ring-white/10 transition-shadow duration-200 ease-out hover:ring-white/20 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent"
-                />
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    addParticipants();
-                  }}
-                  className="mt-2 flex items-center gap-2"
-                >
-                  <input
-                    type="text"
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    placeholder="Add a name… e.g. Sarah"
-                    aria-label="Add participant"
-                    className="min-h-11 w-44 rounded bg-surface-raised px-3 text-sm text-text placeholder:text-muted ring-1 ring-white/10 transition-shadow duration-200 ease-out hover:ring-white/20 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent"
-                  />
-                  <button
-                    type="submit"
-                    className="min-h-11 shrink-0 rounded-full bg-surface-raised px-4 text-sm font-bold text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                  >
-                    + Add
-                  </button>
-                </form>
-                <p className="mt-1 text-xs text-muted">Just first names — no emails needed.</p>
-              </div>
             </section>
           </div>
         </div>
@@ -141,7 +108,7 @@ export default function CandidateTray({
         <div aria-live="polite" className="sr-only">
           {candidates.length} movies selected
         </div>
-        <div className="flex items-center gap-2 pt-3">
+        <div className="flex items-center gap-2 pt-2 pb-1">
           <span className="font-display shrink-0 text-xl uppercase leading-none tracking-wide">
             {candidates.length} selected
           </span>
@@ -194,32 +161,71 @@ export default function CandidateTray({
             </span>
           </button>
         </div>
-        <div className="flex flex-wrap items-center gap-2 pb-2">
+        {/* Two-zone control strip (density pass): zone 1 = naming (title
+            capped at w-56 + condensed participant unit, stacked under lg,
+            inline at lg+); zone 2 = Start ranking, prominent right. At 390px
+            everything wraps within its column — no horizontal overflow. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-1 pb-2">
+          <div className="flex min-w-0 grow basis-56 flex-col gap-2 lg:flex-row lg:items-center">
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => onTitleChange(e.target.value)}
+              placeholder="List title…"
+              aria-label="List title"
+              className="min-h-11 w-full max-w-56 shrink-0 rounded bg-surface-raised px-3 text-sm text-text placeholder:text-muted ring-1 ring-white/10 transition-shadow duration-200 ease-out hover:ring-white/20 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent"
+            />
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                addParticipants();
+              }}
+              className="flex items-center gap-2"
+            >
+              <input
+                type="text"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="Add a name…"
+                aria-label="Add participant"
+                className="min-h-11 w-full max-w-44 min-w-0 rounded bg-surface-raised px-3 text-sm text-text placeholder:text-muted ring-1 ring-white/10 transition-shadow duration-200 ease-out hover:ring-white/20 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent"
+              />
+              <button
+                type="submit"
+                className="min-h-11 shrink-0 rounded-full bg-surface-raised px-4 text-sm font-bold text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                + Add
+              </button>
+            </form>
+          </div>
           <button
             type="button"
             onClick={onStart}
             disabled={!ready}
             title={ready ? undefined : "Pick at least 2 movies to start ranking"}
-            className="min-h-11 rounded-full bg-accent px-6 text-sm font-bold text-bg transition-colors duration-200 ease-out hover:bg-text active:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:bg-surface-raised disabled:text-muted"
+            className="ml-auto min-h-11 shrink-0 rounded-full bg-accent px-6 text-sm font-bold text-bg transition-colors duration-200 ease-out hover:bg-text active:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:bg-surface-raised disabled:text-muted"
           >
             Start ranking ({candidates.length})
           </button>
-          {participants.length > 0 && (
-            <ul aria-label="Participants" className="flex flex-wrap gap-1.5">
-              {participants.map((p) => (
-                <li key={p}>
-                  <button
-                    type="button"
-                    onClick={() => onParticipantsChange(participants.filter((x) => x !== p))}
-                    aria-label={`Remove participant ${p}`}
-                    className="flex min-h-11 items-center gap-1 rounded-full bg-bg px-3 py-1 text-xs text-muted ring-1 ring-white/10 transition-colors duration-200 ease-out hover:text-accent-red active:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                  >
-                    {p} <span aria-hidden>×</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pb-2">
+          <p className="text-xs text-muted">Just first names — no emails needed.</p>
+            {participants.length > 0 && (
+              <ul aria-label="Participants" className="flex flex-wrap gap-1.5">
+                {participants.map((p) => (
+                  <li key={p}>
+                    <button
+                      type="button"
+                      onClick={() => onParticipantsChange(participants.filter((x) => x !== p))}
+                      aria-label={`Remove participant ${p}`}
+                      className="flex min-h-9 items-center gap-1 rounded-full bg-bg px-3 py-1 text-xs text-muted ring-1 ring-white/10 transition-colors duration-200 ease-out hover:text-accent-red active:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    >
+                      {p} <span aria-hidden>×</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
         </div>
       </div>
     </div>
