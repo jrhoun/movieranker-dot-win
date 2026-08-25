@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   checkHandle,
+  isProfane,
   isReserved,
   isValidHandle,
   normalizeHandle,
@@ -38,6 +39,39 @@ describe("isReserved", () => {
   });
 });
 
+describe("isProfane", () => {
+  it("blocks obvious vulgar terms", () => {
+    for (const h of ["shit", "fuckyou", "asshole", "bitch"]) {
+      expect(isProfane(h)).toBe(true);
+    }
+  });
+
+  it("passes clean handles", () => {
+    for (const h of ["filmfan", "moviebuff-7", "classic_rock", "bassline"]) {
+      expect(isProfane(h)).toBe(false);
+    }
+  });
+
+  it("catches leetspeak variants", () => {
+    // digits fold: 0->o 1->i 3->e 4->a 5->s 7->t
+    expect(isProfane("sh1t")).toBe(true);
+    expect(isProfane("f4gg0t")).toBe(true);
+    expect(isProfane("b17ch")).toBe(true);
+    expect(isProfane("5hit")).toBe(true);
+    expect(isProfane("d1ckhead")).toBe(true);
+    // symbol folds: @->a $->s
+    expect(isProfane("@sshole")).toBe(true);
+    expect(isProfane("a$$hole")).toBe(true);
+    expect(isProfane("$hit")).toBe(true);
+  });
+
+  it("catches vulgar substrings inside longer handles", () => {
+    expect(isProfane("myshitlist")).toBe(true);
+    expect(isProfane("bigdickenergy")).toBe(true);
+    expect(isProfane("xX_fuck_Xx99")).toBe(true);
+  });
+});
+
 describe("checkHandle", () => {
   it("normalizes then validates", () => {
     const r = checkHandle("  MovieBuff-7 ");
@@ -55,5 +89,11 @@ describe("checkHandle", () => {
   it("flags reserved handles", () => {
     expect(checkHandle("API")).toEqual({ ok: false, reason: "reserved" });
     expect(checkHandle("settings")).toEqual({ ok: false, reason: "reserved" });
+  });
+
+  it("flags profanity (including leet spellings) before shape checks", () => {
+    expect(checkHandle("sh1t")).toEqual({ ok: false, reason: "profane" });
+    // @/$ fail the regex but must still report as profane, not invalid
+    expect(checkHandle("a$$hole")).toEqual({ ok: false, reason: "profane" });
   });
 });

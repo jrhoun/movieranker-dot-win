@@ -57,7 +57,9 @@ export async function POST(request: Request) {
         error:
           checked.reason === "reserved"
             ? "that handle is reserved"
-            : "invalid handle (3-20 chars: letters, numbers, _ or -)",
+            : checked.reason === "profane"
+              ? "handle contains inappropriate language"
+              : "invalid handle (3-20 chars: letters, numbers, _ or -)",
       },
       { status: 400 },
     );
