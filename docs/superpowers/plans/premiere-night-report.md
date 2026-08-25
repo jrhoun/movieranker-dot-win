@@ -178,3 +178,76 @@ next build passes. No tests referenced the old constant-driven fan.
   hardware, hand-tune again.
 - FAN_POSTERS slice caps the fan at 8 posters; themes longer than 8 only fan
   their first 8 (strip still shows all).
+
+---
+
+## v1 User-Feedback Fixes (2026-08-24)
+
+Four fixes from first-user feedback, all on `master`, DESIGN.md hard rules intact.
+
+### 1. Hero lighting balance — `fix: hero lighting balance` (93feac7)
+
+**Layer math (composite bottom→top on the `<header class="bg-curtain">`):**
+1. `.bg-curtain` background stack (first listed paints on top): valence shadow
+   (dark top 35%) over warm upper-center ambient over velvet folds; plus
+   `box-shadow: inset 0 0 120px rgba(0,0,0,.55)` darkening extreme edges/corners.
+2. `.spotlight-glow` child div — now TWO layers: tight
+   `radial-gradient(circle at 50% 30%, rgba(245,197,24,.16), transparent 55%)`
+   ringed on the marquee title, over the original wide
+   `ellipse 60% 55% at 50% 35%, .12` band glow.
+3. `.searchlights` wedges paint above the glow but were rebalanced so they no
+   longer fight it: core alpha halved (`.13→.06`, mid `.09→.04`), blur raised
+   (`35→50px`), width narrowed (`55%→45%`).
+
+**Root cause of the inversion:** the left wedge sat at `left:-18%` rotated
+`-16deg`; with `transform-origin: bottom center`, negative rotation moves a
+wedge's top *away* from center — both beams leaned outward, brightening the
+lower/outer corners while the valence shadow darkened center-top. Fix flips the
+base rotations to `+14deg` / `-14deg` (and drift keyframes to ±2° inward) so the
+shafts converge behind the title. Composite now reads: darkest at extreme
+edges/corners (valence + inset shadow + narrowed beams off the corners),
+brightest ring around title/tagline (stacked spotlight circle + wide ellipse +
+converged beam overlap near 50% x). Reduced-motion behavior unchanged (static
+base rotation).
+
+### 2. Studio search disambiguation — `fix: studio search disambiguation` (e495dae)
+
+Pure helper `rankCompanies(results, query)` in `tmdb.ts`: dedupes by
+case-insensitive name preferring higher TMDB `popularity` when present, then
+stable-sorts exact case-insensitive matches to the front. Applied inside
+`searchCompany`; `shapeCredits`/movie paths untouched. SearchPanel company pills
+now render an origin_country chip (when TMDB supplies it) plus "Production
+company" sub-line. 3 new unit tests in `tmdb.test.ts`.
+
+### 3. Shift-range multi-select — `feat: shift-range multi-select` (b1f2578)
+
+Pure `rangeIndices(a, b)` in `tray.ts` (inclusive, order-agnostic) + 3 unit
+tests in `tray.test.ts`. SearchPanel tracks last-clicked index via ref (reset on
+new result set); shift+click adds every unpicked movie in the inclusive range;
+plain click still toggles single; "Add all" unchanged. `MoviePosterCard`'s
+`onSelect` now passes the click event through. Keyboard range-select alternative
+explicitly out of scope this round.
+
+### 4. Search intro copy — `design: search intro copy` (764d658)
+
+One muted line directly above the mode tabs:
+"Search any actor, director, studio, or movie — tap posters to build tonight's
+list." (`text-sm text-muted` per DESIGN.md.)
+
+### Verification
+
+vitest 123/123 passed (was 114; +6 new tests across two suites); tsc --noEmit
+clean; eslint clean; next build passes. No live TMDB calls made; `.env.local`
+never read or printed.
+
+### Concerns
+
+- Beam convergence is reasoned from CSS transform math, not visually verified on
+  real hardware; if the crossing point sits too high/low behind the marquee,
+  nudge base rotation angles (currently ±14deg).
+- Shift+click anchors to result-list position, not identity; if results reorder
+  between clicks (they don't while debounced fetch is idle, and anchor resets on
+  each new search) ranges could surprise — currently impossible by construction.
+- TMDB `/search/company` may omit `popularity`; dedupe then keeps the first
+  occurrence per name (TMDB order), which for A24 puts the major entry first via
+  the exact-match float anyway.
