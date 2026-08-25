@@ -119,6 +119,17 @@ export async function searchByKeyword(q: string): Promise<TmdbMovieCredit[]> {
   return discoverMovies({ with_keywords: String(kw.id), sort_by: "popularity.desc" });
 }
 
+/** Single movie by TMDB id (cached a day); null on failure or missing poster art. */
+export async function getMovieById(id: number): Promise<TmdbMovieCredit | null> {
+  try {
+    const m = await tmdbFetch<TmdbRawCredit>(`/movie/${id}`, {}, 86400);
+    if (!m.poster_path) return null; // strip needs poster art
+    return toCredit(m);
+  } catch {
+    return null;
+  }
+}
+
 export async function searchMovies(q: string): Promise<TmdbMovieCredit[]> {
   const data = await tmdbFetch<{ results: TmdbRawCredit[] }>("/search/movie", { query: q }, 300);
   // search/movie results lack media_type; tag them so shapeCredits keeps them
