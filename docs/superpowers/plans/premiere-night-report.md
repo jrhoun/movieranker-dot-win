@@ -569,3 +569,34 @@ Confirmed the feedback was accurate: two independent signals. The bar measured `
 ### Verification
 - npm test 260/260 (26 files); tsc --noEmit clean; eslint clean; production build passes.
 - No tests referenced changed markup/classes (only pure helpers in ranking.test.ts — signatures unchanged). DESIGN.md rules hold: posters 2:3 untouched, ≥44px targets preserved, focus-visible rings preserved, all new motion static or killed by existing global prefers-reduced-motion rule. No live calls; .env.local untouched.
+
+## Search suggestion prominence (tmdb.ts) — agent 2
+
+### Changes (src/lib/tmdb.ts, src/lib/tmdb.test.ts; commit e4efab0)
+- Generalized company-only `rankCompanies` into `rankNameResults<T>` used by both `searchPerson` and `searchCompany`: dedupes same-named entries keeping higher popularity, floats exact case-insensitive matches to front, sorts remaining by popularity desc, caps at 8 suggestions.
+- Added `popularity?: number` to `TmdbPerson` (TMDB /search/person already returns it in the payload we parse).
+- Tests rewritten/added: popularity ordering, exact-match floating, dedupe-keeps-popular, cap-at-8. No fixture changes needed (ranker is pure, tested inline).
+- SearchPanel.tsx untouched — chips render whatever order tmdb.ts returns; no sub-line tweaks needed.
+
+### Verification
+- npm test 261/261 (26 files); tsc --noEmit clean; eslint clean on changed files; production build passes. No live TMDB calls; .env.local untouched.
+
+## Browse-all modal reduction pass — design agent
+
+User feedback: "it still is super cluttered." Reduction-first redesign of `BrowseAllModal` + shared `MoviePosterCard`.
+
+### Dropped (and why)
+- **Year line on every card** (`MoviePosterCard.tsx`): at 3–4 columns each card was stacking poster + title + year + selection badge; year moved into `aria-label`/`title` attr only — visible metadata nobody scans in a pick-grid.
+- **✓ gold corner badge**: selection state = gold poster ring + gold title text only. Badge + ring + recolored title was triple signaling for one bit of state; ring alone reads instantly at thumbnail size. Same simplification applies to the inline grid automatically since both render `MoviePosterCard`.
+- **Hover translate lift** (`group-hover:-translate-y-0.5`): motion competing with 12+ simultaneous hover states in one grid; press feedback kept via `active:scale-[0.98]`.
+- **Modal header title bar** ("All N results" Bebas h2): duplicated the dialog's purpose; count now lives inline next to the filter input ("N results", aria-live), header collapsed to one row: filter + count + ✕.
+- **Title line-clamp-2 → single truncate line**, muted-size (`text-xs`): two-line titles were the main card-height driver creating ragged rows.
+
+### Whitespace/chrome
+- Modal body `gap-4 p-5` → `gap-5 p-6`; columns stay `grid-cols-2 sm:3 md:4` (no lg:5). Footer tightened (`py-1.5`) to selected-count + Close on one row. Inline grid columns untouched (narrower container, matches its SkeletonGrid).
+
+### Behavior preserved
+Tap-toggle-select, shift-range select, Add-all/Clear-selection sync over the same source array, eager w185 loading, batched rendering ("Show more"), focus trap/restore, Escape/overlay close, min-h-11 targets, focus-visible rings.
+
+### Verification
+npm test 261/261 (26 files); tsc --noEmit clean; eslint clean; production build passes. No live TMDB calls; .env.local untouched.

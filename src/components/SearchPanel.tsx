@@ -390,22 +390,10 @@ function BrowseAllModal({
         className="animate-celebrate relative flex max-h-[85dvh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-surface shadow-2xl ring-1 ring-white/10"
       >
         {/* Header/footer are static flex siblings of the scrolling grid, so they
-            stay pinned while the posters scroll. */}
-        <div className="border-b border-white/10 px-5 pt-4 pb-3">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="font-display text-lg uppercase tracking-wide text-text">
-              All {movies.length} results
-            </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="flex size-11 shrink-0 items-center justify-center rounded text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="relative mt-2">
+            stay pinned while the posters scroll. Header is one row: filter +
+            result count + close — no title bar. */}
+        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-3">
+          <div className="relative min-w-0 flex-1">
             <input
               type="search"
               value={filterQ}
@@ -428,8 +416,19 @@ function BrowseAllModal({
               </button>
             )}
           </div>
+          <p aria-live="polite" className="shrink-0 text-sm tabular-nums text-muted">
+            {shown.length} result{shown.length === 1 ? "" : "s"}
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="flex size-11 shrink-0 items-center justify-center rounded text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            ✕
+          </button>
         </div>
-        <div className="thin-scrollbar grid flex-1 content-start grid-cols-2 gap-4 overflow-y-auto p-5 sm:grid-cols-3 md:grid-cols-4">
+        <div className="thin-scrollbar grid flex-1 content-start grid-cols-2 gap-5 overflow-y-auto p-6 sm:grid-cols-3 md:grid-cols-4">
           {visible.map((mv) => (
             <MoviePosterCard
               key={mv.tmdbId}
@@ -455,7 +454,7 @@ function BrowseAllModal({
             </p>
           )}
         </div>
-        <footer className="flex min-h-11 items-center justify-between gap-3 border-t border-white/10 px-5 py-2">
+        <footer className="flex min-h-11 items-center justify-between gap-3 border-t border-white/10 px-5 py-1.5">
           <p aria-live="polite" className="text-sm text-muted">
             {selectedCount} selected
           </p>
