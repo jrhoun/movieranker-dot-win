@@ -63,6 +63,30 @@ body {
   background-image: radial-gradient(ellipse 60% 55% at 50% 35%, rgba(245, 197, 24, 0.12), transparent 70%);
 }
 
+/* Marquee wordmark (DESIGN.md Premiere Night): warm gold sweep clipped to the
+   glyphs. The shimmer runs ONCE per load (no loop); the global reduced-motion
+   rule below collapses it to an instant final state. */
+.marquee-gold {
+  background-image: linear-gradient(
+    105deg,
+    #9a7500 0%,
+    #f5c518 28%,
+    #fff1b8 46%,
+    #f5c518 62%,
+    #b3860a 100%
+  );
+  background-size: 220% 100%;
+  background-position: 100% 0;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: marquee-shimmer 2s ease-out 1 both;
+}
+@keyframes marquee-shimmer {
+  from { background-position: 0% 0; }
+  to { background-position: 100% 0; }
+}
+
 @keyframes celebrate-beat {
   from { transform: scale(0.94); opacity: 0; }
   to { transform: scale(1); opacity: 1; }

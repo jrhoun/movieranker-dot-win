@@ -105,13 +105,22 @@ export default function Home() {
       <header className="relative overflow-hidden bg-curtain">
         <div aria-hidden="true" className="spotlight-glow pointer-events-none absolute inset-0" />
         <div className="relative mx-auto w-full max-w-5xl px-4 py-10 text-center sm:py-14">
-          <div className="mx-auto inline-block rounded-lg bg-bg/80 px-6 py-4 shadow-lg ring-1 ring-white/10 backdrop-blur-[2px]">
-            <h1 className="font-display text-6xl uppercase leading-none tracking-widest text-text drop-shadow sm:text-7xl">
-              <span aria-hidden="true" className="mr-3 align-middle text-gold">✦</span>
-              movieranker.win
-              <span aria-hidden="true" className="ml-3 align-middle text-gold">✦</span>
+          {/* Marquee wordmark: Bebas caps, warm gold sweep clipped to the
+              glyphs (one-shot shimmer, reduced-motion-safe), ✦ bulbs flanking. */}
+          <div className="mx-auto inline-block rounded-lg bg-bg/80 px-6 py-5 shadow-lg ring-1 ring-white/10 backdrop-blur-[2px] sm:px-8">
+            <h1 className="font-display text-[clamp(2.5rem,11vw,6rem)] uppercase leading-none tracking-widest">
+              <span aria-hidden="true" className="mr-2 align-middle text-gold text-[0.35em]">✦</span>
+              <span className="marquee-gold drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)]">movieranker.win</span>
+              <span aria-hidden="true" className="ml-2 align-middle text-gold text-[0.35em]">✦</span>
             </h1>
-            <p className="mt-2 text-lg text-muted sm:text-xl">Settle it once and for all.</p>
+            <p className="mt-3 text-base font-medium text-text sm:text-lg">
+              Settling the best movies of all time.
+            </p>
+            <p className="mt-1 text-base text-muted sm:text-lg">
+              <span className="underline decoration-gold decoration-2 underline-offset-4">
+                One list at a time.
+              </span>
+            </p>
             <a
               href="#start"
               className="mt-4 inline-block min-h-11 rounded-full bg-gold px-6 text-sm font-bold leading-[44px] uppercase tracking-wide text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
@@ -124,7 +133,7 @@ export default function Home() {
           {/* Fanned marquee of real posters: overlapping, tilted -8°..8°,
               straighten+lift on hover (200ms ease-out; killed by reduced-motion).
               Slightly dimmed at rest so the Bebas headline above stays dominant. */}
-          <ul className="mt-8 flex justify-center px-4 sm:mt-10">
+          <ul className="mt-10 flex justify-center px-4 sm:mt-12">
             {FAN_POSTERS.map((p, i) => {
               const inTray = candidates.some((c) => c.tmdbId === p.tmdbId);
               return (

@@ -113,3 +113,22 @@ Commits: `2658ef1` design: letterboxd-inspired home richness · `79cbafb` feat: 
 - The five new TMDB poster paths are from memory; if any 404s, MoviePoster's fallback renders the title — spot-check visually and swap the path.
 - Session title moved into the expanded sheet (collapsed bar kept minimal); default "Movie ranking" still applies if never set.
 - MarqueeHeading gained an "h3" option (tray sheet header) — additive only.
+
+## Iteration: Premiere marquee title + irreverent tagline (2026-08-24, commit 14ffb06)
+
+**Scope.** Home hero wordmark + tagline only (src/app/(site)/page.tsx, src/app/globals.css).
+
+**Title treatment.**
+- Bebas caps, fluid size `clamp(2.5rem, 11vw, 6rem)` (~text-8xl ceiling on wide screens; 11vw keeps "movieranker.win" on 375px phones without mid-word overflow).
+- Gold treatment: gradient clipped to glyphs (`.marquee-gold` — #9a7500→#f5c518→#fff1b8→#f5c518→#b3860a sweep at 105deg) over a subtle `drop-shadow(0_2px_2px_rgba(0,0,0,.45))` for depth. Chose background-clip:text over layered 3D stack: reads as backlit marquee plastic rather than sticker chrome, and is one class instead of four text-shadow layers.
+- One-shot shimmer: `marquee-shimmer` keyframes animate background-position once per load, 2s ease-out, fill both. The existing global `prefers-reduced-motion` rule (duration 0.01ms, iteration 1) already collapses it to the instant final state — no extra override needed.
+- Bulbs: ✦ flanking retained, now sized at 0.35em so they scale with the clamp instead of competing with it.
+- Letter flicker: skipped per spec's doubt clause — a single-letter flicker next to a one-shot shimmer read as broken, not charming.
+
+**Tagline.** Replaced "Settle it once and for all." with two beats: line 1 Geist medium `text-text`, line 2 `text-muted` with gold underline (`decoration-gold decoration-2 underline-offset-4`) on "One list at a time."
+
+**Composition.** Scrim padding py-4→py-5 (+px on sm), tagline gap widened, poster fan pushed to mt-10/sm:mt-12 so the larger title breathes without pushing posters below the fold.
+
+**Verification.** vitest 102/102 passed (11 files); tsc --noEmit clean; eslint clean; next build succeeded.
+
+**Motion budget.** Only the one-shot shimmer added; reduced-motion kills it via the pre-existing global rule.
