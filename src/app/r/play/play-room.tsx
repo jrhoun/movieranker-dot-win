@@ -107,6 +107,8 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   const [sheetStatus, setSheetStatus] = useState<"done" | "draft" | null>(null);
   const [authNotice, setAuthNotice] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
+  const exitTriggerRef = useRef<HTMLButtonElement>(null);
+  const exitPanelRef = useRef<HTMLDivElement>(null);
   // Curated Lock Mode: inline confirm card for leaving this week's themed list
   const [unlockOpen, setUnlockOpen] = useState(false);
   // set once an OAuth redirect away from the page has begun (leave-warning stays disarmed)
@@ -376,14 +378,43 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   }
 
   // Outside click and Escape both mean "keep ranking" (user feedback): they
-  // dismiss the leave menu exactly like the positive button.
+  // dismiss the leave menu exactly like the positive button. While open, the
+  // dialog traps Tab focus and takes it from the Exit trigger; on close,
+  // focus returns to the trigger.
   useEffect(() => {
     if (!exitOpen) return;
+    const trigger = exitTriggerRef.current;
+    const panel = exitPanelRef.current;
+    const focusables = () =>
+      Array.from(
+        panel?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
+    focusables()[0]?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setExitOpen(false);
+      if (e.key === "Escape") {
+        setExitOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const els = focusables();
+      if (els.length === 0) return;
+      const first = els[0];
+      const last = els[els.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      trigger?.focus();
+    };
   }, [exitOpen]);
 
   if (!ready) return <main className="flex-1" />;
@@ -475,6 +506,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         {!finished && (
           <div className="flex shrink-0 items-center gap-2">
             <button
+              ref={exitTriggerRef}
               type="button"
               onClick={() => setExitOpen((v) => !v)}
               aria-expanded={exitOpen}
@@ -535,8 +567,10 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           onClick={() => setExitOpen(false)}
         >
           <div
-            role="group"
-            aria-label="Leave the ranking room"
+            ref={exitPanelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Leave this ranking"
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-md rounded bg-surface p-4 shadow-2xl ring-1 ring-gold/25"
           >
