@@ -143,8 +143,12 @@ export default function SearchPanel({
       aria-label="Find movies"
       className="rounded-lg bg-surface p-4 ring-1 ring-white/10 sm:p-5"
     >
+      <p className="text-sm text-muted">
+        Search any actor, director, studio, or movie — tap posters to build tonight&rsquo;s list.
+      </p>
+
       {/* mode tabs */}
-      <div className="flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         <Tabs
           idPrefix="search-mode"
           ariaLabel="Search mode"
