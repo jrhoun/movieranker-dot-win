@@ -1,5 +1,5 @@
 /**
- * Curated themes for "Tonight's Shortlist" — code data, not DB rows.
+ * Curated themes for "This Week's Marquee" — code data, not DB rows.
  * The connection to the theme is allowed (encouraged) to be obtuse.
  * movieIds are TMDB ids; posters are fetched via tmdb.getMovieById.
  */

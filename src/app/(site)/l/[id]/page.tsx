@@ -176,7 +176,7 @@ export default async function PublicListPage({
             <>
               <MarqueeHeading as="h2">Community Verdict</MarqueeHeading>
               <p className="mt-1 text-sm text-muted">
-                {stats.rooms} rooms ranked tonight&apos;s theme so far.
+                {stats.rooms} rooms ranked this week&apos;s theme so far.
               </p>
               {stats.championId !== null && (() => {
                 const champ = stats.movies.find((m) => m.tmdbId === stats!.championId)!;
@@ -231,7 +231,7 @@ export default async function PublicListPage({
             </>
           ) : (
             <p className="text-center text-sm italic text-muted">
-              First ranking of tonight&apos;s list — the verdict awaits more rooms.
+              First ranking of this week&apos;s list — the verdict awaits more rooms.
             </p>
           )}
         </section>

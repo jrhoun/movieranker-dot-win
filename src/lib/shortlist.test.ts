@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   daysSinceUtcEpoch,
+  weeksSinceUtcEpoch,
   pickTonightsEntry,
   tonightsShortlist,
   overlapsTheme,
@@ -8,6 +9,7 @@ import {
 import { SHORTLIST_THEMES } from "./shortlist-themes";
 
 const DAY = 86_400_000;
+const WEEK = 7 * DAY;
 const d = (utcMs: number) => new Date(utcMs);
 
 describe("daysSinceUtcEpoch", () => {
@@ -23,10 +25,24 @@ describe("daysSinceUtcEpoch", () => {
   });
 });
 
+describe("weeksSinceUtcEpoch", () => {
+  it("counts whole UTC weeks since 1970-01-01", () => {
+    expect(weeksSinceUtcEpoch(d(Date.UTC(1970, 0, 1)))).toBe(0);
+    expect(weeksSinceUtcEpoch(d(Date.UTC(2026, 7, 24)))).toBe(
+      Math.floor(daysSinceUtcEpoch(d(Date.UTC(2026, 7, 24))) / 7),
+    );
+  });
+
+  it("is stable within a week and advances every 7 days", () => {
+    expect(weeksSinceUtcEpoch(d(0))).toBe(weeksSinceUtcEpoch(d(6 * DAY)));
+    expect(weeksSinceUtcEpoch(d(6 * DAY)) + 1).toBe(weeksSinceUtcEpoch(d(7 * DAY)));
+  });
+});
+
 describe("pickTonightsEntry", () => {
-  it("is deterministic: same day index -> same entry", () => {
-    expect(pickTonightsEntry(SHORTLIST_THEMES, 20659)).toBe(
-      pickTonightsEntry(SHORTLIST_THEMES, 20659),
+  it("is deterministic: same week index -> same entry", () => {
+    expect(pickTonightsEntry(SHORTLIST_THEMES, 2951)).toBe(
+      pickTonightsEntry(SHORTLIST_THEMES, 2951),
     );
   });
 
@@ -52,13 +68,20 @@ describe("tonightsShortlist", () => {
     },
   ];
 
-  it("same date -> same theme; adjacent dates differ", () => {
+  it("same week -> same theme; adjacent weeks differ when possible", () => {
     const date = new Date(Date.UTC(2026, 7, 24));
-    const next = new Date(date.getTime() + DAY);
+    // Every date inside the same 7-day rotation window picks identically.
     expect(tonightsShortlist([], date)).toEqual(tonightsShortlist([], date));
-    // pool length > 1, so adjacent days always rotate
+    const weekStartMs = weeksSinceUtcEpoch(date) * WEEK;
+    for (let i = 1; i < 7; i++) {
+      expect(tonightsShortlist([], d(weekStartMs))!.slug).toBe(
+        tonightsShortlist([], d(weekStartMs + i * DAY))!.slug,
+      );
+    }
+    // pool length > 1, so adjacent weeks always rotate
+    const nextWeek = new Date(date.getTime() + WEEK);
     expect(tonightsShortlist([], date)!.slug).not.toBe(
-      tonightsShortlist([], next)!.slug,
+      tonightsShortlist([], nextWeek)!.slug,
     );
   });
 
@@ -66,7 +89,7 @@ describe("tonightsShortlist", () => {
     const total = SHORTLIST_THEMES.length + proposals.length;
     let sawCommunity = false;
     for (let i = 0; i < total; i++) {
-      const picked = tonightsShortlist(proposals, d(i * DAY))!;
+      const picked = tonightsShortlist(proposals, d(i * WEEK))!;
       if (picked.source === "community") {
         sawCommunity = true;
         expect(picked.slug).toBe("community-x");
@@ -76,20 +99,20 @@ describe("tonightsShortlist", () => {
   });
 
   it("cycles back to the same theme after a full rotation", () => {
-    const a = tonightsShortlist([], d(0 * DAY))!.slug;
-    const b = tonightsShortlist([], d(SHORTLIST_THEMES.length * DAY))!.slug;
+    const a = tonightsShortlist([], d(0 * WEEK))!.slug;
+    const b = tonightsShortlist([], d(SHORTLIST_THEMES.length * WEEK))!.slug;
     expect(a).toBe(b);
   });
 
   it("tags curated themes with no proposal id or proposer", () => {
-    const picked = tonightsShortlist(proposals, d(0 * DAY));
+    const picked = tonightsShortlist(proposals, d(0 * WEEK));
     if (picked!.source === "curated") {
       expect(picked!.proposalId).toBeNull();
       expect(picked!.proposedBy).toBeNull();
     }
     // and at least one curated day exists across the rotation
     const curated = Array.from({ length: SHORTLIST_THEMES.length + proposals.length }, (_, i) =>
-      tonightsShortlist(proposals, d(i * DAY)),
+      tonightsShortlist(proposals, d(i * WEEK)),
     ).filter((t) => t!.source === "curated");
     expect(curated.length).toBeGreaterThan(0);
     for (const t of curated) {
@@ -102,7 +125,7 @@ describe("tonightsShortlist", () => {
     const total = SHORTLIST_THEMES.length + proposals.length;
     let sawCommunity = false;
     for (let i = 0; i < total; i++) {
-      const picked = tonightsShortlist(proposals, d(i * DAY))!;
+      const picked = tonightsShortlist(proposals, d(i * WEEK))!;
       if (picked.source === "community") {
         sawCommunity = true;
         expect(picked.proposalId).toBe("x");

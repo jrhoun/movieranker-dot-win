@@ -3,9 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 import { SHORTLIST_THEMES, type ShortlistTheme } from "./shortlist-themes";
 
 /**
- * Tonight's Shortlist: a themed strip on the home page that rotates once per
- * UTC day. The rotation is a pure function of the date — every visitor sees
- * the same theme with no cron or per-user state.
+ * This Week's Marquee (formerly "Tonight's Shortlist"): a themed strip on the
+ * home page that rotates once per UTC week. The rotation is a pure function
+ * of the date — every visitor sees the same theme with no cron or per-user
+ * state.
  */
 
 export type ShortlistEntry = ShortlistTheme & {
@@ -24,10 +25,15 @@ export function daysSinceUtcEpoch(date: Date = new Date()): number {
   );
 }
 
-/** Deterministic pick: pool[dayIndex % pool.length] (undefined for empty pool). */
-export function pickTonightsEntry<T>(pool: T[], dayIndex: number): T | undefined {
+/** Whole UTC weeks since 1970-01-01 — deterministic weekly rotation index. */
+export function weeksSinceUtcEpoch(date: Date = new Date()): number {
+  return Math.floor(daysSinceUtcEpoch(date) / 7);
+}
+
+/** Deterministic pick: pool[weekIndex % pool.length] (undefined for empty pool). */
+export function pickTonightsEntry<T>(pool: T[], weekIndex: number): T | undefined {
   if (pool.length === 0) return undefined;
-  return pool[((dayIndex % pool.length) + pool.length) % pool.length];
+  return pool[((weekIndex % pool.length) + pool.length) % pool.length];
 }
 
 /** Curated themes first, approved community proposals appended. Pure. */
@@ -44,7 +50,7 @@ export function tonightsShortlist(
     })),
     ...proposals,
   ];
-  return pickTonightsEntry(pool, daysSinceUtcEpoch(date));
+  return pickTonightsEntry(pool, weeksSinceUtcEpoch(date));
 }
 
 /** Shared anon client for public reads (RLS-scoped); null when unconfigured. */
@@ -110,7 +116,7 @@ export const getApprovedProposals = unstable_cache(
   { revalidate: 3600 },
 );
 
-// --- Community activity on tonight's theme ---
+// --- Community activity on this week's theme ---
 
 export const MIN_THEME_OVERLAP = 3;
 export const MAX_THEMED_PREVIEWS = 5;
@@ -190,7 +196,7 @@ export const getThemeCommunityActivity = unstable_cache(
 export interface TonightsShortlist {
   theme: ShortlistEntry;
   movieIds: number[];
-  /** Done lists overlapping tonight's theme (stats line + preview row). */
+  /** Done lists overlapping this week's theme (stats line + preview row). */
   activity: ThemeCommunityActivity;
 }
 

@@ -106,7 +106,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   const [sheetStatus, setSheetStatus] = useState<"done" | "draft" | null>(null);
   const [authNotice, setAuthNotice] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
-  // Curated Lock Mode: inline confirm card for leaving tonight's themed list
+  // Curated Lock Mode: inline confirm card for leaving this week's themed list
   const [unlockOpen, setUnlockOpen] = useState(false);
   // set once an OAuth redirect away from the page has begun (leave-warning stays disarmed)
   const [authRedirecting, setAuthRedirecting] = useState(false);
@@ -415,7 +415,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
                     : "rounded-full bg-surface-raised px-2.5 py-0.5 text-xs font-medium text-muted ring-1 ring-white/10"
                 }
               >
-                {session.curated ? "🔒 Tonight's Shortlist" : "🔓 Tonight's Shortlist"}
+                {session.curated ? "🔒 This Week's Marquee" : "🔓 This Week's Marquee"}
               </span>
               {session.curated && !finished && (
                 <button
@@ -472,7 +472,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded bg-surface p-3 ring-1 ring-white/10">
             <p id="unlock-title" className="min-w-0 flex-1 text-sm text-muted">
               Unlocking lets you add more movies, but this ranking will no longer
-              count as tonight&apos;s themed list.
+              count as this week&apos;s themed list.
             </p>
             <button
               type="button"

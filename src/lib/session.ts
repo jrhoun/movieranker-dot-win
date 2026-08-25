@@ -11,7 +11,7 @@ export interface PlaySession {
   movies: RankedMovie[];
   votesSinceOrderChange: number;
   nudgeShown: boolean;
-  /** Tonight's Shortlist provenance: set when the session starts from a theme. */
+  /** Weekly marquee provenance: set when the session starts from a theme. */
   themeSlug?: string | null;
   /** True while roster is locked to the theme; unlocking keeps themeSlug. */
   curated?: boolean;

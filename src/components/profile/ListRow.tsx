@@ -76,7 +76,7 @@ export default function ListRow({ list, featured, onToggleFeature }: ListRowProp
     router.refresh();
   }
 
-  // Propose this ranking as a future "Tonight's Shortlist" theme.
+  // Propose this ranking as a future "This Week's Marquee" theme.
   async function propose() {
     setPNote(null);
     let res: Response;
@@ -241,7 +241,7 @@ export default function ListRow({ list, featured, onToggleFeature }: ListRowProp
           }}
         >
           <p className="text-xs text-muted">
-            Suggest your top picks as a future Tonight&apos;s Shortlist theme — the owner reviews every proposal.
+            Suggest your top picks as a future This Week&apos;s Marquee theme — the owner reviews every proposal.
           </p>
           <input
             value={pTitle}
