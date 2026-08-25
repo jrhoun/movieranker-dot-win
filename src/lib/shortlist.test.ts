@@ -26,16 +26,24 @@ describe("daysSinceUtcEpoch", () => {
 });
 
 describe("weeksSinceUtcEpoch", () => {
-  it("counts whole UTC weeks since 1970-01-01", () => {
-    expect(weeksSinceUtcEpoch(d(Date.UTC(1970, 0, 1)))).toBe(0);
-    expect(weeksSinceUtcEpoch(d(Date.UTC(2026, 7, 24)))).toBe(
-      Math.floor(daysSinceUtcEpoch(d(Date.UTC(2026, 7, 24))) / 7),
+  // Known dates (UTC): Mon Aug 24 2026 = day 20689, Wed Aug 26 = 20691,
+  // Thu Aug 27 = 20692, Mon Aug 31 = 20696. Weeks flip at UTC Monday midnight.
+  it("anchors to ISO Monday: Wed and Thu of one calendar week share an index", () => {
+    expect(weeksSinceUtcEpoch(d(Date.UTC(2026, 7, 26)))).toBe(
+      weeksSinceUtcEpoch(d(Date.UTC(2026, 7, 27))),
     );
   });
 
-  it("is stable within a week and advances every 7 days", () => {
-    expect(weeksSinceUtcEpoch(d(0))).toBe(weeksSinceUtcEpoch(d(6 * DAY)));
-    expect(weeksSinceUtcEpoch(d(6 * DAY)) + 1).toBe(weeksSinceUtcEpoch(d(7 * DAY)));
+  it("advances between adjacent ISO Mondays", () => {
+    expect(weeksSinceUtcEpoch(d(Date.UTC(2026, 7, 31)))).toBe(
+      weeksSinceUtcEpoch(d(Date.UTC(2026, 7, 24))) + 1,
+    );
+  });
+
+  it("flips at UTC Monday midnight, not mid-week", () => {
+    // d(3*DAY) is Sunday (still week 0), d(4*DAY) is the next Monday.
+    expect(weeksSinceUtcEpoch(d(3 * DAY))).toBe(0);
+    expect(weeksSinceUtcEpoch(d(4 * DAY))).toBe(1);
   });
 });
 
@@ -68,21 +76,15 @@ describe("tonightsShortlist", () => {
     },
   ];
 
-  it("same week -> same theme; adjacent weeks differ when possible", () => {
-    const date = new Date(Date.UTC(2026, 7, 24));
-    // Every date inside the same 7-day rotation window picks identically.
-    expect(tonightsShortlist([], date)).toEqual(tonightsShortlist([], date));
-    const weekStartMs = weeksSinceUtcEpoch(date) * WEEK;
-    for (let i = 1; i < 7; i++) {
-      expect(tonightsShortlist([], d(weekStartMs))!.slug).toBe(
-        tonightsShortlist([], d(weekStartMs + i * DAY))!.slug,
-      );
-    }
+  it("same ISO week -> same theme; adjacent ISO weeks differ when possible", () => {
+    // Hardcoded known dates: Wed Aug 26 + Thu Aug 27 2026 are one calendar
+    // week; Mon Aug 24 vs Mon Aug 31 are adjacent ISO weeks.
+    const wed = tonightsShortlist([], d(Date.UTC(2026, 7, 26)))!.slug;
+    expect(wed).toBe(tonightsShortlist([], d(Date.UTC(2026, 7, 27)))!.slug);
     // pool length > 1, so adjacent weeks always rotate
-    const nextWeek = new Date(date.getTime() + WEEK);
-    expect(tonightsShortlist([], date)!.slug).not.toBe(
-      tonightsShortlist([], nextWeek)!.slug,
-    );
+    const monA = tonightsShortlist([], d(Date.UTC(2026, 7, 24)))!.slug;
+    const monB = tonightsShortlist([], d(Date.UTC(2026, 7, 31)))!.slug;
+    expect(monB).not.toBe(monA);
   });
 
   it("includes approved community proposals in the rotation pool", () => {

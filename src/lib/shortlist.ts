@@ -25,9 +25,13 @@ export function daysSinceUtcEpoch(date: Date = new Date()): number {
   );
 }
 
-/** Whole UTC weeks since 1970-01-01 — deterministic weekly rotation index. */
+/**
+ * Whole ISO weeks since the epoch, anchored to Monday — deterministic weekly
+ * rotation index. The epoch was a Thursday, so +3 shifts the flip point from
+ * UTC Thursday midnight to UTC Monday midnight (no mid-calendar-week changes).
+ */
 export function weeksSinceUtcEpoch(date: Date = new Date()): number {
-  return Math.floor(daysSinceUtcEpoch(date) / 7);
+  return Math.floor((daysSinceUtcEpoch(date) + 3) / 7);
 }
 
 /** Deterministic pick: pool[weekIndex % pool.length] (undefined for empty pool). */

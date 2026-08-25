@@ -54,7 +54,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
   const [confirmResume, setConfirmResume] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
   // which entry point opened the resume confirm: tray "Start" vs "Rank this list"
-    const pendingCuratedRef = useRef(false);
+  const pendingCuratedRef = useRef(false);
 
   useEffect(() => {
     // async hop so pre-hydration markup matches first client render (same as play room)
@@ -149,8 +149,6 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
               Start ranking
             </a>
           </div>
-          {/* Fanned marquee of real posters: overlapping, tilted -8°..8°,
-              straighten+lift on hover (200ms ease-out; killed by reduced-motion). */}
           {/* Fanned marquee of real posters: overlapping, tilted -8°..8°,
               straighten+lift on hover (200ms ease-out; killed by reduced-motion).
               Slightly dimmed at rest so the Bebas headline above stays dominant. */}

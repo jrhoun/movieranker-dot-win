@@ -319,3 +319,23 @@ Commits: f62333945d61931d51ddd94769b98e7d70184dc1 (design: identity dropdown nav
 - No live TMDB/Supabase calls per traffic hygiene; .env.local untouched.
 - Weekly boundary is Thursday-aligned (epoch math) rather than ISO Monday-start weeks; deterministic and tested — switch to ISO week number if Monday alignment ever matters.
 - When the theme fetch fails, Path A is hidden entirely and the page degrades to the search path only (same fallback as before).
+
+## Fix round: ISO-Monday week alignment
+
+Reviewer finding: `weeksSinceUtcEpoch = floor(days/7)` anchored the rotation window to the epoch itself (Thu Jan 1 1970), so themes flipped at UTC **Thursday** midnight mid-ISO-week ("This Week's Marquee" changing Wednesday night).
+
+### Fix
+- `src/lib/shortlist.ts`: `weeksSinceUtcEpoch` now returns `floor((daysSinceUtcEpoch(date) + 3) / 7)`. The +3 constant shifts the flip point from UTC Thursday to UTC Monday midnight: Monday ⇔ days ≡ 4 (mod 7) since epoch day 0 was a Thursday, and floor((7k+3+3)/7) = k while floor((7k+4+3)/7) = k+1.
+- `src/lib/shortlist.test.ts`: replaced the circular test (which derived its expected window from `weeksSinceUtcEpoch` itself, masking the deviation) with hardcoded known-date assertions; minors folded in on `home-client.tsx` (stray indentation on `pendingCuratedRef`, duplicate hero-fan comment block removed).
+- The old "Notes/ceilings" Thursday-alignment caveat above is now resolved.
+
+### Verification math (UTC)
+- Mon Aug 24 2026 = day 20689 → floor((20689+3)/7) = floor(20692/7) = **2956**
+- Wed Aug 26 2026 = day 20691 → floor(20694/7) = **2956** (same as Thu ✓)
+- Thu Aug 27 2026 = day 20692 → floor(20695/7) = **2956** (same ISO week ✓)
+- Mon Aug 31 2026 = day 20696 → floor(20699/7) = **2957** (adjacent week differs ✓)
+- Old formula for comparison: Wed → floor(20691/7)=2955, Thu → 2956 (mid-week flip — the bug)
+
+### Verification
+- npm test: 242 passed (25 files); tsc clean; eslint clean; build passes.
+- Non-circular assertions: Wed Aug 26 vs Thu Aug 27 2026 → identical theme slug; Mon Aug 24 vs Mon Aug 31 2026 → different theme slugs (pool length > 1). Both pass under the new formula and would fail under the old one.
