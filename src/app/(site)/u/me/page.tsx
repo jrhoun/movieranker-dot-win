@@ -7,6 +7,7 @@ import ProfileVisibilityToggle from "@/components/profile/ProfileVisibilityToggl
 import ShowcaseCard from "@/components/profile/ShowcaseCard";
 import ShowcaseLists from "@/components/profile/ShowcaseLists";
 import type { ListRowData } from "@/components/profile/ListRow";
+import { chipParticipants } from "@/lib/participants";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   EMPTY_SHOWCASE,
@@ -24,6 +25,7 @@ import {
 interface DbList {
   id: string;
   title: string;
+  participants: string[];
   status: string;
   visibility: string | null;
   created_at: string;
@@ -50,10 +52,39 @@ export default async function MyListsPage() {
   // then elo desc (drafts).
   const { data: lists } = await supabase
     .from("lists")
-    .select("id,title,status,visibility,created_at,list_movies(title,poster_path,tmdb_id)")
+    .select("id,title,participants,status,visibility,created_at,list_movies(title,poster_path,tmdb_id)")
     .order("created_at", { ascending: false })
     .order("final_rank", { foreignTable: "list_movies", ascending: true, nullsFirst: false })
     .order("elo", { foreignTable: "list_movies", ascending: false });
+
+  // Attributed participant markers on cards: one query for claims across the
+  // visible lists, one for the linked users' public profiles.
+  const listIds = ((lists ?? []) as DbList[]).map((l) => l.id);
+  const { data: attributions } =
+    listIds.length > 0
+      ? await supabase
+          .from("participant_attributions")
+          .select("list_id,display_name,user_id")
+          .in("list_id", listIds)
+      : { data: [] };
+  const userIds = [...new Set((attributions ?? []).map((a) => a.user_id))];
+  const { data: publicProfiles } =
+    userIds.length > 0
+      ? await supabase
+          .from("profiles")
+          .select("id,handle")
+          .in("id", userIds)
+          .eq("visibility", "public")
+      : { data: [] };
+  const attrByList = new Map<
+    string,
+    { display_name: string; user_id: string }[]
+  >();
+  for (const a of attributions ?? []) {
+    const arr = attrByList.get(a.list_id as string) ?? [];
+    arr.push({ display_name: a.display_name, user_id: a.user_id });
+    attrByList.set(a.list_id as string, arr);
+  }
 
   const cards: ListRowData[] = ((lists ?? []) as DbList[]).map((l) => ({
     id: l.id,
@@ -70,6 +101,11 @@ export default async function MyListsPage() {
     movieIds: (l.list_movies ?? [])
       .map((m) => m.tmdb_id)
       .filter((v): v is number => Number.isInteger(v)),
+    chips: chipParticipants(
+      l.participants ?? [],
+      attrByList.get(l.id) ?? [],
+      publicProfiles ?? [],
+    ),
   }));
 
   // XP v0: one point per movie ranked across owned lists.

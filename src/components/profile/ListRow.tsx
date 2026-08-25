@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import MoviePoster from "@/components/list/MoviePoster";
+import ParticipantChips from "@/components/ParticipantChips";
+import type { ParticipantChip } from "@/lib/participants";
 
 export interface ListRowData {
   id: string;
@@ -14,6 +16,8 @@ export interface ListRowData {
   posters: { title: string; posterPath: string | null }[];
   /** TMDB ids, best first (proposals submit the top 8). */
   movieIds?: number[];
+  /** Participant chips with attribution markers (linked names when public). */
+  chips?: ParticipantChip[];
   /** Owner-only sharing scope; defaults to unlisted when absent. */
   visibility?: "unlisted" | "public" | "private";
 }
@@ -144,6 +148,11 @@ export default function ListRow({ list, featured, onToggleFeature }: ListRowProp
 
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-sm font-semibold">{list.title}</h2>
+          {list.chips && list.chips.length > 0 && (
+            <p className="mt-0.5 truncate text-xs text-muted">
+              With <ParticipantChips chips={list.chips} />
+            </p>
+          )}
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
             <span
               className={`inline-block rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${

@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import ListViews from "@/components/list/ListViews";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import OwnerControls from "@/components/list/OwnerControls";
+import ParticipantChips from "@/components/ParticipantChips";
 import ShareButton from "@/components/ShareButton";
 import { withRanks, type ListMovieRow } from "@/lib/list-view";
+import { chipParticipants } from "@/lib/participants";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 interface DbList {
@@ -69,14 +71,34 @@ export default async function PublicListPage({
     finalRank: m.final_rank,
   })) ?? [];
 
+  // Attributed participants -> chips; links only for visibility='public' profiles.
+  const { data: attributions } = await supabase
+    .from("participant_attributions")
+    .select("display_name,user_id")
+    .eq("list_id", id);
+  const userIds = [...new Set((attributions ?? []).map((a) => a.user_id))];
+  const { data: publicProfiles } =
+    userIds.length > 0
+      ? await supabase
+          .from("profiles")
+          .select("id,handle")
+          .in("id", userIds)
+          .eq("visibility", "public")
+      : { data: [] };
+  const chips = chipParticipants(
+    list.participants,
+    attributions ?? [],
+    publicProfiles ?? [],
+  );
+
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-4 py-8 sm:max-w-2xl">
       <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
           <MarqueeHeading>{list.title}</MarqueeHeading>
-          {list.participants.length > 0 && (
+          {(list.participants.length > 0 || (attributions?.length ?? 0) > 0) && (
             <p className="mt-1 text-sm text-muted">
-              Ranked by {list.participants.join(", ")}
+              Ranked by <ParticipantChips chips={chips} />
             </p>
           )}
           {list.description && (

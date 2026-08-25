@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import MarqueeHeading from "@/components/MarqueeHeading";
+import ParticipantChips from "@/components/ParticipantChips";
 import MoviePoster from "@/components/list/MoviePoster";
 import { normalizeHandle } from "@/lib/handles";
 import { evaluateAchievements } from "@/lib/gamification";
 import {
   EMPTY_SHOWCASE,
   parseShowcase,
+  attachParticipantChips,
   shapePublicProfile,
   type PublicListCardData,
 } from "@/lib/public-profile";
@@ -63,7 +65,7 @@ export default async function PublicProfilePage({
   // Showcase ONLY public done lists — unlisted stays link-accessible but hidden here.
   const { data: lists } = await supabase
     .from("lists")
-    .select("id,title,status,visibility,created_at,list_movies(title,poster_path)")
+    .select("id,title,participants,status,visibility,created_at,list_movies(title,poster_path)")
     .eq("owner_id", profile.id)
     .order("created_at", { ascending: false })
     // Mirror /u/me: without this, PostgREST join order is unspecified and cards
@@ -71,7 +73,33 @@ export default async function PublicProfilePage({
     .order("final_rank", { foreignTable: "list_movies", ascending: true, nullsFirst: false })
     .order("elo", { foreignTable: "list_movies", ascending: false });
 
-  const { cards, moviesRanked, level } = shapePublicProfile(lists ?? []);
+  const shaped = shapePublicProfile(lists ?? []);
+  const { cards: baseCards, moviesRanked, level } = shaped;
+
+  // Attributed participant markers on cards; links only to public profiles.
+  const cardIds = baseCards.map((c) => c.id);
+  const { data: attributions } =
+    cardIds.length > 0
+      ? await supabase
+          .from("participant_attributions")
+          .select("list_id,display_name,user_id")
+          .in("list_id", cardIds)
+      : { data: [] };
+  const userIds = [...new Set((attributions ?? []).map((a) => a.user_id))];
+  const { data: publicProfiles } =
+    userIds.length > 0
+      ? await supabase
+          .from("profiles")
+          .select("id,handle")
+          .in("id", userIds)
+          .eq("visibility", "public")
+      : { data: [] };
+  const cards = attachParticipantChips(
+    baseCards,
+    lists ?? [],
+    attributions ?? [],
+    publicProfiles ?? [],
+  );
   // Unlocked only; cards.length is the public done-list count (shapePublicProfile
   // filters to status=done + visibility=public, so private/unlisted never count).
   const allAchievements = evaluateAchievements({
@@ -173,6 +201,11 @@ export default async function PublicProfilePage({
               <Triptych card={featured} className="mt-2" />
               <span className="flex min-h-[3.75rem] flex-col justify-center gap-0.5 p-3">
                 <span className="truncate font-semibold">{featured.title}</span>
+                {featured.chips && featured.chips.length > 0 && (
+                  <span className="truncate text-xs text-muted">
+                    With <ParticipantChips chips={featured.chips} />
+                  </span>
+                )}
                 <span className="text-xs text-muted">{featured.createdAt}</span>
               </span>
             </Link>
@@ -187,6 +220,11 @@ export default async function PublicProfilePage({
                   <Triptych card={card} />
                   <span className="flex min-h-[3.25rem] flex-col justify-center gap-0.5 p-3">
                     <span className="truncate font-semibold">{card.title}</span>
+                    {card.chips && card.chips.length > 0 && (
+                      <span className="truncate text-xs text-muted">
+                        With <ParticipantChips chips={card.chips} />
+                      </span>
+                    )}
                     <span className="text-xs text-muted">{card.createdAt}</span>
                   </span>
                 </Link>

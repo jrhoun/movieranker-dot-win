@@ -1,6 +1,11 @@
 // Public profile shaping: derives showcase data from a user's PUBLIC done lists.
 // Private/unlisted rows must never leak into stats or the card grid.
 import { ACHIEVEMENTS, type Level, levelFor } from "./gamification";
+import {
+  chipParticipants,
+  type AttributionRow,
+  type ParticipantChip,
+} from "./participants";
 
 // --- Showcase curation (pinned achievements + one featured ranking) ---
 
@@ -80,6 +85,7 @@ export async function patchShowcase(
 export interface DbPublicList {
   id: string;
   title: string;
+  participants?: string[] | null;
   status: string;
   visibility: string | null;
   created_at: string;
@@ -92,6 +98,8 @@ export interface PublicListCardData {
   /** UTC date string, e.g. "Mar 5, 2026". */
   createdAt: string;
   posters: { title: string; posterPath: string | null }[];
+  /** Participant chips with attribution markers (linked names when public). */
+  chips?: ParticipantChip[];
 }
 
 /** Everything the /u/[handle] page renders, derived only from public done lists. */
@@ -123,4 +131,28 @@ export function shapePublicProfile(rows: DbPublicList[]): {
     moviesRanked,
     level: levelFor(moviesRanked),
   };
+}
+
+/**
+ * Attach participant chips (attribution markers) onto shaped public profile
+ * cards. Raw rows supply the participants array; only public-profile handles
+ * become links.
+ */
+export function attachParticipantChips(
+  cards: PublicListCardData[],
+  rawRows: DbPublicList[],
+  attributions: (AttributionRow & { list_id?: string })[],
+  publicProfiles: { id: string; handle: string }[],
+): PublicListCardData[] {
+  const rawById = new Map(rawRows.map((r) => [r.id, r]));
+  return cards.map((card) => {
+    const row = rawById.get(card.id);
+    if (!row) return card;
+    const chips = chipParticipants(
+      row.participants ?? [],
+      attributions.filter((a) => a.list_id === card.id),
+      publicProfiles,
+    );
+    return { ...card, chips };
+  });
 }

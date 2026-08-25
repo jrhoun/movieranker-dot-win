@@ -7,6 +7,7 @@ import MatchupStage from "@/components/MatchupStage";
 import MoviePoster from "@/components/list/MoviePoster";
 import ParkedStrip from "@/components/ParkedStrip";
 import SaveGateSheet from "@/components/SaveGateSheet";
+import { PersonIcon } from "@/components/ParticipantChips";
 import {
   closeCallProgress,
   countClosePairs,
@@ -107,6 +108,13 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   const [exitOpen, setExitOpen] = useState(false);
   // set once an OAuth redirect away from the page has begun (leave-warning stays disarmed)
   const [authRedirecting, setAuthRedirecting] = useState(false);
+  // Real Participants: resumed drafts let a signed-in viewer claim a chip.
+  const [joinOpen, setJoinOpen] = useState(false);
+  const [joinName, setJoinName] = useState("");
+  const [canJoin, setCanJoin] = useState(false);
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [joinedName, setJoinedName] = useState<string | null>(null);
   // once-flag: has the field EVER significantly reordered? stability requires
   // genuine differentiation, not just a quiet streak over a still-tied list.
   // ponytail: room-level and not persisted — a resume resets it until the next
@@ -165,6 +173,37 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     };
   }, [initial]);
 
+  // Join-as-participant probe: only for signed-in users on a resumed draft.
+  useEffect(() => {
+    if (!initial || signedIn !== true) return;
+    let cancelled = false;
+    void (async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { data } = await supabase.auth.getUser();
+      if (!data.user || cancelled) return;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("handle")
+        .eq("id", data.user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      setJoinName(profile?.handle ?? "");
+      try {
+        const res = await fetch(`/api/lists/${initial.id}/participants/claim`);
+        if (!res.ok || cancelled) return;
+        const json = (await res.json()) as {
+          claimed?: boolean;
+          displayName?: string;
+        };
+        if (!cancelled) setJoinedName(json.claimed ? (json.displayName ?? "") : null);
+        if (!json.claimed && !cancelled) setCanJoin(true);
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initial, signedIn]);
+
   // Resume sync: per-action PATCH of only the movies the last action changed
   // (votes are >=1s apart behind the settle animation, so no debounce needed).
   useEffect(() => {
@@ -200,6 +239,50 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     const next = { ...session, nudgeShown: true };
     setSession(next);
     saveSession(next);
+  }
+
+  async function joinAsParticipant() {
+    if (!initial || !session) return;
+    const displayName = joinName.trim();
+    if (!displayName) return;
+    setJoining(true);
+    setJoinError(null);
+    let res: Response;
+    try {
+      res = await fetch(`/api/lists/${initial.id}/participants/claim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName }),
+      });
+    } catch {
+      setJoining(false);
+      setJoinError("Couldn't reach the server — try again.");
+      return;
+    }
+    setJoining(false);
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      setJoinError(
+        body?.error === "already participating"
+          ? "You've already joined this ranking."
+          : body?.error === "not found"
+            ? "This draft is no longer available."
+            : "Couldn't join — check the name and try again.",
+      );
+      return;
+    }
+    setCanJoin(false);
+    setJoinedName(displayName);
+    setJoinOpen(false);
+    // Show the new chip immediately; server list row was appended by the API.
+    if (!session.participants.some((p) => p.toLowerCase() === displayName.toLowerCase())) {
+      const next = {
+        ...session,
+        participants: [...session.participants, displayName],
+      };
+      setSession(next);
+      saveSession(next);
+    }
   }
 
   const [fieldSplit, setFieldSplit] = useState(false);
@@ -313,7 +396,13 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           <h1 className="truncate text-lg font-bold sm:text-2xl">{session.title}</h1>
           {session.participants.length > 0 && (
             <p className="truncate text-xs text-muted sm:text-sm">
-              {session.participants.join(" · ")}
+              {session.participants.map((p, i) => (
+                <span key={p}>
+                  {i > 0 && " · "}
+                  {p}
+                  {(joinedName && p.toLowerCase() === joinedName.toLowerCase()) && <PersonIcon />}
+                </span>
+              ))}
             </p>
           )}
         </div>
@@ -368,6 +457,68 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
             >
               Keep ranking
             </button>
+          </div>
+        </div>
+      )}
+
+      {canJoin && !finished && (
+        <div className="mx-auto w-full max-w-2xl animate-fade-in px-4 pt-3 sm:px-6">
+          <div
+            role="group"
+            aria-label="Join this ranking as a participant"
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded bg-surface p-3 ring-1 ring-white/10"
+          >
+            {joinOpen ? (
+              <form
+                className="flex w-full flex-wrap items-center gap-x-3 gap-y-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void joinAsParticipant();
+                }}
+              >
+                <input
+                  type="text"
+                  value={joinName}
+                  onChange={(e) => setJoinName(e.target.value)}
+                  maxLength={40}
+                  placeholder="Your participant name"
+                  aria-label="Your participant name"
+                  className="min-h-11 min-w-0 flex-1 rounded bg-surface-raised px-3 text-sm text-text ring-1 ring-white/10 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent"
+                />
+                <button
+                  type="submit"
+                  disabled={!joinName.trim() || joining}
+                  className="min-h-11 rounded bg-surface-raised px-4 text-sm font-medium transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
+                >
+                  {joining ? "Joining…" : "Join"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setJoinOpen(false)}
+                  className="min-h-11 rounded px-4 text-sm text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:text-text"
+                >
+                  Cancel
+                </button>
+              </form>
+            ) : (
+              <>
+                <p className="min-w-0 flex-1 text-sm text-muted">
+                  Ranking with this crew?
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setJoinOpen(true)}
+                  className="min-h-11 shrink-0 rounded bg-surface-raised px-4 text-sm font-medium transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+                >
+                  Join as participant
+                </button>
+              </>
+            )}
+            {joinError && (
+              <p role="alert" className="w-full text-xs text-accent-red">
+                {joinError}
+              </p>
+            )}
           </div>
         </div>
       )}
