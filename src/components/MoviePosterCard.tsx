@@ -28,7 +28,7 @@ export default function MoviePosterCard({
     >
       <div
         className={`aspect-[2/3] w-full overflow-hidden rounded bg-surface transition-shadow duration-200 ease-out group-active:scale-[0.98] ${
-          selected ? "ring-2 ring-gold" : "ring-1 ring-white/10"
+          selected ? "ring-[3px] ring-gold" : "ring-1 ring-white/25"
         }`}
       >
         {movie.posterPath ? (

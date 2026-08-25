@@ -23,7 +23,7 @@ const INLINE_CAP = 20;
 
 function SkeletonGrid() {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4">
       {Array.from({ length: 12 }, (_, i) => (
         <div key={i} className="animate-pulse">
           <div className="aspect-[2/3] w-full rounded bg-surface" />
@@ -274,7 +274,7 @@ export default function SearchPanel({
                 </div>
               );
             })()}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4">
               {movies.slice(0, INLINE_CAP).map((mv, i) => (
                 <MoviePosterCard
                   key={mv.tmdbId}
