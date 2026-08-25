@@ -64,3 +64,19 @@ Spec ✅ / Approved. Deferred minors: Claim button uses --accent not literal gol
 - Misleading comments reworded: page comment now states profiles RLS is read-any and the gate is the JS `notFound()` check; `public-profile.ts` ponytail comment now states the query does NOT scope to public+done and the JS filter IS the guarantee.
 - `decodeURIComponent(raw)` wrapped in try/catch (App Router params arrive percent-encoded, so the decode is kept): malformed input like `/u/%zz` falls back to the raw string → lookup miss → styled 404 instead of a 500.
 - Verified: npm test 175 passed / 21 files; tsc clean; eslint clean; next build passes.
+
+### Derivable achievements round (v1 final stretch)
+- `src/lib/gamification.ts`: added `ACHIEVEMENTS` catalog (`first_premiere` / `marathoner` / `centurion`) with typed `AchievementStats` input and `evaluateAchievements(stats)` — pure derivation from existing list data (done-list count + ranked-movie total); no awards table, no event hooks. Matches the LEVELS/UNLOCKS catalog pattern.
+- `/u/me`: "Achievements" strip appended inside the stats section below the unlockables teaser (kept as-is). Three badge cards: gold ring + ✓ when unlocked, dimmed with description hint when locked. Stats feed: `doneLists = cards.filter(status==="done").length`, `moviesRanked = progress.current`.
+- `/u/[handle]`: unlocked achievements only, as small gold-ringed pill badges under the stats row. `doneLists = cards.length` — safe because `shapePublicProfile` already filters to `status=done && visibility=public`, so private/unlisted lists never leak into counts.
+- Tests: boundary cases in `gamification.test.ts` — exactly-at-threshold unlocks (1 done list, 10 done lists, 100 movies), one-below stays locked, empty stats all locked, all-unlocked past thresholds.
+
+### Verification
+- `npm test`: 179 passed / 21 files. `npx tsc --noEmit`: clean. `npm run lint`: clean. `next build`: passes.
+
+### Commit
+- `6720b1e` feat: derivable achievements on profiles
+
+### Concerns / deferred
+- Achievements are monotonic by construction (counts only grow), so pure derivation is lossless; any future achievement needing history (e.g. Contrarian, Time Capsule) will need real persistence — do not extend this pattern to those.
+- Public profile counts derive from public done lists only, so a user's badge can differ between /u/me and their public page if they keep private/unlisted done lists — intended privacy scoping.

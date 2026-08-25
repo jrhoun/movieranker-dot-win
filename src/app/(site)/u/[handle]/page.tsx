@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import MoviePoster from "@/components/list/MoviePoster";
 import { normalizeHandle } from "@/lib/handles";
+import { evaluateAchievements } from "@/lib/gamification";
 import { shapePublicProfile } from "@/lib/public-profile";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -49,6 +50,12 @@ export default async function PublicProfilePage({
     .order("elo", { foreignTable: "list_movies", ascending: false });
 
   const { cards, moviesRanked, level } = shapePublicProfile(lists ?? []);
+  // Unlocked only; cards.length is the public done-list count (shapePublicProfile
+  // filters to status=done + visibility=public, so private/unlisted never count).
+  const achievements = evaluateAchievements({
+    doneLists: cards.length,
+    moviesRanked,
+  }).filter((a) => a.unlocked);
   const joined = new Date(profile.created_at).toLocaleDateString("en-US", {
     month: "long",
     year: "numeric",
@@ -86,6 +93,22 @@ export default async function PublicProfilePage({
             <dt className="text-xs uppercase tracking-[0.14em] text-muted">Rank</dt>
           </div>
         </dl>
+        {achievements.length > 0 && (
+          <ul aria-label="Achievements" className="mt-2 flex flex-wrap justify-center gap-1.5">
+            {achievements.map((a) => (
+              <li
+                key={a.key}
+                title={a.description}
+                className="rounded-full bg-gold/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-gold ring-1 ring-gold"
+              >
+                <span aria-hidden="true" className="mr-1">
+                  ✓
+                </span>
+                {a.name}
+              </li>
+            ))}
+          </ul>
+        )}
       </header>
 
       {cards.length === 0 ? (

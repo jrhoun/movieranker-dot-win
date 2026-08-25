@@ -6,7 +6,14 @@ import AccountSection from "@/components/profile/AccountSection";
 import ClaimHandleCard from "@/components/profile/ClaimHandleCard";
 import ProfileVisibilityToggle from "@/components/profile/ProfileVisibilityToggle";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { LEVELS, levelFor, totalMoviesRanked, unlockedAt, xpProgress } from "@/lib/gamification";
+import {
+  LEVELS,
+  evaluateAchievements,
+  levelFor,
+  totalMoviesRanked,
+  unlockedAt,
+  xpProgress,
+} from "@/lib/gamification";
 
 interface DbList {
   id: string;
@@ -60,6 +67,10 @@ export default async function MyListsPage() {
 
   // XP v0: one point per movie ranked across owned lists.
   const progress = xpProgress(totalMoviesRanked(cards.map((c) => ({ movieCount: c.posters.length }))));
+  const achievements = evaluateAchievements({
+    doneLists: cards.filter((c) => c.status === "done").length,
+    moviesRanked: progress.current,
+  });
   const level = levelFor(progress.current);
   const { unlocked, locked } = unlockedAt(level.level);
   return (
@@ -153,6 +164,28 @@ export default async function MyListsPage() {
               </li>
             );
           })}
+        </ul>
+
+        {/* Achievements strip — derived from existing stats; gold ring when earned. */}
+        <ul aria-label="Achievements" className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {achievements.map((a) => (
+            <li
+              key={a.key}
+              className={`rounded p-3 ring-1 ${
+                a.unlocked ? "bg-gold/10 ring-gold" : "bg-surface-raised ring-white/10 opacity-60"
+              }`}
+            >
+              <p className={`text-xs font-semibold ${a.unlocked ? "text-gold" : "text-muted"}`}>
+                {a.unlocked && (
+                  <span aria-hidden="true" className="mr-1">
+                    ✓
+                  </span>
+                )}
+                {a.name}
+              </p>
+              <p className="mt-1 text-[11px] text-muted">{a.description}</p>
+            </li>
+          ))}
         </ul>
       </section>
 

@@ -1,7 +1,9 @@
 import { describe, expect, test } from "vitest";
 import {
+  ACHIEVEMENTS,
   LEVELS,
   UNLOCKS,
+  evaluateAchievements,
   levelFor,
   totalMoviesRanked,
   unlockedAt,
@@ -73,6 +75,48 @@ describe("unlockedAt", () => {
   test("max level unlocks everything", () => {
     const { locked } = unlockedAt(5);
     expect(locked).toEqual([]);
+  });
+});
+
+describe("evaluateAchievements", () => {
+  test("exactly-at-threshold counts unlock", () => {
+    for (const stats of [
+      { doneLists: 1, moviesRanked: 0 }, // first_premiere boundary
+      { doneLists: 10, moviesRanked: 0 }, // marathoner boundary
+      { doneLists: 0, moviesRanked: 100 }, // centurion boundary
+    ]) {
+      const result = Object.fromEntries(
+        evaluateAchievements(stats).map((a) => [a.key, a.unlocked]),
+      );
+      expect(Object.values(result).some(Boolean)).toBe(true);
+      expect(result).toMatchObject({
+        first_premiere: stats.doneLists >= 1,
+        marathoner: stats.doneLists >= 10,
+        centurion: stats.moviesRanked >= 100,
+      });
+    }
+  });
+
+  test("just below threshold stays locked", () => {
+    const result = evaluateAchievements({ doneLists: 0, moviesRanked: 99 });
+    expect(result.every((a) => !a.unlocked)).toBe(true);
+  });
+
+  test("all locked on empty stats", () => {
+    const result = evaluateAchievements({ doneLists: 0, moviesRanked: 0 });
+    expect(result.every((a) => !a.unlocked)).toBe(true);
+    expect(result.map((a) => a.key)).toEqual(ACHIEVEMENTS.map((a) => a.key));
+  });
+
+  test("everything unlocks past all thresholds", () => {
+    const result = evaluateAchievements({ doneLists: 10, moviesRanked: 100 });
+    expect(result.every((a) => a.unlocked)).toBe(true);
+    expect(result[0]).toEqual({
+      key: "first_premiere",
+      name: "First Premiere",
+      description: "Finished your first ranking",
+      unlocked: true,
+    });
   });
 });
 

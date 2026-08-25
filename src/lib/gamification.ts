@@ -75,6 +75,53 @@ export function unlockedAt(level: number): {
   };
 }
 
+// Derivable achievements: lazily computed from existing list data (done-list
+// count + ranked-movie total); no awards table, no event hooks.
+
+export interface AchievementStats {
+  /** Lists the user has finished ranking. */
+  doneLists: number;
+  /** Total movies ranked across counted lists. */
+  moviesRanked: number;
+}
+
+export interface Achievement {
+  key: string;
+  name: string;
+  description: string;
+  check: (stats: AchievementStats) => boolean;
+}
+
+export const ACHIEVEMENTS: Achievement[] = [
+  {
+    key: "first_premiere",
+    name: "First Premiere",
+    description: "Finished your first ranking",
+    check: (s) => s.doneLists >= 1,
+  },
+  {
+    key: "marathoner",
+    name: "Marathoner",
+    description: "Finished 10 rankings",
+    check: (s) => s.doneLists >= 10,
+  },
+  {
+    key: "centurion",
+    name: "Centurion",
+    description: "Ranked 100 movies",
+    check: (s) => s.moviesRanked >= 100,
+  },
+];
+
+export interface EvaluatedAchievement extends Omit<Achievement, "check"> {
+  unlocked: boolean;
+}
+
+/** Evaluate every achievement against a stats snapshot. */
+export function evaluateAchievements(stats: AchievementStats): EvaluatedAchievement[] {
+  return ACHIEVEMENTS.map(({ check, ...rest }) => ({ ...rest, unlocked: check(stats) }));
+}
+
 /**
  * XP source: one point per movie ranked, summed across owned lists.
  * @param lists owned lists with per-list movie counts.
