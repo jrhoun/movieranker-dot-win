@@ -386,3 +386,22 @@ Reviewer finding: `weeksSinceUtcEpoch = floor(days/7)` anchored the rotation win
 - npm test: 245 passed (25 files); tsc clean; eslint clean; production build passes.
 - No live TMDB calls made; .env.local untouched.
 - Commits: d742c79 (fan overflow), b147508 (search readability + clear selection).
+
+## v1 fixes — shortlist vanishing movies + search results cap (2026-08-24)
+
+### 1. Shortlist movies without primary art no longer vanish
+- `src/lib/tmdb.ts` `getMovieById`: previously returned null when the movie detail had no primary `poster_path`, so page.tsx filtered it out — theme marquee showed fewer movies than the copy claimed (3 of 6 observed). Now, on missing primary art it calls `getPreferredPosterPath(id, null)` (images endpoint: en → null-language → none). If truly no art exists anywhere, the credit is still returned with `posterPath=null`; only a failed lookup returns null.
+- `src/components/list/MoviePoster`: placeholder branch upgraded to centered truncated Bebas title (`font-display uppercase truncate`, text-sm) on the existing surface-bg 2:3 frame. Other usages (fan/tray/grid) pass real posterPaths normally; placeholder only appears when posterPath is genuinely null.
+
+### 2. Browse-all modal for large search results
+- `src/components/SearchPanel.tsx`:
+  - Inline grid capped at first 20 results (`INLINE_CAP` slice); header count still reports the full result set.
+  - When >20 results, a "Browse all N results" button (min-h-11, focus-visible ring) opens a dark-cinema modal: surface bg + ring + shadow, 85dvh max height, scrollable card body at 2 / sm:3 / md:4 columns with larger cards (same MoviePosterCard), Escape + outside-click + ✕/Close to dismiss, Tab focus trap with initial focus.
+  - Modal maps over the same source array, so tap-to-toggle-select and shift-range anchor (`lastClickedRef`) sync between inline and modal views; selected ✓ badges visible in both.
+  - Sticky footer shows live "{N} selected" count + Close.
+  - Animation reuses existing `animate-celebrate` (fade/scale 200ms); the global `prefers-reduced-motion` rule collapses it. All targets ≥44px except the footer Close pill (36px tall inside an ≥44px-tall footer row).
+
+### Verification
+- npm test: 248 passed (25 files), including new getMovieById tests: images-endpoint fallback for en art, credit kept with posterPath=null when no art exists anywhere, and no extra images call when primary art exists.
+- tsc clean; eslint clean; production build passes. No live TMDB calls made; .env.local untouched.
+- Commits: 8db8e10 (shortlist fix), ad403c1 (browse-all modal).
