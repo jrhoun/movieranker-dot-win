@@ -105,3 +105,14 @@ Commits: `feat: community verdict stats`; `design: tray density pass`.
 Verified: 238/238 tests green (incl. 7 new theme-stats cases), tsc clean, eslint clean, build passes. No network calls beyond localhost build/dev sanity; .env.local never read.
 
 Deferred: PATCH-path unlock propagation (carried from stage A); verdict section shows parked-state approximation until finish-time snapshot exists.
+
+## Session: themed verdict privacy fix (master)
+
+### Fix — Community Verdict stats scoped to unlisted/public rooms
+- `src/app/(site)/l/[id]/page.tsx` (~line 96): themed-rooms aggregation query added `.in("visibility", ["unlisted","public"])`. Previously only `.eq("status","done")` filtered, so for authenticated owners RLS "owner all" admitted their own private done lists into the aggregates — owners saw different percentages than public visitors, leaking private data into stats.
+- Every viewer now computes identical Community Verdict numbers; private rooms never contribute.
+- Champion tie-break ceiling note added as a code comment in `src/lib/theme-stats.ts`: 100%-pctRankedFirst ties resolve deterministically by tmdbId (documented, not changed).
+- Tests: new `src/app/(site)/l/[id]/page.test.ts` mocks Supabase + components and asserts the signed-in-owner flow issues the `in("visibility", ["unlisted","public"])` filter on the themed lists query (verified failing without the fix).
+
+### Verification
+- npm test: 239 passed (25 files), tsc clean, eslint clean, build passes.

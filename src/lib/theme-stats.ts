@@ -109,6 +109,8 @@ export function computeThemeStats(rooms: ThemeRoom[]): ThemeStats {
     : null;
 
   // Undisputed champion: #1 in every room it appeared in AND present in >=2 rooms.
+  // ponytail: 100%-pctRankedFirst ties resolve deterministically by tmdbId (documented,
+  // not changed); add an elo-based secondary key if ties should prefer higher-rated picks.
   const eligible = movies.filter((m) => m.appearances >= 2 && m.pctRankedFirst === 1);
   const champion = eligible.length
     ? eligible.reduce((best, m) => {

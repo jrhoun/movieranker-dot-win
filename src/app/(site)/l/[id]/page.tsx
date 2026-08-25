@@ -95,14 +95,16 @@ export default async function PublicListPage({
   );
 
   // Community Verdict: aggregate every done room sharing this theme. RLS keeps
-  // private rooms out; one query fetches rooms + their movies together.
+  // private rooms out for strangers, but "owner all" would admit the viewer's own
+  // private rooms — filter explicitly so every viewer computes identical stats.
   let stats: ReturnType<typeof computeThemeStats> | null = null;
   if (list.theme_slug && list.status === "done") {
     const { data: themed } = await supabase
       .from("lists")
       .select("id,list_movies(tmdb_id,title,poster_path,elo,parked,final_rank)")
       .eq("theme_slug", list.theme_slug)
-      .eq("status", "done");
+      .eq("status", "done")
+      .in("visibility", ["unlisted", "public"]);
     const rooms: ThemeRoom[] = ((themed ?? []) as Record<string, unknown>[]).map((r) => ({
       id: String(r.id),
       movies: ((Array.isArray(r.list_movies) ? r.list_movies : []) as Record<string, unknown>[]).map(
