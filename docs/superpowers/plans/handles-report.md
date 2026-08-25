@@ -110,3 +110,31 @@ Handles are deliberately locked after first claim. Changing a handle should beco
 ### Commits
 - `<commit-1>` feat: vulgarity filter for handles
 - `<commit-2>` feat: permanent handle claim flow
+
+## PROFILE SHOWCASE CURATION (v1)
+
+Steam-style "pick what to feature": users pin up to 3 unlocked achievements and one featured public done ranking; the public profile renders both with gold treatment above auto-derived content. No curation -> current behavior unchanged.
+
+### Storage (`supabase/schema.sql` + `upgrade-1.sql` §5)
+- `profiles.showcase jsonb NOT NULL DEFAULT '{}'`, shape `{ achievementKeys: string[] (max 3, catalog keys), favoriteListId: text|null }`. Shape validated app-side (jsonb keeps the DB dumb); canonical block updated + append-only section for existing DBs.
+
+### API (PATCH /api/profile)
+- Accepts optional `showcase` partial alongside `visibility`; server merges against the stored row so a partial patch never clobbers the other field (`mergeShowcase` in `src/lib/public-profile.ts`). 400 on: non-object payload, invalid/duplicate/non-catalog keys, >3 keys, wrong favoriteListId types.
+- Trust boundary: favoriteListId must resolve to an OWNED list with `status='done' AND visibility='public'` — checked in SQL before persisting, else 400 "featured ranking must be one of your public finished lists". Existing rate-limit entry (`profile`, 10/min) covers showcase PATCHes.
+
+### Owner UI (/u/me)
+- New `ShowcaseCard` (client) replaces the static achievements chip list: unlocked chips are toggle buttons (`aria-pressed`) pinning max 3; locked ones dimmed/disabled with explanatory titles; optimistic PATCH with revert + inline error on failure.
+- New `ShowcaseLists` (client wrapper) owns the single-favorite rule across rows: starring a new ListRow unstars the old, optimistic with revert. ListRow gained an optional ★ button — enabled only when the row is done+public (mirrors the server preconditions), disabled-with-title otherwise (drafts/unlisted).
+
+### Public render (/u/[handle])
+- Pinned achievements sort FIRST and get distinct treatment (larger chip, ring-2 ring-gold, soft glow, ★ prefix); auto-derived ones keep the existing style after them.
+- favoriteListId renders as a full-width "✦ Featured ranking" card pinned above the grid: ring-2 gold, spotlight shadow, marquee tag + thin gold rule. Pulled OUT of the regular grid to avoid duplication.
+- Privacy by construction: shapePublicProfile filters to public done lists before the featured lookup, so a list that later goes private/unlisted silently drops out (no special casing needed).
+
+### Verification
+- `npm test`: 195 passed / 21 files (new: merge/parse validation incl. max-3, invalid+duplicate keys, type errors; route tests incl. >3 rejection, non-owned list id 400, merge-persistence happy path, claim-first 409). `npx tsc --noEmit`: clean. `npx eslint src`: clean. `next build`: passes. Test mock upgraded to per-table rows + write/read resolution so the showcase pre-read doesn't collide with update results.
+- Traffic hygiene: no live calls made; no .env.local reads. DB change NOT applied anywhere yet — run upgrade-1.sql §5 manually.
+
+### Commits
+- `77622d2` feat: profile showcase storage + api
+- `3b5338c` design: showcase curation ui
