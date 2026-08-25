@@ -7,7 +7,7 @@ import CandidateTray from "@/components/CandidateTray";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import MoviePoster from "@/components/list/MoviePoster";
 import SearchPanel from "@/components/SearchPanel";
-import { HERO_CANDIDATES, FAN_POSTERS } from "@/lib/hero-posters";
+import { FAN_POSTERS } from "@/lib/hero-posters";
 import type { RankedMovie } from "@/lib/ranking";
 import { clearSession, loadSession, saveSession } from "@/lib/session";
 import { mergeCandidates } from "@/lib/tray";
@@ -44,6 +44,26 @@ const STEPS = [
 ];
 
 export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
+  // Hero fan mirrors tonight's themed shortlist so it previews the daily
+  // rotation; falls back to the curated set when the shortlist fetch came up
+  // empty so the marquee never goes dark.
+  const liveFan = tonight.movies.length > 0;
+  const fanMovies = liveFan ? tonight.movies.slice(0, 8) : [];
+  const fanItems: { m: TmdbMovieCredit; tilt: number }[] = liveFan
+    ? fanMovies.map((m, i) => ({
+        m,
+        // ponytail: linear tilt spread across the row; hand-tuned only if a wide fan looks off
+        tilt: fanMovies.length > 1 ? -8 + (16 * i) / (fanMovies.length - 1) : 0,
+      }))
+    : FAN_POSTERS.map((p) => ({
+        m: {
+          tmdbId: p.tmdbId,
+          title: p.title,
+          posterPath: p.posterPath,
+          releaseYear: p.releaseYear,
+        },
+        tilt: p.tilt,
+      }));
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [participants, setParticipants] = useState<string[]>([]);
@@ -144,28 +164,33 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
               straighten+lift on hover (200ms ease-out; killed by reduced-motion).
               Slightly dimmed at rest so the Bebas headline above stays dominant. */}
           <ul className="mt-10 flex justify-center px-4 sm:mt-12">
-            {FAN_POSTERS.map((p, i) => {
-              const inTray = candidates.some((c) => c.tmdbId === p.tmdbId);
+            {fanItems.map(({ m, tilt }, i) => {
+              const inTray = candidates.some((c) => c.tmdbId === m.tmdbId);
               return (
                 <li
-                  key={p.title}
-                  style={{ "--tilt": `${p.tilt}deg`, zIndex: i === 3 ? 10 : i } as React.CSSProperties}
+                  key={m.tmdbId}
+                  style={{ "--tilt": `${tilt}deg`, zIndex: i === Math.floor(fanItems.length / 2) ? 10 : i } as React.CSSProperties}
                   className="relative -mx-3 w-20 origin-bottom rotate-(--tilt) opacity-85 transition-all duration-200 ease-out hover:z-20 hover:rotate-0 hover:-translate-y-2 hover:opacity-100 sm:-mx-4 sm:w-28"
                 >
                   <button
                     type="button"
-                    onClick={() => toggleCandidate(HERO_CANDIDATES[i])}
-                    aria-label={`Add ${p.title} to your ranking`}
+                    onClick={() => toggleCandidate(m)}
+                    aria-label={`Add ${m.title} to your ranking`}
                     aria-pressed={inTray}
-                    title={inTray ? "Already on your list — tap to remove" : `Add ${p.title}`}
+                    title={inTray ? "Already on your list — tap to remove" : `Add ${m.title}`}
                     className="block w-full cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
                   >
-                    <MoviePoster title={p.title} posterPath={p.posterPath} className="shadow-xl" />
+                    <MoviePoster title={m.title} posterPath={m.posterPath} className="shadow-xl" />
                   </button>
                 </li>
               );
             })}
           </ul>
+          {liveFan && (
+            <p className="mt-5 font-display text-sm uppercase tracking-[0.2em] text-gold drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]">
+              Tonight&apos;s theme · {tonight.title}
+            </p>
+          )}
         </div>
       </header>
       {/* Body below the curtain hero: one focal composition (search card),
