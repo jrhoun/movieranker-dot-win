@@ -10,6 +10,8 @@ export interface TmdbPerson {
 export interface TmdbCompany {
   id: number;
   name: string;
+  origin_country?: string;
+  popularity?: number;
 }
 
 export interface TmdbMovieCredit {
@@ -83,9 +85,26 @@ export async function getPersonCredits(personId: number): Promise<TmdbMovieCredi
   return shapeCredits(data);
 }
 
+// Pure: dedupe same-named companies (TMDB has many duplicate entries),
+// preferring higher popularity, then float exact case-insensitive name
+// matches to the front so "A24" surfaces the real studio first.
+export function rankCompanies(results: TmdbCompany[], query: string): TmdbCompany[] {
+  const q = query.trim().toLowerCase();
+  const byName = new Map<string, TmdbCompany>();
+  for (const c of results) {
+    const key = c.name.toLowerCase();
+    const prev = byName.get(key);
+    if (!prev || (c.popularity ?? 0) > (prev.popularity ?? 0)) byName.set(key, c);
+  }
+  return [...byName.values()].sort(
+    (a, b) => Number(q !== "" && a.name.toLowerCase() === q ? 0 : 1) -
+      Number(q !== "" && b.name.toLowerCase() === q ? 0 : 1),
+  );
+}
+
 export async function searchCompany(q: string): Promise<TmdbCompany[]> {
   const data = await tmdbFetch<{ results: TmdbCompany[] }>("/search/company", { query: q }, 300);
-  return data.results ?? [];
+  return rankCompanies(data.results ?? [], q);
 }
 
 // ponytail: pages 1-3 fetched concurrently; sequential pages only if TMDB rate-limits

@@ -195,9 +195,19 @@ export default function SearchPanel({
                 <button
                   type="button"
                   onClick={() => pickRef(n)}
-                  className="min-h-11 rounded-full bg-surface px-4 text-sm text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-surface-raised hover:ring-white/20 active:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  className="min-h-11 rounded-full bg-surface px-4 py-1 text-sm text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-surface-raised hover:ring-white/20 active:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   {n.name}
+                  {"origin_country" in n && (
+                    <span className="ml-2 text-xs text-muted">
+                      {(n as TmdbCompany).origin_country && (
+                        <span className="mr-1.5 rounded bg-surface-raised px-1.5 py-0.5">
+                          {(n as TmdbCompany).origin_country}
+                        </span>
+                      )}
+                      Production company
+                    </span>
+                  )}
                 </button>
               </li>
             ))}

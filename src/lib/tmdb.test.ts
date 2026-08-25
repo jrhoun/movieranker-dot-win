@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { searchByKeyword, shapeCredits } from "./tmdb";
+import { rankCompanies, searchByKeyword, shapeCredits } from "./tmdb";
 import fixture from "./fixtures/combined-credits.json";
 
 const allRaw = [...fixture.cast, ...fixture.crew];
@@ -43,6 +43,41 @@ describe("shapeCredits", () => {
     const shaped = credits.find((c) => c.tmdbId === sample!.id);
     const year = shaped?.releaseYear;
     expect(year).toBe(Number((sample!.release_date ?? "").slice(0, 4)));
+  });
+});
+
+describe("rankCompanies", () => {
+  it("floats exact case-insensitive matches to the front", () => {
+    const ranked = rankCompanies(
+      [
+        { id: 1, name: "A24 Films LLC" },
+        { id: 2, name: "a24" },
+        { id: 3, name: "Another Studio" },
+      ],
+      "A24",
+    );
+    expect(ranked[0].id).toBe(2);
+  });
+
+  it("dedupes same-named companies preferring higher popularity", () => {
+    const ranked = rankCompanies(
+      [
+        { id: 1, name: "A24", popularity: 5 },
+        { id: 2, name: "a24", popularity: 50 },
+        { id: 3, name: "Other" },
+      ],
+      "a24",
+    );
+    expect(ranked.filter((c) => c.name.toLowerCase() === "a24")).toHaveLength(1);
+    expect(ranked[0]).toMatchObject({ id: 2 });
+  });
+
+  it("keeps TMDB order when nothing is an exact match and treats missing popularity as 0", () => {
+    const results = [{ id: 1, name: "X" }, { id: 2, name: "Y", popularity: 9 }];
+    expect(rankCompanies(results, "zzz-no-match")).toEqual([
+      { id: 1, name: "X" },
+      { id: 2, name: "Y", popularity: 9 },
+    ]);
   });
 });
 
