@@ -1,4 +1,6 @@
-import HomeClient from "./home-client";import { getTonightsShortlist } from "@/lib/shortlist";
+import HomeClient from "./home-client";
+import { getTonightsShortlist } from "@/lib/shortlist";
+import type { ThemeCommunityActivity } from "@/lib/shortlist";
 import { getMovieById } from "@/lib/tmdb";
 import type { TmdbMovieCredit } from "@/lib/tmdb";
 
@@ -10,10 +12,12 @@ export default async function Page() {
   let title = "";
   let blurb = "";
   let credits: TmdbMovieCredit[] = [];
+  let activity: ThemeCommunityActivity = { count: 0, previews: [] };
   try {
-    const { theme, movieIds } = await getTonightsShortlist();
+    const { theme, movieIds, activity: a } = await getTonightsShortlist();
     title = theme.title;
     blurb = theme.blurb;
+    activity = a;
     credits = (
       await Promise.all(movieIds.map((id) => getMovieById(id)))
     ).filter((c): c is NonNullable<typeof c> => c !== null);
@@ -21,5 +25,15 @@ export default async function Page() {
     // fall through to hardcoded hero fan
   }
 
-  return <HomeClient tonight={{ title, blurb, movies: credits }} />;
+  return (
+    <HomeClient
+      tonight={{
+        title,
+        blurb,
+        movies: credits,
+        settledCount: activity.count,
+        previews: activity.previews,
+      }}
+    />
+  );
 }

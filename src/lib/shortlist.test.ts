@@ -3,6 +3,7 @@ import {
   daysSinceUtcEpoch,
   pickTonightsEntry,
   tonightsShortlist,
+  overlapsTheme,
 } from "./shortlist";
 import { SHORTLIST_THEMES } from "./shortlist-themes";
 
@@ -76,5 +77,28 @@ describe("tonightsShortlist", () => {
     const a = tonightsShortlist([], d(0 * DAY))!.slug;
     const b = tonightsShortlist([], d(SHORTLIST_THEMES.length * DAY))!.slug;
     expect(a).toBe(b);
+  });
+});
+
+describe("overlapsTheme", () => {
+  const theme = [1, 2, 3, 4, 5];
+
+  it("is true at exactly the minimum overlap", () => {
+    expect(overlapsTheme([1, 2, 3], theme)).toBe(true);
+    expect(overlapsTheme([1, 2, 3], theme, 3)).toBe(true);
+  });
+
+  it("is false below the minimum overlap", () => {
+    expect(overlapsTheme([1, 2], theme)).toBe(false);
+    expect(overlapsTheme([1, 2, 99], theme)).toBe(false);
+  });
+
+  it("ignores duplicates and handles empty inputs", () => {
+    // duplicates collapse: [1,1,2,9] touches only 2 distinct theme ids
+    expect(overlapsTheme([1, 1, 2, 9], theme)).toBe(false);
+    expect(overlapsTheme([1, 1, 2, 2, 3], theme)).toBe(true); // distinct: 1,2,3
+    expect(overlapsTheme([7, 8, 9], theme)).toBe(false);
+    expect(overlapsTheme([], theme)).toBe(false);
+    expect(overlapsTheme([1, 2, 3], [])).toBe(false);
   });
 });

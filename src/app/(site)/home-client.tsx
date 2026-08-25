@@ -17,6 +17,9 @@ export interface TonightStrip {
   title: string;
   blurb: string;
   movies: TmdbMovieCredit[];
+  /** Done lists sharing >=3 movies with tonight's theme (0 = show nothing). */
+  settledCount: number;
+  previews: { id: string; title: string }[];
 }
 
 const STEPS = [
@@ -304,6 +307,41 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
           {tonight.title}
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-center text-sm text-muted">{tonight.blurb}</p>
+        {/* Real community activity only — no fake social proof: the stats line
+            and preview row render only when matching done lists exist. */}
+        {tonight.settledCount > 0 && (
+          <p className="mt-1 text-center text-xs text-muted" data-testid="settled-count">
+            {tonight.settledCount} ranking{tonight.settledCount === 1 ? "" : "s"} already
+            settled tonight
+          </p>
+        )}
+        {/* Rankings preview row: compact cards into each list, with a small
+            "vs" affordance opening the compare picker pre-filled with that id. */}
+        {tonight.previews.length > 0 && (
+          <ul className="mx-auto mt-4 flex max-w-3xl flex-wrap justify-center gap-2" aria-label="Rankings matching this theme">
+            {tonight.previews.map((p) => (
+              <li
+                key={p.id}
+                className="flex items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-xs ring-1 ring-white/10"
+              >
+                <Link
+                  href={`/l/${p.id}`}
+                  className="max-w-[12rem] truncate font-medium transition-colors duration-200 ease-out hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                >
+                  {p.title}
+                </Link>
+                <Link
+                  href={`/compare/${p.id}`}
+                  aria-label={`Compare ${p.title} against another ranking`}
+                  title="Compare against another ranking"
+                  className="rounded-full bg-gold/15 px-2 py-0.5 font-bold uppercase tracking-wide text-gold transition-colors duration-200 ease-out hover:bg-gold/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                >
+                  vs
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
         <ul className="mt-8 flex gap-4 overflow-x-auto pb-4">
           {tonight.movies.map((m) => {
             const inTray = candidates.some((c) => c.tmdbId === m.tmdbId);
