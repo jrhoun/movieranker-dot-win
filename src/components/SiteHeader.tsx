@@ -3,15 +3,12 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import SignInLink from "@/components/SignInLink";
 import NavLink from "@/components/NavLink";
+import IdentityDropdown from "@/components/IdentityDropdown";
 
 // Premiere Night header (DESIGN.md): translucent dark bar over the hero curtain,
 // thin gold rule, Geist uppercase links with gold hover underline (200ms ease-out).
 const linkCls =
   "flex min-h-11 items-center px-3 text-sm font-medium uppercase tracking-wide text-text decoration-gold decoration-2 underline-offset-4 transition duration-200 ease-out hover:text-gold hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold";
-
-// Sign out matches the link styling but quieter: bordered pill, no gold hover.
-const quietCls =
-  "flex min-h-11 items-center rounded-full border border-white/15 px-4 text-sm font-medium text-muted transition-colors duration-200 ease-out hover:border-white/30 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold";
 
 async function signOut() {
   "use server";
@@ -24,15 +21,17 @@ export default async function SiteHeader() {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase.auth.getUser();
 
-  // Claimed handle (if any) for the "My profile" link.
+  // Claimed handle + visibility (if any) for the identity dropdown.
   let handle: string | null = null;
+  let profileHref = "/u/me";
   if (data.user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("handle")
+      .select("handle,visibility")
       .eq("id", data.user.id)
-      .maybeSingle<{ handle: string | null }>();
+      .maybeSingle<{ handle: string | null; visibility: string | null }>();
     handle = profile?.handle ?? null;
+    if (handle && profile?.visibility === "public") profileHref = `/u/${handle}`;
   }
 
   return (
@@ -47,22 +46,16 @@ export default async function SiteHeader() {
           movieranker
         </Link>
         <nav aria-label="Site" className="flex items-center gap-1">
+          {/* Signed out: gold sign-in. Signed in pre-claim: plain My Lists link.
+              Claimed: @handle identity dropdown. */}
           {data.user ? (
-            <>
+            handle ? (
+              <IdentityDropdown handle={handle} profileHref={profileHref} signOut={signOut} />
+            ) : (
               <NavLink href="/u/me" className={linkCls}>
-                My lists
+                My Lists
               </NavLink>
-              {handle && (
-                <NavLink href={`/u/${handle}`} className={linkCls}>
-                  My profile
-                </NavLink>
-              )}
-              <form action={signOut}>
-                <button type="submit" className={quietCls}>
-                  Sign out
-                </button>
-              </form>
-            </>
+            )
           ) : (
             <SignInLink className={linkCls} />
           )}
