@@ -18,6 +18,14 @@ export interface ListRowData {
   visibility?: "unlisted" | "public" | "private";
 }
 
+interface ListRowProps {
+  list: ListRowData;
+  /** Showcase curation: this row is the profile's featured ranking. */
+  featured?: boolean;
+  /** When provided, a feature-star is rendered (done + public lists only). */
+  onToggleFeature?: () => void;
+}
+
 const btn =
   "min-h-11 rounded px-2.5 text-sm font-medium transition-all duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50";
 
@@ -40,7 +48,7 @@ const VISIBILITY_OPTIONS = [
 ] as const;
 
 // Compact single-line list row for /u/me: leading poster, meta, quiet actions.
-export default function ListRow({ list }: { list: ListRowData }) {
+export default function ListRow({ list, featured, onToggleFeature }: ListRowProps) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [visibility, setVisibility] = useState(list.visibility ?? "unlisted");
@@ -119,6 +127,8 @@ export default function ListRow({ list }: { list: ListRowData }) {
   });
   const top = list.posters[0];
   const canPropose = !isDraft && (list.movieIds?.length ?? 0) >= 6;
+  // Featuring requires the same server-side preconditions: finished + public.
+  const canFeature = !isDraft && visibility === "public";
 
   return (
     <article className="rounded bg-surface ring-1 ring-white/10 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:ring-gold/40 motion-reduce:transition-none">
@@ -161,6 +171,31 @@ export default function ListRow({ list }: { list: ListRowData }) {
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
+          {onToggleFeature && (
+            <button
+              type="button"
+              onClick={onToggleFeature}
+              disabled={!canFeature}
+              aria-pressed={featured}
+              aria-label={featured ? `Unfeature ${list.title}` : `Feature ${list.title}`}
+              title={
+                !canFeature
+                  ? "Finish ranking and set visibility to public to feature it."
+                  : featured
+                    ? "Unfeature this ranking"
+                    : "Feature this ranking on your public profile"
+              }
+              className={`${btn} ${
+                featured
+                  ? "bg-gold/10 text-gold ring-1 ring-gold"
+                  : canFeature
+                    ? "text-muted hover:bg-white/10 hover:text-gold"
+                    : "pointer-events-none text-muted opacity-40"
+              }`}
+            >
+              ★
+            </button>
+          )}
           <Link
             href={href}
             className={`${btn} bg-surface-raised hover:bg-white/10 ${isDraft ? "font-semibold text-accent" : ""}`}

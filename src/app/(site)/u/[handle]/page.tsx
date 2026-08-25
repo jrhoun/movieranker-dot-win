@@ -4,14 +4,36 @@ import MarqueeHeading from "@/components/MarqueeHeading";
 import MoviePoster from "@/components/list/MoviePoster";
 import { normalizeHandle } from "@/lib/handles";
 import { evaluateAchievements } from "@/lib/gamification";
-import { shapePublicProfile } from "@/lib/public-profile";
+import {
+  EMPTY_SHOWCASE,
+  parseShowcase,
+  shapePublicProfile,
+  type PublicListCardData,
+} from "@/lib/public-profile";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 interface DbProfile {
   id: string;
   handle: string;
   visibility: string | null;
+  showcase: unknown;
   created_at: string;
+}
+
+// Triptych art shared by the featured card and regular grid cards.
+function Triptych({ card, className = "" }: { card: PublicListCardData; className?: string }) {
+  return (
+    <span className={`grid grid-cols-3 gap-px bg-surface-raised ${className}`}>
+      {[0, 1, 2].map((i) => {
+        const slot = card.posters[i];
+        return slot ? (
+          <MoviePoster key={i} title={slot.title} posterPath={slot.posterPath} className="rounded-none ring-0" />
+        ) : (
+          <span key={i} className="aspect-[2/3] w-full bg-surface" aria-hidden="true" />
+        );
+      })}
+    </span>
+  );
 }
 
 export default async function PublicProfilePage({
@@ -32,7 +54,7 @@ export default async function PublicProfilePage({
   // Profiles RLS allows read-any; the visibility gate is the notFound() check below.
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id,handle,visibility,created_at")
+    .select("id,handle,visibility,showcase,created_at")
     .eq("handle", handle)
     .maybeSingle<DbProfile>();
 
@@ -52,10 +74,22 @@ export default async function PublicProfilePage({
   const { cards, moviesRanked, level } = shapePublicProfile(lists ?? []);
   // Unlocked only; cards.length is the public done-list count (shapePublicProfile
   // filters to status=done + visibility=public, so private/unlisted never count).
-  const achievements = evaluateAchievements({
+  const allAchievements = evaluateAchievements({
     doneLists: cards.length,
     moviesRanked,
   }).filter((a) => a.unlocked);
+  // Showcase curation: featured list + pinned achievements first. The favorite
+  // must be among the shaped (public done) cards or it is silently omitted.
+  const showcase = parseShowcase(profile.showcase) ?? EMPTY_SHOWCASE;
+  const featured = showcase.favoriteListId
+    ? cards.find((c) => c.id === showcase.favoriteListId)
+    : undefined;
+  const restCards = featured ? cards.filter((c) => c.id !== featured.id) : cards;
+  const pinnedKeys = new Set(showcase.achievementKeys);
+  const achievements = [
+    ...allAchievements.filter((a) => pinnedKeys.has(a.key)),
+    ...allAchievements.filter((a) => !pinnedKeys.has(a.key)),
+  ];
   const joined = new Date(profile.created_at).toLocaleDateString("en-US", {
     month: "long",
     year: "numeric",
@@ -95,18 +129,25 @@ export default async function PublicProfilePage({
         </dl>
         {achievements.length > 0 && (
           <ul aria-label="Achievements" className="mt-2 flex flex-wrap justify-center gap-1.5">
-            {achievements.map((a) => (
-              <li
-                key={a.key}
-                title={a.description}
-                className="rounded-full bg-gold/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-gold ring-1 ring-gold"
-              >
-                <span aria-hidden="true" className="mr-1">
-                  ✓
-                </span>
-                {a.name}
-              </li>
-            ))}
+            {achievements.map((a) => {
+              const pinned = pinnedKeys.has(a.key);
+              return (
+                <li
+                  key={a.key}
+                  title={pinned ? `Pinned — ${a.description}` : a.description}
+                  className={
+                    pinned
+                      ? "rounded-full bg-gold/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-gold ring-2 ring-gold shadow-[0_0_16px_rgba(245,197,24,0.18)]"
+                      : "rounded-full bg-gold/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-gold ring-1 ring-gold"
+                  }
+                >
+                  <span aria-hidden="true" className="mr-1">
+                    {pinned ? "★" : "✓"}
+                  </span>
+                  {a.name}
+                </li>
+              );
+            })}
           </ul>
         )}
       </header>
@@ -116,32 +157,43 @@ export default async function PublicProfilePage({
           No public rankings yet.
         </p>
       ) : (
-        <ul className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {cards.map((card) => (
-            <li key={card.id}>
-              <Link
-                href={`/l/${card.id}`}
-                className="flex flex-col overflow-hidden rounded bg-surface ring-1 ring-white/10 transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-              >
-                {/* Triptych art: up to three top posters, surface-colored filler panels */}
-                <span className="grid grid-cols-3 gap-px bg-surface-raised transition-opacity duration-200 ease-out group-hover:opacity-90">
-                  {[0, 1, 2].map((i) => {
-                    const slot = card.posters[i];
-                    return slot ? (
-                      <MoviePoster key={i} title={slot.title} posterPath={slot.posterPath} className="rounded-none ring-0" />
-                    ) : (
-                      <span key={i} className="aspect-[2/3] w-full bg-surface" aria-hidden="true" />
-                    );
-                  })}
+        <>
+          {featured && (
+            <Link
+              href={`/l/${featured.id}`}
+              className="mt-8 block overflow-hidden rounded bg-surface p-1 ring-2 ring-gold shadow-[0_0_32px_rgba(245,197,24,0.12)] transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold motion-reduce:transition-none"
+            >
+              {/* ✦ FEATURED tag on a thin gold rule (marquee treatment). */}
+              <span className="flex items-center gap-2 px-3 pt-2">
+                <span className="font-display text-xs uppercase tracking-[0.24em] text-gold">
+                  ✦ Featured ranking
                 </span>
-                <span className="flex min-h-[3.25rem] flex-col justify-center gap-0.5 p-3">
-                  <span className="truncate font-semibold">{card.title}</span>
-                  <span className="text-xs text-muted">{card.createdAt}</span>
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+                <span aria-hidden="true" className="h-px flex-1 bg-gold/30" />
+              </span>
+              <Triptych card={featured} className="mt-2" />
+              <span className="flex min-h-[3.75rem] flex-col justify-center gap-0.5 p-3">
+                <span className="truncate font-semibold">{featured.title}</span>
+                <span className="text-xs text-muted">{featured.createdAt}</span>
+              </span>
+            </Link>
+          )}
+          <ul className={(featured ? "mt-4" : "mt-8") + " grid grid-cols-1 gap-4 sm:grid-cols-2"}>
+            {restCards.map((card) => (
+              <li key={card.id}>
+                <Link
+                  href={`/l/${card.id}`}
+                  className="flex flex-col overflow-hidden rounded bg-surface ring-1 ring-white/10 transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                >
+                  <Triptych card={card} />
+                  <span className="flex min-h-[3.25rem] flex-col justify-center gap-0.5 p-3">
+                    <span className="truncate font-semibold">{card.title}</span>
+                    <span className="text-xs text-muted">{card.createdAt}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </main>
   );

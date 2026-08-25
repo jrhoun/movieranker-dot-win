@@ -1,11 +1,17 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import ListRow, { type ListRowData } from "@/components/profile/ListRow";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import AccountSection from "@/components/profile/AccountSection";
 import ClaimHandleCard from "@/components/profile/ClaimHandleCard";
 import ProfileVisibilityToggle from "@/components/profile/ProfileVisibilityToggle";
+import ShowcaseCard from "@/components/profile/ShowcaseCard";
+import ShowcaseLists from "@/components/profile/ShowcaseLists";
+import type { ListRowData } from "@/components/profile/ListRow";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  EMPTY_SHOWCASE,
+  parseShowcase,
+} from "@/lib/public-profile";
 import {
   LEVELS,
   evaluateAchievements,
@@ -29,15 +35,16 @@ export default async function MyListsPage() {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) redirect("/login");
 
-  // Profile row (handle + visibility). Created on demand by the claim flow.
+  // Profile row (handle + visibility + showcase). Created on demand by the claim flow.
   const { data: profile } = await supabase
     .from("profiles")
-    .select("handle,visibility")
+    .select("handle,visibility,showcase")
     .eq("id", auth.user.id)
     .maybeSingle();
   const claimed = profile != null;
   const profileVisibility =
     profile?.visibility === "public" ? "public" : "private";
+  const showcase = parseShowcase(profile?.showcase) ?? EMPTY_SHOWCASE;
 
   // RLS scopes rows to the owner. Top posters: final_rank first (done lists),
   // then elo desc (drafts).
@@ -188,30 +195,8 @@ export default async function MyListsPage() {
             })}
           </ul>
         </section>
-        <section aria-labelledby="achv-heading" className="rounded bg-surface p-3 ring-1 ring-white/10">
-          <h2 id="achv-heading" className="font-display text-sm uppercase tracking-[0.14em] text-muted">
-            Achievements
-          </h2>
-          <ul aria-label="Achievements" className="mt-2 flex flex-wrap gap-1.5">
-            {achievements.map((a) => (
-              <li
-                key={a.key}
-                title={a.description}
-                className={`rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
-                  a.unlocked
-                    ? "bg-gold/10 text-gold ring-gold"
-                    : "bg-surface-raised text-muted ring-white/10 opacity-70"
-                }`}
-              >
-                {a.unlocked && (
-                  <span aria-hidden="true" className="mr-1">
-                    ✓
-                  </span>
-                )}
-                {a.name}
-              </li>
-            ))}
-          </ul>
+        <section aria-labelledby="achv-heading">
+          <ShowcaseCard achievements={achievements} initialKeys={showcase.achievementKeys} />
         </section>
       </div>
 
@@ -226,13 +211,7 @@ export default async function MyListsPage() {
           </Link>
         </div>
       ) : (
-        <ul className="mt-3 flex flex-col gap-1.5">
-          {cards.map((list) => (
-            <li key={list.id}>
-              <ListRow list={list} />
-            </li>
-          ))}
-        </ul>
+        <ShowcaseLists cards={cards} initialFavoriteId={showcase.favoriteListId} />
       )}
 
       <section aria-labelledby="privacy-heading" className="mt-8">
