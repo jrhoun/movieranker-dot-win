@@ -5,6 +5,7 @@ const MOVIE_TYPE = "movie";
 export interface TmdbPerson {
   id: number;
   name: string;
+  popularity?: number;
 }
 
 export interface TmdbCompany {
@@ -71,9 +72,36 @@ export function shapeCredits(raw: {
     });
 }
 
+const NAME_CAP = 8;
+
+// Pure shaping for person/company suggestions: collapse duplicate names
+// (TMDB has many, e.g. two A24 entries) keeping the more popular id, float
+// exact case-insensitive matches first, then rank by popularity descending,
+// and cap so users see few confident choices instead of obscure duplicates.
+export function rankNameResults<T extends { name: string; popularity?: number }>(
+  results: T[],
+  query: string,
+): T[] {
+  const q = query.trim().toLowerCase();
+  const byName = new Map<string, T>();
+  for (const r of results) {
+    const key = r.name.toLowerCase();
+    const prev = byName.get(key);
+    if (!prev || (r.popularity ?? 0) > (prev.popularity ?? 0)) byName.set(key, r);
+  }
+  return [...byName.values()]
+    .sort((a, b) => {
+      const aExact = Number(a.name.toLowerCase() === q);
+      const bExact = Number(b.name.toLowerCase() === q);
+      if (aExact !== bExact) return bExact - aExact;
+      return (b.popularity ?? 0) - (a.popularity ?? 0);
+    })
+    .slice(0, NAME_CAP);
+}
+
 export async function searchPerson(q: string): Promise<TmdbPerson[]> {
   const data = await tmdbFetch<{ results: TmdbPerson[] }>("/search/person", { query: q }, 300);
-  return data.results ?? [];
+  return rankNameResults(data.results ?? [], q);
 }
 
 export async function getPersonCredits(personId: number): Promise<TmdbMovieCredit[]> {
@@ -85,26 +113,9 @@ export async function getPersonCredits(personId: number): Promise<TmdbMovieCredi
   return shapeCredits(data);
 }
 
-// Pure: dedupe same-named companies (TMDB has many duplicate entries),
-// preferring higher popularity, then float exact case-insensitive name
-// matches to the front so "A24" surfaces the real studio first.
-export function rankCompanies(results: TmdbCompany[], query: string): TmdbCompany[] {
-  const q = query.trim().toLowerCase();
-  const byName = new Map<string, TmdbCompany>();
-  for (const c of results) {
-    const key = c.name.toLowerCase();
-    const prev = byName.get(key);
-    if (!prev || (c.popularity ?? 0) > (prev.popularity ?? 0)) byName.set(key, c);
-  }
-  return [...byName.values()].sort(
-    (a, b) => Number(q !== "" && a.name.toLowerCase() === q ? 0 : 1) -
-      Number(q !== "" && b.name.toLowerCase() === q ? 0 : 1),
-  );
-}
-
 export async function searchCompany(q: string): Promise<TmdbCompany[]> {
   const data = await tmdbFetch<{ results: TmdbCompany[] }>("/search/company", { query: q }, 300);
-  return rankCompanies(data.results ?? [], q);
+  return rankNameResults(data.results ?? [], q);
 }
 
 // ponytail: pages 1-3 fetched concurrently; sequential pages only if TMDB rate-limits

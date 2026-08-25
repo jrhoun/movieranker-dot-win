@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getMovieById, pickPoster, rankCompanies, searchByKeyword, shapeCredits } from "./tmdb";
+import {
+  getMovieById,
+  pickPoster,
+  rankNameResults,
+  searchByKeyword,
+  shapeCredits,
+} from "./tmdb";
 import fixture from "./fixtures/combined-credits.json";
 
 const allRaw = [...fixture.cast, ...fixture.crew];
@@ -134,38 +140,54 @@ describe("getMovieById", () => {
   });
 });
 
-describe("rankCompanies", () => {
+describe("rankNameResults (person + company suggestions)", () => {
   it("floats exact case-insensitive matches to the front", () => {
-    const ranked = rankCompanies(
+    const ranked = rankNameResults(
       [
-        { id: 1, name: "A24 Films LLC" },
-        { id: 2, name: "a24" },
-        { id: 3, name: "Another Studio" },
+        { id: 1, name: "A24 Films LLC", popularity: 99 },
+        { id: 2, name: "a24", popularity: 1 },
+        { id: 3, name: "Another Studio", popularity: 50 },
       ],
       "A24",
     );
     expect(ranked[0].id).toBe(2);
   });
 
-  it("dedupes same-named companies preferring higher popularity", () => {
-    const ranked = rankCompanies(
+  it("sorts by popularity descending when no exact match", () => {
+    const ranked = rankNameResults(
+      [
+        { id: 1, name: "Obscure Co", popularity: 0.6 },
+        { id: 2, name: "Big Studio", popularity: 40 },
+        { id: 3, name: "Mid Studio", popularity: 5 },
+      ],
+      "studio search",
+    );
+    expect(ranked.map((r) => r.id)).toEqual([2, 3, 1]);
+  });
+
+  it("dedupes same-named entries preferring higher popularity", () => {
+    const ranked = rankNameResults(
       [
         { id: 1, name: "A24", popularity: 5 },
         { id: 2, name: "a24", popularity: 50 },
-        { id: 3, name: "Other" },
+        { id: 3, name: "Other", popularity: 9 },
       ],
       "a24",
     );
     expect(ranked.filter((c) => c.name.toLowerCase() === "a24")).toHaveLength(1);
     expect(ranked[0]).toMatchObject({ id: 2 });
+    expect(ranked.map((r) => r.id)).toEqual([2, 3]); // dedup survivor keeps its rank
   });
 
-  it("keeps TMDB order when nothing is an exact match and treats missing popularity as 0", () => {
-    const results = [{ id: 1, name: "X" }, { id: 2, name: "Y", popularity: 9 }];
-    expect(rankCompanies(results, "zzz-no-match")).toEqual([
-      { id: 1, name: "X" },
-      { id: 2, name: "Y", popularity: 9 },
-    ]);
+  it("caps results at 8 and treats missing popularity as 0", () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({
+      id: i + 1,
+      name: `Studio ${i + 1}`,
+      popularity: 12 - i,
+    }));
+    const ranked = rankNameResults(many, "zzz-no-match");
+    expect(ranked).toHaveLength(8);
+    expect(ranked[0]).toEqual({ id: 1, name: "Studio 1", popularity: 12 });
   });
 });
 
