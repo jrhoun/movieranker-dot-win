@@ -364,3 +364,25 @@ Reviewer finding: `weeksSinceUtcEpoch = floor(days/7)` anchored the rotation win
 - Divider element is now gated on `tonight.movies.length > 0`; no dangling rule when tonight's shortlist is empty.
 ### Verification
 - npm test: 242 passed (25 files); tsc clean; eslint clean; production build passes. No live calls.
+
+## v1 user-feedback fixes — fan overflow + search UX (2026-08-24)
+
+### 1. Hero fan overflow indicator
+- `src/app/(site)/home-client.tsx`: `overflowCount = tonight.movies.length - 8` when the live theme fan renders. When >0:
+  - gold `+N` pill badge overlaid on the last visible poster's bottom-right corner (`aria-hidden`, inside the tap-to-add button).
+  - muted caption button under the fan: "+N more in this week's marquee ↓" — smooth-scrolls to the marquee section via `scrollIntoView`; falls back to `"auto"` under `prefers-reduced-motion`. Both render only when N>0.
+- Marquee section gained `id="week-marquee"` + `scroll-mt-6` as the scroll target.
+
+### 2. Clear selection (batch unselect)
+- `src/lib/tray.ts`: new pure `removeCandidates(current, incoming)` — dedupe-safe inverse of `mergeCandidates` (Set of incoming tmdbIds, filter current). Unit-tested in `tray.test.ts` (removal, no-overlap no-op, duplicate-id + empty-batch safety).
+- `SearchPanel` gains required `onRemoveAll(movies)` prop; "Clear selection (N)" text button sits beside "Add all", rendered only when ≥1 current-page result is selected; removes all current-page picks in one batch. `min-h-11` (44px), accent color with hover, focus-visible outline — same affordance family as the "← not X? back" control.
+
+### 3. Result card readability
+- Grid loosened from `3/4/6` columns to **2 / sm:3 / md:4 / lg:5** (SkeletonGrid matches). Cards breathe; posters are wider at every breakpoint.
+- Title: single-line `truncate` → `line-clamp-2 text-sm leading-snug` (two lines max, readable base size).
+- Year stays muted `text-xs` (12px — meets the ≥12px floor).
+
+### Verification
+- npm test: 245 passed (25 files); tsc clean; eslint clean; production build passes.
+- No live TMDB calls made; .env.local untouched.
+- Commits: d742c79 (fan overflow), b147508 (search readability + clear selection).

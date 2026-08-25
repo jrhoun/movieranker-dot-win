@@ -196,7 +196,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
             <button
               type="button"
               onClick={scrollToMarquee}
-              className="mt-2 min-h-11 text-xs text-muted underline decoration-gold/60 decoration-2 underline-offset-4 transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+              className="mt-2 inline-block rounded bg-bg/80 px-3 py-2 text-xs font-medium text-text underline decoration-gold/60 decoration-2 underline-offset-4 transition-colors duration-200 ease-out hover:bg-bg hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
             >
               +{overflowCount} more in this week&apos;s marquee ↓
             </button>
