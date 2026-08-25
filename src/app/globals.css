@@ -68,7 +68,19 @@ body {
     radial-gradient(ellipse 60% 55% at 50% 35%, rgba(245, 197, 24, 0.12), transparent 70%);
 }
 
-/* Searchlight beams (DESIGN.md Premiere Night): two soft gold shafts rising
+/* Vote-stage spotlight (Premiere Night, curtain vocabulary at low intensity):
+   warm radial pool behind the matchup pair with a soft dark vignette at the
+   edges so the two posters stay the brightest thing on screen. Purely static
+   gradients — reduced-motion needs no override; nothing loops. */
+.stage-spotlight {
+  background-image:
+    /* warm gold pool, centered slightly above the poster midline */
+    radial-gradient(ellipse 55% 48% at 50% 42%, rgba(245, 197, 24, 0.07), transparent 72%),
+    /* edge vignette pulling the room dark around the stage */
+    radial-gradient(ellipse 120% 100% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.5) 100%);
+}
+
+/* Searchlight beams (DESIGN.md Premiere): two soft gold shafts rising
    from below, tilted INWARD so they converge behind the hero title instead of
    hugging the outer corners. Alpha kept roughly half the original so edges stay
    darker than the center; blur raised to soften beam cores further. Ambient
@@ -164,7 +176,7 @@ body {
 @keyframes loser-dim {
   to { opacity: 0.25; }
 }
-.winner-gold-pulse { animation: winner-gold-pulse 250ms ease-out; }
+.winner-gold-pulse { animation: winner-gold-pulse 200ms ease-out; }
 @keyframes winner-gold-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(245, 197, 24, 0); }
   50% { box-shadow: 0 0 18px 2px rgba(245, 197, 24, 0.45); }

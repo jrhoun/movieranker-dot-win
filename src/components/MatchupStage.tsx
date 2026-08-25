@@ -92,7 +92,16 @@ export default function MatchupStage({
         onVote={onVote}
         onPark={onPark}
       />
-      <p aria-hidden="true" className="px-0.5 text-lg font-bold text-accent sm:text-2xl">VS</p>
+      <div
+        aria-hidden="true"
+        className="flex flex-col items-center gap-1 px-0.5 sm:gap-2"
+      >
+        <span className="text-xs text-gold/70">✦</span>
+        <p className="font-display text-2xl leading-none tracking-widest text-gold drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)] sm:text-3xl">
+          VS
+        </p>
+        <span className="text-xs text-gold/70">✦</span>
+      </div>
       <Side
         movie={b}
         otherId={a.tmdbId}
