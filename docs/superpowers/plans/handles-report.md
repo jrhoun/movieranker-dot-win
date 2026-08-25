@@ -202,3 +202,29 @@ Steam-style "pick what to feature": users pin up to 3 unlocked achievements and 
 - Spec item 5 said "unlisted accessible only to owner", but items 1–2 and the site's existing model make unlisted done lists link-readable anywhere (RLS + /l/[id]). I implemented link-readable unlisted (matches canCompare tests above). If owner-only unlisted is truly wanted it's a one-line change in canCompare + test update.
 - Pairwise agreement treats equal final_ranks as disagreement; finalizeRanks ties are rare so impact is negligible.
 - Quick-picks of your own other eligible lists were skipped (spec marked optional); the picker accepts pasted URLs/ids only.
+
+---
+
+## Marquee Community Upgrade (final feature round, v1)
+
+**Commits:** `8db40ab` feat: shortlist community stats · `dfae80b` feat: proposal credit on marquee
+
+### What shipped
+
+1. **Shortlist section stats** — `overlapsTheme()` pure helper (`src/lib/shortlist.ts`, MIN_THEME_OVERLAP = 3, distinct-id set semantics) + `getThemeCommunityActivity()` (`unstable_cache`, 300s revalidate) queries done + unlisted/public lists with their `list_movies(tmdb_id)` and counts those sharing >= 3 theme ids. Home shortlist section renders "N ranking(s) already settled tonight" beneath the blurb; **zero renders nothing** (no fake social proof). Query failure degrades silently to zero.
+2. **Rankings preview row** — up to 5 matching lists as compact surface chips between the blurb and the filmstrip, each linking to `/l/<id>`.
+3. **Compare hook** — each chip carries a small "vs" link to `/compare/<id>` (existing picker entry, pre-filled anchor).
+4. **Proposal credit** — `ShortlistEntry` gains `proposalId`/`proposedBy`; `getApprovedProposals` now selects `proposer_id` and batch-fetches PUBLIC profile handles in one extra query (missing/private handle -> null -> no credit line). Credit renders under the blurb when tonight's theme is a community proposal.
+5. Strip/fan/tap-to-add behavior untouched.
+
+### Verification
+
+- `npm test`: 23 files / 222 tests passed (new: overlapsTheme edge cases incl. duplicate collapse, curated/community source tagging).
+- `npx tsc --noEmit` clean; `eslint` clean; `next build` passes.
+- No live calls beyond localhost; `.env.local` untouched.
+- Each commit is self-consistent (tests+tsc green at both snapshots).
+
+### Notes / ceilings
+
+- ponytail-marked: full scan of done lists in JS for overlap counting — fine at v1 scale, move into SQL if done lists reach thousands.
+- Preview row shows unlisted done lists too (RLS-readable by link), consistent with `/l/<id>` access rules.
