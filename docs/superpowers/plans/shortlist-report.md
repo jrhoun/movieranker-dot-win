@@ -60,3 +60,12 @@ tray candidates with ✓ state. Strip hides itself if all detail fetches fail.
   may take up to ~1h to reach tonight's pool.
 - Theme ids are knowledge-curated; if any poster looks wrong on prod, fix the id
   in `shortlist-themes.ts` (single-line change, cached a day).
+
+## Follow-up: hero fan reuses tonight's shortlist data (6855516)
+
+The home hero's fanned posters now render the same server-resolved shortlist
+movies as the strip (single `getTonightsShortlist()` + `getMovieById` pass in
+`page.tsx`; no extra TMDB calls). Hero caption reads "TONIGHT'S THEME · <title>"
+while the strip keeps its own header. If the fetch fails or returns no movies,
+the hero falls back to the curated set in `hero-posters.ts` and the caption
+hides. Verified: 117/117 tests, tsc/eslint clean, build passes.

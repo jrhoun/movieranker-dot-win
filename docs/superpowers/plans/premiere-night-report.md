@@ -150,3 +150,31 @@ Commits: `2658ef1` design: letterboxd-inspired home richness · `79cbafb` feat: 
 **Concerns.**
 - Beam alpha (.09–.13) chosen blind against the fold gradients; if posters read washed out on real hardware, drop to .06/.08.
 - Beams are clipped by the header's overflow-hidden; on very short viewports the crossing point may sit below the fold line — visual-only, no layout impact.
+
+## Follow-up: hero fan showcases tonight's themed shortlist (6855516)
+
+**Change.** The hero's fanned posters now render tonight's shortlist movies
+(server-fetched in `page.tsx`, same data as the strip below How-It-Works) — the
+hero is a live preview of the daily rotation. Fan mechanics preserved:
+overlapping tilt spread (-8..8deg, linear across N posters), hover
+straighten+lift (200ms ease-out), tap-to-add-to-tray with aria-pressed,
+2:3 posters via MoviePoster. Middle poster carries top z-index.
+
+**Fallback.** Empty/failed shortlist → existing curated `FAN_POSTERS` set with
+its hand-tuned tilts (`hero-posters.ts` stays the fallback data module).
+`page.tsx` also try/catches the shortlist/TMDB fetch so a failure degrades to
+the fallback instead of erroring the home page.
+
+**Caption.** Gold Bebas caps line under the fan: "TONIGHT'S THEME · <title>"
+(only when live). Complements — does not duplicate — the strip's "Tonight's
+shortlist · rotates daily" header below.
+
+**Verification.** vitest 117/117 passed; tsc --noEmit clean; eslint clean;
+next build passes. No tests referenced the old constant-driven fan.
+
+**Concerns.**
+- Linear tilt spread across variable-length fans replaces the hand-tuned
+  per-poster angles; if an 8-poster fan looks mechanically even on real
+  hardware, hand-tune again.
+- FAN_POSTERS slice caps the fan at 8 posters; themes longer than 8 only fan
+  their first 8 (strip still shows all).
