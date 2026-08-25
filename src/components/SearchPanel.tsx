@@ -17,6 +17,9 @@ const MODES: { id: Mode; label: string; placeholder: string }[] = [
 
 const TWO_STEP: Partial<Record<Mode, string>> = { person: "people", company: "studios" };
 
+// Inline results cap; the rest stays reachable via the Browse-all modal.
+const INLINE_CAP = 20;
+
 function SkeletonGrid() {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
@@ -48,6 +51,7 @@ export default function SearchPanel({
   const [names, setNames] = useState<(TmdbPerson | TmdbCompany)[]>([]);
   const [movies, setMovies] = useState<TmdbMovieCredit[]>([]);
   const [loading, setLoading] = useState(false);
+  const [browseAll, setBrowseAll] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const lastClickedRef = useRef<number | null>(null);
 
@@ -270,7 +274,7 @@ export default function SearchPanel({
               );
             })()}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {movies.map((mv, i) => (
+              {movies.slice(0, INLINE_CAP).map((mv, i) => (
                 <MoviePosterCard
                   key={mv.tmdbId}
                   movie={mv}
@@ -279,11 +283,126 @@ export default function SearchPanel({
                 />
               ))}
             </div>
+            {movies.length > INLINE_CAP && (
+              <button
+                type="button"
+                onClick={() => setBrowseAll(true)}
+                className="mt-4 min-h-11 w-full rounded bg-surface-raised px-4 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                Browse all {movies.length} results
+              </button>
+            )}
           </div>
         ) : debouncedQ.trim() || ref ? (
           <p className="py-8 text-center text-sm text-muted">Nothing found. Try another search.</p>
         ) : null}
       </div>
+
+      {browseAll && movies.length > 0 && (
+        <BrowseAllModal
+          movies={movies}
+          isSelected={isSelected}
+          onSelect={handleSelect}
+          onClose={() => setBrowseAll(false)}
+        />
+      )}
     </section>
+  );
+}
+
+/** Full-result modal over the same source array as the inline grid (selections stay in sync). */
+function BrowseAllModal({
+  movies,
+  isSelected,
+  onSelect,
+  onClose,
+}: {
+  movies: TmdbMovieCredit[];
+  isSelected: (m: TmdbMovieCredit) => boolean;
+  onSelect: (m: TmdbMovieCredit, index: number, e: React.MouseEvent) => void;
+  onClose: () => void;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const selectedCount = movies.filter(isSelected).length;
+
+  // Escape to close + Tab focus trap; first button focused on open.
+  useEffect(() => {
+    panelRef.current?.querySelector<HTMLElement>("button")?.focus();
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !panelRef.current) return;
+      const els = Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>("button:not([disabled])"),
+      );
+      if (els.length === 0) return;
+      const first = els[0];
+      const last = els[els.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/60 transition-opacity duration-200 ease-out"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      {/* animate-celebrate = fade/scale-in 200ms; global prefers-reduced-motion rule collapses it */}
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`All ${movies.length} results`}
+        className="animate-celebrate relative flex max-h-[85dvh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-surface shadow-2xl ring-1 ring-white/10"
+      >
+        <div className="flex items-center justify-between gap-3 px-5 pt-4">
+          <h2 className="font-display text-lg uppercase tracking-wide text-text">
+            All {movies.length} results
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="flex size-11 shrink-0 items-center justify-center rounded text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="grid flex-1 content-start grid-cols-2 gap-4 overflow-y-auto p-5 sm:grid-cols-3 md:grid-cols-4">
+          {movies.map((mv, i) => (
+            <MoviePosterCard
+              key={mv.tmdbId}
+              movie={mv}
+              selected={isSelected(mv)}
+              onSelect={(e) => onSelect(mv, i, e)}
+            />
+          ))}
+        </div>
+        <footer className="flex min-h-11 items-center justify-between gap-3 border-t border-white/10 px-5 py-2">
+          <p aria-live="polite" className="text-sm text-muted">
+            {selectedCount} selected
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-9 rounded-full bg-surface-raised px-4 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            Close
+          </button>
+        </footer>
+      </div>
+    </div>
   );
 }
