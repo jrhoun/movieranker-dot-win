@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import ListCard, { type ListCardData } from "@/components/profile/ListCard";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import AccountSection from "@/components/profile/AccountSection";
+import ClaimHandleCard from "@/components/profile/ClaimHandleCard";
 import ProfileVisibilityToggle from "@/components/profile/ProfileVisibilityToggle";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { LEVELS, levelFor, totalMoviesRanked, unlockedAt, xpProgress } from "@/lib/gamification";
@@ -20,6 +21,16 @@ export default async function MyListsPage() {
   const supabase = await createSupabaseServerClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) redirect("/login");
+
+  // Profile row (handle + visibility). Created on demand by the claim flow.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("handle,visibility")
+    .eq("id", auth.user.id)
+    .maybeSingle();
+  const claimed = profile != null;
+  const profileVisibility =
+    profile?.visibility === "public" ? "public" : "private";
 
   // RLS scopes rows to the owner. Top posters: final_rank first (done lists),
   // then elo desc (drafts).
@@ -51,12 +62,12 @@ export default async function MyListsPage() {
   const progress = xpProgress(totalMoviesRanked(cards.map((c) => ({ movieCount: c.posters.length }))));
   const level = levelFor(progress.current);
   const { unlocked, locked } = unlockedAt(level.level);
-  const meta = auth.user.user_metadata as Record<string, unknown> | undefined;
-  const profileVisibility = meta?.profile_visibility === "public" ? "public" : "private";
-
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-4 py-10 sm:max-w-2xl">
       <MarqueeHeading>Your lists</MarqueeHeading>
+
+      {/* Handle claim: lazy row creation happens via POST /api/profile. */}
+      {!claimed && <ClaimHandleCard />}
       {cards.length > 0 && (
         <p className="mt-1 text-sm text-muted">
           {cards.length} {cards.length === 1 ? "list" : "lists"} ·{" "}
@@ -170,7 +181,7 @@ export default async function MyListsPage() {
           Visibility
         </h2>
         <div className="mt-3">
-          <ProfileVisibilityToggle initial={profileVisibility} />
+          <ProfileVisibilityToggle initial={profileVisibility} claimed={claimed} />
         </div>
       </section>
 

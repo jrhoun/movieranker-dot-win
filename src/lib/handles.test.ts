@@ -46,7 +46,9 @@ describe("checkHandle", () => {
   });
 
   it("normalization feeds the reserved check", () => {
-    expect(checkHandle("ME")).toEqual({ ok: false, reason: "reserved" });
+    expect(checkHandle(" Admin ")).toEqual({ ok: false, reason: "reserved" });
+    // "ME" normalizes to "me" (2 chars) -> invalid wins before the reserved check
+    expect(checkHandle("ME")).toEqual({ ok: false, reason: "invalid" });
     expect(checkHandle("ab")).toEqual({ ok: false, reason: "invalid" });
   });
 
