@@ -44,11 +44,19 @@ export default function AccountSection() {
   }
 
   return (
-    <section aria-labelledby="account-heading" className="mt-10">
-      <h2 id="account-heading" className="font-display text-xl uppercase tracking-[0.12em]">
-        Account
-      </h2>
-      <div className="mt-3 rounded bg-surface p-6 ring-1 ring-white/10">
+    <section aria-labelledby="account-heading" className="mt-8">
+      {/* Native details disclosure: account care is rare, keep it collapsed. */}
+      <details className="rounded bg-surface ring-1 ring-white/10">
+        <summary
+          id="account-heading"
+          className="flex min-h-11 cursor-pointer select-none items-center justify-between px-4 font-display text-xl uppercase tracking-[0.12em] transition-colors duration-200 ease-out hover:text-gold focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-gold [&::-webkit-details-marker]:hidden"
+        >
+          Account
+          <span aria-hidden="true" className="text-muted">
+            ▾
+          </span>
+        </summary>
+        <div className="border-t border-white/10 p-4">
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" onClick={exportLists} disabled={busy} className={`${btnCls} hover:border-white/30 hover:text-text`}>
             Export my lists
@@ -106,7 +114,8 @@ export default function AccountSection() {
             {error}
           </p>
         )}
-      </div>
+        </div>
+      </details>
     </section>
   );
 }

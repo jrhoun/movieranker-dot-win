@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import ListCard, { type ListCardData } from "@/components/profile/ListCard";
+import ListRow, { type ListRowData } from "@/components/profile/ListRow";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import AccountSection from "@/components/profile/AccountSection";
 import ClaimHandleCard from "@/components/profile/ClaimHandleCard";
@@ -48,7 +48,7 @@ export default async function MyListsPage() {
     .order("final_rank", { foreignTable: "list_movies", ascending: true, nullsFirst: false })
     .order("elo", { foreignTable: "list_movies", ascending: false });
 
-  const cards: ListCardData[] = ((lists ?? []) as DbList[]).map((l) => ({
+  const cards: ListRowData[] = ((lists ?? []) as DbList[]).map((l) => ({
     id: l.id,
     title: l.title,
     status: l.status === "done" ? "done" : "draft",
@@ -75,7 +75,7 @@ export default async function MyListsPage() {
   const { unlocked, locked } = unlockedAt(level.level);
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-4 py-10 sm:max-w-2xl">
-      <MarqueeHeading>Your lists</MarqueeHeading>
+      <MarqueeHeading>My Lists</MarqueeHeading>
 
       {/* Handle claim: lazy row creation happens via POST /api/profile. */}
       {!claimed && <ClaimHandleCard />}
@@ -87,7 +87,7 @@ export default async function MyListsPage() {
       )}
 
       {/* Stats header: Premiere Night marquee band — gold numerals on dark. */}
-      <section aria-labelledby="stats-heading" className="mt-6 rounded bg-surface p-6 ring-1 ring-gold/30">
+      <section aria-labelledby="stats-heading" className="mt-4 rounded bg-surface p-4 ring-1 ring-gold/30">
         <h2 id="stats-heading" className="font-display text-xl uppercase tracking-[0.12em]">
           Your premiere night
         </h2>
@@ -104,9 +104,9 @@ export default async function MyListsPage() {
             <p className="mt-0.5 text-xs text-muted">Handles are permanent.</p>
           </div>
         )}
-        <div className="mt-4 flex items-center gap-5">
+        <div className="mt-3 flex items-center gap-5">
           <div aria-hidden="true" className="flex flex-col items-center">
-            <span className="font-display text-6xl leading-none text-gold [text-shadow:0_0_24px_rgba(245,197,24,0.35)]">
+            <span className="font-display text-5xl leading-none text-gold [text-shadow:0_0_24px_rgba(245,197,24,0.35)]">
               {progress.level}
             </span>
             <span className="font-display mt-1 text-xs uppercase tracking-[0.2em] text-muted">
@@ -137,7 +137,7 @@ export default async function MyListsPage() {
           aria-valuenow={Math.round(progress.progress01 * 100)}
           aria-valuemin={0}
           aria-valuemax={100}
-          className="mt-4 h-1.5 overflow-hidden rounded-full bg-surface-raised"
+          className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-raised"
         >
           <div
             className="h-full rounded-full bg-gold transition-[width] duration-700 ease-out motion-reduce:transition-none"
@@ -150,60 +150,73 @@ export default async function MyListsPage() {
             : "You hold the top rank."}
         </p>
 
-        {/* Unlockables teaser — decorations arrive in a later era. */}
-        <ul className="mt-5 grid grid-cols-2 gap-2">
-          {[...unlocked, ...locked].map((u) => {
-            const isUnlocked = u.atLevel <= progress.level;
-            return (
-              <li
-                key={u.kind}
-                className={`rounded p-3 ring-1 ${
-                  isUnlocked ? "bg-gold/10 ring-gold/50" : "bg-surface-raised ring-white/10 opacity-60"
-                }`}
-              >
-                <p className={`text-xs font-semibold ${isUnlocked ? "text-gold" : "text-muted"}`}>
+      </section>
+
+      {/* Progress pair: unlockables + achievements side-by-side so nothing
+          stacks into scroll-soup above the list rows. Info-only chips; full
+          detail lives in title tooltips. */}
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <section aria-labelledby="unlocks-heading" className="rounded bg-surface p-3 ring-1 ring-white/10">
+          <h2 id="unlocks-heading" className="font-display text-sm uppercase tracking-[0.14em] text-muted">
+            Unlockables
+          </h2>
+          <ul className="mt-2 flex flex-wrap gap-1.5">
+            {[...unlocked, ...locked].map((u) => {
+              const isUnlocked = u.atLevel <= progress.level;
+              return (
+                <li
+                  key={u.kind}
+                  title={
+                    isUnlocked
+                      ? "Unlocked"
+                      : `Unlocks at ${LEVELS.find((l) => l.level === u.atLevel)?.title}`
+                  }
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
+                    isUnlocked
+                      ? "bg-gold/10 text-gold ring-gold/50"
+                      : "bg-surface-raised text-muted ring-white/10 opacity-70"
+                  }`}
+                >
                   {isUnlocked && (
-                    <span aria-hidden="true" className="mr-1 text-gold">
+                    <span aria-hidden="true" className="mr-1">
                       ✓
                     </span>
                   )}
                   {u.name}
-                </p>
-                <p className="mt-1 text-[11px] text-muted">
-                  {isUnlocked
-                    ? "Unlocked"
-                    : `Unlocks at ${LEVELS.find((l) => l.level === u.atLevel)?.title}`}
-                </p>
-              </li>
-            );
-          })}
-        </ul>
-
-        {/* Achievements strip — derived from existing stats; gold ring when earned. */}
-        <ul aria-label="Achievements" className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-          {achievements.map((a) => (
-            <li
-              key={a.key}
-              className={`rounded p-3 ring-1 ${
-                a.unlocked ? "bg-gold/10 ring-gold" : "bg-surface-raised ring-white/10 opacity-60"
-              }`}
-            >
-              <p className={`text-xs font-semibold ${a.unlocked ? "text-gold" : "text-muted"}`}>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+        <section aria-labelledby="achv-heading" className="rounded bg-surface p-3 ring-1 ring-white/10">
+          <h2 id="achv-heading" className="font-display text-sm uppercase tracking-[0.14em] text-muted">
+            Achievements
+          </h2>
+          <ul aria-label="Achievements" className="mt-2 flex flex-wrap gap-1.5">
+            {achievements.map((a) => (
+              <li
+                key={a.key}
+                title={a.description}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
+                  a.unlocked
+                    ? "bg-gold/10 text-gold ring-gold"
+                    : "bg-surface-raised text-muted ring-white/10 opacity-70"
+                }`}
+              >
                 {a.unlocked && (
                   <span aria-hidden="true" className="mr-1">
                     ✓
                   </span>
                 )}
                 {a.name}
-              </p>
-              <p className="mt-1 text-[11px] text-muted">{a.description}</p>
-            </li>
-          ))}
-        </ul>
-      </section>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
 
       {cards.length === 0 ? (
-        <div className="mt-4 flex flex-col items-center gap-4 rounded bg-surface p-8 text-center ring-1 ring-white/10">
+        <div className="mt-3 flex flex-col items-center gap-4 rounded bg-surface p-8 text-center ring-1 ring-white/10">
           <p className="text-sm text-muted">Your trophy shelf is empty — rank something.</p>
           <Link
             href="/"
@@ -213,16 +226,16 @@ export default async function MyListsPage() {
           </Link>
         </div>
       ) : (
-        <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <ul className="mt-3 flex flex-col gap-1.5">
           {cards.map((list) => (
             <li key={list.id}>
-              <ListCard list={list} />
+              <ListRow list={list} />
             </li>
           ))}
         </ul>
       )}
 
-      <section aria-labelledby="privacy-heading" className="mt-10">
+      <section aria-labelledby="privacy-heading" className="mt-8">
         <h2 id="privacy-heading" className="font-display text-xl uppercase tracking-[0.12em]">
           Visibility
         </h2>
