@@ -105,8 +105,8 @@ export default function CandidateTray({
                   type="text"
                   value={title}
                   onChange={(e) => onTitleChange(e.target.value)}
-                  placeholder="Session title… e.g. Best Sci-Fi"
-                  aria-label="Session title"
+                  placeholder="List title… e.g. Best Sci-Fi"
+                  aria-label="List title"
                   className="min-h-11 w-full rounded bg-surface-raised px-3 text-sm text-text placeholder:text-muted ring-1 ring-white/10 transition-shadow duration-200 ease-out hover:ring-white/20 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent"
                 />
                 <form
