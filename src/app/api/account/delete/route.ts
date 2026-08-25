@@ -17,6 +17,11 @@ export async function POST() {
   const rl = rateLimit(`delete:${userId}`, LIMITS.accountDelete);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
+  // shortlist_proposals.proposer_id has no ON DELETE action, so any proposal
+  // row would make deleteUser fail with an FK violation — after lists are
+  // already gone. Clear the caller's proposals first (RLS-scoped).
+  await supabase.from("shortlist_proposals").delete().eq("proposer_id", userId);
+
   const { error } = await supabase.from("lists").delete().eq("owner_id", userId);
   if (error) return dbErrorResponse(error);
 

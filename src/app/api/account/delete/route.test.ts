@@ -68,13 +68,15 @@ describe("POST /api/account/delete", () => {
     const res = await POST();
     expect(res.status).toBe(200);
 
-    // RLS-scoped delete of the caller's lists happens first.
-    const delCall = currentDb.calls.find((c) => c.method === "delete");
-    expect(delCall?.table).toBe("lists");
-    expect(currentDb.calls.find((c) => c.method === "eq")?.args).toEqual([
-      "owner_id",
-      "u-9",
+    // RLS-scoped delete of the caller's proposals (FK would block deleteUser).
+    const delCalls = currentDb.calls.filter((c) => c.method === "delete");
+    expect(delCalls.map((c) => c.table)).toEqual([
+      "shortlist_proposals",
+      "lists",
     ]);
+    expect(
+      currentDb.calls.find((c) => c.method === "eq")?.args,
+    ).toEqual(["proposer_id", "u-9"]);
 
     // Then the auth-user removal via the admin API.
     expect(deleteUser).toHaveBeenCalledTimes(1);
