@@ -441,3 +441,61 @@ Reviewer finding: `weeksSinceUtcEpoch = floor(days/7)` anchored the rotation win
 - npm test: 251 passed (26 files, incl. new search-filter tests); tsc clean; eslint clean; production build passes.
 - Traffic hygiene: no live calls made; .env.local untouched.
 - Commits: 01eb2e5 (fix: browse-all modal usability), 108d274 (feat: winner bop animation + room button polish).
+
+## Engine tuning + room readability round (2026-08-24)
+
+User complaints from a real 6-movie themed session: "i'm ranking the same movies against each other over and over" and "it feels like a LOT of votes for just 6 movies and the progress bar indicates only like 70%".
+
+### Diagnosis (measured BEFORE any change)
+
+Extended the existing seeded sim harness (85% favorite consistency, engine pairing) to small rosters, 8 seeds each. Budget = ⌈n·log₂n⌉·2.
+
+| n | budget | votes-to-stable range | over budget |
+|---|--------|----------------------|-------------|
+| 4 | 16 | 17–53 | 8/8 |
+| 6 | 32 | 61–127 | 8/8 |
+| 8 | 48 | 80–240 | 8/8 |
+| 12 | 88 | 54–873 | 6/8 |
+| 16 | 128 | 75–1674 | 7/8 |
+| 20 | 174 | 38–66 | 0/8 |
+
+Root causes found by instrumentation, in order of impact:
+
+1. **Band-signature churn** (dominant sink at every size): `recordMatchupResult` flagged ANY signature change as significant, including split/merge of tie-bands caused by gaps hovering AT the 30-point tolerance boundary. A pair oscillating around gap≈30 resets the quiet streak forever on alternating wins. This is what produced the 800–1700-vote outliers at n=12–16.
+2. **Immediate rematch**: after a vote the same two closest-rated least-compared movies could be re-picked.
+3. **Over-scaled quiet streak for tiny rosters**: 6 quiet votes demanded of a 4-movie party list tuned on n=12–20.
+
+### Fixes (commits fd2f44f / 55d5467 / design commit)
+
+- **Anti-repeat matchup rule** (`nextMatchup(movies, previousPair)`): the exact previous matchup is excluded when any alternative exists in the least-compared tier; falls back to the wider roster if that tier IS the previous pair; unavoidable 2-movie rematch still returns. Wired through `selectNextPair` → play-room vote/park handlers. Deterministic tie-breaks preserved byte-for-byte when no exclusion passed.
+- **Band hysteresis** (`recordMatchupResult`): after-signature computed with sticky thresholds — a merged pair splits only past tol+15, a split pair re-merges only under tol−15. Boundary-hover flips stop resetting settling. This collapsed large-n variance too (no more 1000+ outliers).
+- **Size-scaled quiet streak** (`stabilityVotesN(activeCount)` = max(3, min(6, ⌈n/2⌉))): small rosters owe fewer consecutive quiet votes; n≥12 unchanged at 6.
+- **Progress honesty**: measured `estimateRemainingVotes` (= closePairs×2, claiming 6–14 votes left) vs actual sharpen work to zero close pairs: 40–550 votes at n=4–8 — it systematically under-counts because every adjacent gap sits inside Sharpen's comfort band (120) at K=32 spread rates, which is exactly why the old done/(done+est) bar asymptoted near ~70%. Fix: bar now measures votes cast vs empirically expected consensus (`expectedConsensusVotes(n)` = ⌈n·log₂n⌉, matching r5 sim medians within ±10%), capped at 99% until stability actually fires. The "~N close calls left" text keeps its close-pair meaning.
+
+### Sim numbers AFTER (8-seed sweep, same harness + anti-repeat mirroring play-room)
+
+| n | budget | range | over |
+|---|--------|-------|------|
+| 4 | 16 | 11–24 (median 15) | 3/8 |
+| 6 | 32 | 10–19 | 0/8 |
+| 8 | 48 | 21–47 | 0/8 |
+| 12 | 88 | 41–54 | 0/8 |
+| 16 | 128 | 55–77 | 0/8 |
+| 20 | 174 | 47–100 | 0/8 |
+
+Committed harness (deterministic seeds): n=4→14, n=6→20, n=8→25, n=12→49, n=16→56, n=20→75 — all inside budget.
+
+### Room readability pass (design commit)
+
+TV-distance legibility per DESIGN.md, class-only: room title text-lg/sm:2xl → text-xl/sm:3xl; participant line xs/sm → sm/base; progress bar h-1.5 → h-2; progress/status line xs/sm → sm/base (vote feedback readable from couch); MatchupStage movie titles lg/sm:2xl → xl/sm:3xl and year xs/sm → sm/base; VS mark bumped one step. No palette/layout/motion changes; all touch targets stay ≥44px.
+
+### Verification
+
+- npm test: 260 passed (26 files), incl. new anti-repeat unit tests, scaled-streak contract tests, expectedConsensusVotes tests, and sim assertions extended to n=4/6/8.
+- tsc clean; eslint clean; production build passes. No live TMDB calls made; .env.local untouched.
+
+### Concerns
+
+- n=4 tail: 3/8 swept seeds exceed budget 16 (max 24). Median hits budget; budget 16 ≈ theoretical floor (comparisons gate + differentiation + streak), so this is close to irreducible without weakening evidence gates further.
+- Hysteresis makes differentiation slightly stricter (split needs gap>45 instead of >30); offset by the smaller streak so net effect is faster AND more stable convergence.
+- Sharpen phase remains genuinely long (optional by design; UI never promises completion).

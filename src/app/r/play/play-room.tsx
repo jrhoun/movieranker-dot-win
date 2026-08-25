@@ -410,7 +410,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           </p>
         )}
         <div className="min-w-0">
-          <h1 className="truncate text-lg font-bold sm:text-2xl">{session.title}</h1>
+          <h1 className="truncate text-xl font-bold sm:text-3xl">{session.title}</h1>
           {session.themeSlug && (
             <div className="mt-0.5 flex flex-wrap items-center gap-2">
               <span
@@ -441,7 +441,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
             </div>
           )}
           {session.participants.length > 0 && (
-            <p className="truncate text-xs text-muted sm:text-sm">
+            <p className="truncate text-sm text-muted sm:text-base">
               {session.participants.map((p, i) => (
                 <span key={p}>
                   {i > 0 && " · "}
@@ -737,7 +737,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={pct}
-              className="h-1.5 w-full overflow-hidden rounded-full bg-surface-raised"
+              className="h-2 w-full overflow-hidden rounded-full bg-surface-raised"
             >
               <div
                 className="h-full rounded-full bg-accent transition-all duration-200 ease-out"
@@ -745,7 +745,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               />
             </div>
             <div className="mt-1.5 flex items-baseline justify-between gap-3">
-              <p aria-live="polite" className="text-xs text-muted sm:text-sm">
+              <p aria-live="polite" className="text-sm text-muted sm:text-base">
                 {sharpening
                   ? "Sharpening — closest call first"
                   : initialClosePairs !== null

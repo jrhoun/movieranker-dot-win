@@ -54,8 +54,8 @@ function Side({
           )}
         </div>
       </button>
-      <p className="truncate px-1 text-center text-lg font-semibold sm:text-2xl">{movie.title}</p>
-      <p className="text-center text-xs text-muted sm:text-sm">{movie.releaseYear ?? "—"}</p>
+      <p className="truncate px-1 text-center text-xl font-semibold sm:text-3xl">{movie.title}</p>
+      <p className="text-center text-sm text-muted sm:text-base">{movie.releaseYear ?? "—"}</p>
       <button
         type="button"
         onClick={() => onPark(movie.tmdbId)}
@@ -92,7 +92,7 @@ export default function MatchupStage({
         onVote={onVote}
         onPark={onPark}
       />
-      <p aria-hidden="true" className="px-0.5 text-base font-bold text-accent sm:text-xl">VS</p>
+      <p aria-hidden="true" className="px-0.5 text-lg font-bold text-accent sm:text-2xl">VS</p>
       <Side
         movie={b}
         otherId={a.tmdbId}
