@@ -323,14 +323,27 @@ function BrowseAllModal({
   onClose: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  // Ref keeps the trap stable even though the parent passes an inline onClose.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+  const triggerRef = useRef<HTMLElement | null>(null);
   const selectedCount = movies.filter(isSelected).length;
 
-  // Escape to close + Tab focus trap; first button focused on open.
+  // Focus-on-open runs once; restoring focus to the trigger here covers close
+  // via ✕, footer Close, overlay click, and Escape alike.
   useEffect(() => {
+    triggerRef.current = document.activeElement as HTMLElement | null;
     panelRef.current?.querySelector<HTMLElement>("button")?.focus();
+    return () => triggerRef.current?.focus();
+  }, []);
+
+  // Escape to close + Tab focus trap.
+  useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== "Tab" || !panelRef.current) return;
@@ -350,7 +363,7 @@ function BrowseAllModal({
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -397,7 +410,7 @@ function BrowseAllModal({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-9 rounded-full bg-surface-raised px-4 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="min-h-11 rounded-full bg-surface-raised px-4 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             Close
           </button>

@@ -405,3 +405,12 @@ Reviewer finding: `weeksSinceUtcEpoch = floor(days/7)` anchored the rotation win
 - npm test: 248 passed (25 files), including new getMovieById tests: images-endpoint fallback for en art, credit kept with posterPath=null when no art exists anywhere, and no extra images call when primary art exists.
 - tsc clean; eslint clean; production build passes. No live TMDB calls made; .env.local untouched.
 - Commits: 8db8e10 (shortlist fix), ad403c1 (browse-all modal).
+
+## v1 fixes — browse-all modal focus stability (2026-08-24)
+
+- `src/components/SearchPanel.tsx` `BrowseAllModal`: focus-on-open moved to its own empty-dep effect so parent re-renders (every tap-to-toggle) no longer re-run it — previously the ✕ button was re-focused mid-selection, stealing keyboard/mouse flow. The Escape/focus-trap listener now reads `onClose` through a ref, so the inline-arrow prop no longer re-registers the keydown handler per render.
+- Footer Close pill raised min-h-9 → min-h-11 (44px tap target; last sub-44px target in the modal).
+- Focus returns to the "Browse all" trigger on modal close: triggering element captured on mount, restored in the mount effect's cleanup (covers ✕, footer Close, overlay click, and Escape).
+
+### Verification
+- npm test: 248 passed (25 files); tsc clean; eslint clean; production build passes. No live TMDB calls; .env.local untouched.
