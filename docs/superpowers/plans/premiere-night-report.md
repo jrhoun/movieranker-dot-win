@@ -339,3 +339,22 @@ Reviewer finding: `weeksSinceUtcEpoch = floor(days/7)` anchored the rotation win
 ### Verification
 - npm test: 242 passed (25 files); tsc clean; eslint clean; build passes.
 - Non-circular assertions: Wed Aug 26 vs Thu Aug 27 2026 → identical theme slug; Mon Aug 24 vs Mon Aug 31 2026 → different theme slugs (pool length > 1). Both pass under the new formula and would fail under the old one.
+
+## Two-column premiere layout + spoiler-safe theme audit (2026-08-24)
+
+### Task 1: two-column home layout
+- `src/app/(site)/home-client.tsx`: "Choose your premiere" paths now sit in a `flex flex-col md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]` wrapper. Desktop: custom list LEFT (col 1), ✦ vertical rule between (col 2), marquee RIGHT (col 3) via explicit `md:col-start/row-start`; DOM order unchanged so mobile stacks marquee-first at 390px. `minmax(0,1fr)` columns prevent long-content overflow; poster strips already scroll horizontally.
+- Divider: same markup both modes — horizontal line-✦-line on mobile (`my-8 flex items-center`), vertical rule on desktop (`md:flex-col`, spans become `md:w-px md:h-full`).
+- Equal visual weight: both cards normalized to `p-5 sm:p-6` and equal `1fr` width. Marquee keeps its gold ring as the weekly theme's identity accent (content volume already differentiates them).
+
+### Task 2: spoiler-safe theme audit
+- Audited all 12 curated themes against movieIds. Rewrote 2 blurbs (slugs/titles/movie selections untouched):
+  - `crimes-gone-stupid`: woodchipper gag named Fargo's late-film moment → "The plan was flawless. Right up until it very much wasn't."
+  - `everyone-is-lying`: "especially the narrator" tipped unreliable-narrator twists (Usual Suspects et al.) → "Trust no one. Especially not anyone who seems trustworthy."
+- Kept as brand-correct obtuse connections: secretly-same-story archetypes, trains genre hints, horror-house marketing-level expectations — no plot outcomes revealed.
+- Added THEMES.md guidance comment block atop `src/lib/shortlist-themes.ts`: titles/blurb describe atmosphere/patterns, never plot outcomes or named films; obtuse connections are the brand.
+- Proposal UI helper text (`src/components/profile/ListRow.tsx`) gained one line: keep titles vague/atmospheric, never spoil a movie's plot. API validation left alone (wording rule isn't machine-checkable).
+- Rotation tests unaffected: slugs/titles/movieIds unchanged.
+
+### Verification
+- npm test: 242 passed (25 files); tsc clean; eslint clean; production build passes. No live TMDB calls made; .env.local untouched.

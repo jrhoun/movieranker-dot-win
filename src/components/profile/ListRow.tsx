@@ -242,6 +242,7 @@ export default function ListRow({ list, featured, onToggleFeature }: ListRowProp
         >
           <p className="text-xs text-muted">
             Suggest your top picks as a future This Week&apos;s Marquee theme — the owner reviews every proposal.
+            Keep titles vague and atmospheric: describe the vibe, never spoil any movie&apos;s plot.
           </p>
           <input
             value={pTitle}

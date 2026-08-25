@@ -2,6 +2,13 @@
  * Curated themes for "This Week's Marquee" — code data, not DB rows.
  * The connection to the theme is allowed (encouraged) to be obtuse.
  * movieIds are TMDB ids; posters are fetched via tmdb.getMovieById.
+ *
+ * THEMES.md — spoiler-safe curation rules:
+ * A theme title/blurb must NEVER spoil any contained movie. Titles describe
+ * atmosphere, patterns, or vibes — never plot outcomes, twists, or
+ * identifiable late-film moments. ("Rain Soaked Cinema" good; anything that
+ * names how a specific film ends bad.) Never name contained films outright;
+ * obtuse connections only their viewers decode are the brand.
  */
 export interface ShortlistTheme {
   slug: string;
@@ -44,7 +51,7 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
   {
     slug: "crimes-gone-stupid",
     title: "Crimes Gone Stupid",
-    blurb: "The plan was perfect. The plan involved woodchippers.",
+    blurb: "The plan was flawless. Right up until it very much wasn't.", // was: woodchipper gag — named a specific contained film's late-film moment
     movieIds: [275, 115, 1424, 15121, 10764, 10530],
   },
   {
@@ -68,7 +75,7 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
   {
     slug: "everyone-is-lying",
     title: "Everyone Is Lying",
-    blurb: "Trust no one, especially the narrator. Especially the nice ones.",
+    blurb: "Trust no one. Especially not anyone who seems trustworthy.", // was: narrator line — tipped an unreliable-narrator twist
     movieIds: [546554, 210577, 629, 207, 1124, 496243],
   },
   {
