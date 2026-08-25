@@ -358,3 +358,9 @@ Reviewer finding: `weeksSinceUtcEpoch = floor(days/7)` anchored the rotation win
 
 ### Verification
 - npm test: 242 passed (25 files); tsc clean; eslint clean; production build passes. No live TMDB calls made; .env.local untouched.
+
+## Fix round — premiere divider overflow + shortlist gate
+- `src/app/(site)/home-client.tsx`: dropped `md:h-full md:flex-none` from both ✦-rule spans. In the stretched desktop grid row each span had resolved to 100% container height with shrink disabled (≈2× column height + glyph → second rule spilled below the row). Spans now keep base `flex-1`, so in the `md:flex-col` divider they split the row height around the glyph via flex-basis 0 — composite content always equals row height, no overflow at any viewport (`md:w-px md:min-w-0` retained for the vertical orientation).
+- Divider element is now gated on `tonight.movies.length > 0`; no dangling rule when tonight's shortlist is empty.
+### Verification
+- npm test: 242 passed (25 files); tsc clean; eslint clean; production build passes. No live calls.

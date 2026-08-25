@@ -347,15 +347,21 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
       </section>
       )}
       {/* Gold rule with ✦ center between the two premiere paths:
-          horizontal on mobile, vertical rule between columns on desktop. */}
-      <div
-        className="my-8 flex items-center gap-3 md:mx-3 md:my-0 md:flex-col"
-        role="presentation"
-      >
-        <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60 md:h-full md:min-h-4 md:min-w-0 md:w-px md:flex-none" />
-        <span aria-hidden="true" className="text-gold">✦</span>
-        <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60 md:h-full md:min-h-4 md:min-w-0 md:w-px md:flex-none" />
-      </div>
+          horizontal on mobile, vertical rule between columns on desktop.
+          Rendered only when there is a shortlist to separate. */}
+      {tonight.movies.length > 0 && (
+        <div
+          className="my-8 flex items-center gap-3 md:mx-3 md:my-0 md:flex-col"
+          role="presentation"
+        >
+          {/* Spans stay flex-1 on desktop too: in the md:flex-col container
+              they split the column height around ✦ (flex-basis 0), so total
+              content never exceeds the stretched grid row — no overflow. */}
+          <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60 md:min-h-4 md:min-w-0 md:w-px" />
+          <span aria-hidden="true" className="text-gold">✦</span>
+          <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60 md:min-h-4 md:min-w-0 md:w-px" />
+        </div>
+      )}
       {/* Path B: BUILD YOUR OWN LIST — the search panel lives inside this card. */}
       <section
         aria-label="Build your own list"
