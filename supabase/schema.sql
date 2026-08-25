@@ -61,3 +61,24 @@ $$;
 -- For existing databases:
 -- ALTER TABLE lists ADD COLUMN description text;
 -- Then re-run the save_list RPC above (drop/recreate) so POSTs can set it.
+
+-- Community theme proposals for "Tonight's Shortlist" (added after v1).
+-- Safe to run on existing databases: brand-new table + policies, no ALTERs.
+create table shortlist_proposals (
+  id text primary key,
+  proposer_id uuid references auth.users(id),
+  title text not null,
+  blurb text,
+  movie_ids jsonb not null,
+  status text not null default 'pending' check (status in ('pending','approved','rejected')),
+  created_at timestamptz default now()
+);
+alter table shortlist_proposals enable row level security;
+create policy "propose own" on shortlist_proposals for insert
+  with check (auth.uid() = proposer_id);
+create policy "read own" on shortlist_proposals for select
+  using (auth.uid() = proposer_id);
+create policy "anyone reads approved" on shortlist_proposals for select
+  using (status = 'approved');
+-- Approve/reject happens via /api/admin/proposals (OWNER_EMAIL-gated, server-side);
+-- no SQL policy grants updates.

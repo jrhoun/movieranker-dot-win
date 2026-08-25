@@ -13,6 +13,8 @@ export interface ListCardData {
   createdAt: string;
   /** Top-ranked posters, best first. */
   posters: { title: string; posterPath: string | null }[];
+  /** TMDB ids, best first (proposals submit the top 8). */
+  movieIds?: number[];
 }
 
 const btn =
@@ -21,6 +23,10 @@ const btn =
 export default function ListCard({ list }: { list: ListCardData }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [proposeOpen, setProposeOpen] = useState(false);
+  const [pTitle, setPTitle] = useState(list.title.slice(0, 80));
+  const [pBlurb, setPBlurb] = useState("");
+  const [pNote, setPNote] = useState<string | null>(null);
 
   async function remove() {
     if (!window.confirm(`Delete "${list.title}" permanently? This can't be undone.`)) return;
@@ -35,6 +41,33 @@ export default function ListCard({ list }: { list: ListCardData }) {
     setBusy(false);
     if (!res.ok) return;
     router.refresh();
+  }
+
+  // Propose this ranking as a future "Tonight's Shortlist" theme.
+  async function propose() {
+    setPNote(null);
+    let res: Response;
+    try {
+      res = await fetch("/api/proposals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: pTitle,
+          blurb: pBlurb,
+          movieIds: list.movieIds?.slice(0, 8),
+        }),
+      });
+    } catch {
+      setPNote("Couldn't reach the server — try again.");
+      return;
+    }
+    if (!res.ok) {
+      setPNote("Proposal needs a title and 6–8 movies.");
+      return;
+    }
+    setProposeOpen(false);
+    setPBlurb("");
+    setPNote(null);
   }
 
   const isDraft = list.status === "draft";
@@ -87,6 +120,16 @@ export default function ListCard({ list }: { list: ListCardData }) {
           >
             {isDraft ? "Resume ranking" : "View"}
           </Link>
+          {!isDraft && (list.movieIds?.length ?? 0) >= 6 && (
+            <button
+              type="button"
+              onClick={() => setProposeOpen((v) => !v)}
+              aria-expanded={proposeOpen}
+              className={`${btn} bg-surface-raised text-gold ring-1 ring-gold/40 hover:bg-white/10`}
+            >
+              Propose theme
+            </button>
+          )}
           <button
             type="button"
             onClick={() => void remove()}
@@ -97,6 +140,43 @@ export default function ListCard({ list }: { list: ListCardData }) {
             Delete
           </button>
         </div>
+        {proposeOpen && (
+          <form
+            className="flex flex-col gap-2 rounded bg-surface-raised p-3 ring-1 ring-gold/30"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void propose();
+            }}
+          >
+            <p className="text-xs text-muted">
+              Suggest your top picks as a future Tonight&apos;s Shortlist theme — the owner reviews every proposal.
+            </p>
+            <input
+              value={pTitle}
+              onChange={(e) => setPTitle(e.target.value)}
+              maxLength={80}
+              required
+              placeholder="Theme name"
+              aria-label="Theme name"
+              className="h-10 rounded bg-surface px-3 text-sm ring-1 ring-white/10 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+            />
+            <textarea
+              value={pBlurb}
+              onChange={(e) => setPBlurb(e.target.value)}
+              maxLength={200}
+              rows={2}
+              placeholder="One-line pitch (optional)"
+              aria-label="One-line pitch (optional)"
+              className="rounded bg-surface px-3 py-2 text-sm leading-relaxed ring-1 ring-white/10 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+            />
+            <button type="submit" disabled={!pTitle.trim()} className={`${btn} bg-gold text-bg`}>
+              Submit proposal
+            </button>
+            {pNote && (
+              <p role="status" className="text-xs text-accent">{pNote}</p>
+            )}
+          </form>
+        )}
       </div>
     </article>
   );

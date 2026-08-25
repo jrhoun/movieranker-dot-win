@@ -110,6 +110,10 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
           surface scrim so it never lands on fold crests. */}
       <header className="relative overflow-hidden bg-curtain">
         <div aria-hidden="true" className="spotlight-glow pointer-events-none absolute inset-0" />
+        {/* Premiere-night searchlights: two slow-drifting gold shafts from the
+            bottom corners, crossing behind the marquee. Purely decorative CSS;
+            reduced-motion renders them static at base angle. */}
+        <div aria-hidden="true" className="searchlights pointer-events-none absolute inset-0 overflow-hidden" />
         <div className="relative mx-auto w-full max-w-5xl px-4 py-10 text-center sm:py-14">
           {/* Marquee wordmark: Bebas caps, warm gold sweep clipped to the
               glyphs (one-shot shimmer, reduced-motion-safe), ✦ bulbs flanking. */}
@@ -119,10 +123,10 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
               <span className="marquee-gold drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)]">movieranker.win</span>
               <span aria-hidden="true" className="ml-2 align-middle text-gold text-[0.35em]">✦</span>
             </h1>
-            <p className="mt-3 text-base font-medium text-text sm:text-lg">
+            <p className="mt-3 text-xl font-medium text-text sm:text-2xl">
               Settling the best movies of all time.
             </p>
-            <p className="mt-1 text-base text-muted sm:text-lg">
+            <p className="mt-1.5 text-lg text-muted sm:text-xl">
               <span className="underline decoration-gold decoration-2 underline-offset-4">
                 One list at a time.
               </span>

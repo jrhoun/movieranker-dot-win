@@ -87,6 +87,7 @@ The site is a PREMIERE, not a utility. Every surface should feel like the lobby 
 
 - [inferred confidence=low] No motion token was detected; keep transitions restrained until interaction evidence is available.
 - [inferred confidence=medium] Preserve visible hover, focus, pressed, loading, and reduced-motion behavior from existing primitives.
+- [user-directed 2026-08-24] Slow ambient atmosphere loops (>10s period, e.g. searchlight drift) are permitted; all loops still die under prefers-reduced-motion. Single-beat rule for celebrations stands.
 
 ## Accessibility
 

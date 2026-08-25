@@ -9,7 +9,7 @@ interface DbList {
   title: string;
   status: string;
   created_at: string;
-  list_movies: { title: string; poster_path: string | null }[] | null;
+  list_movies: { title: string; poster_path: string | null; tmdb_id?: number }[] | null;
 }
 
 export default async function MyListsPage() {
@@ -21,7 +21,7 @@ export default async function MyListsPage() {
   // then elo desc (drafts).
   const { data: lists } = await supabase
     .from("lists")
-    .select("id,title,status,created_at,list_movies(title,poster_path)")
+    .select("id,title,status,created_at,list_movies(title,poster_path,tmdb_id)")
     .order("created_at", { ascending: false })
     .order("final_rank", { foreignTable: "list_movies", ascending: true, nullsFirst: false })
     .order("elo", { foreignTable: "list_movies", ascending: false });
@@ -35,6 +35,10 @@ export default async function MyListsPage() {
       title: m.title,
       posterPath: m.poster_path,
     })),
+    // Best-first (ordered by final_rank/elo in the query); proposals use top 8.
+    movieIds: (l.list_movies ?? [])
+      .map((m) => m.tmdb_id)
+      .filter((v): v is number => Number.isInteger(v)),
   }));
 
   return (

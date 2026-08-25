@@ -63,6 +63,47 @@ body {
   background-image: radial-gradient(ellipse 60% 55% at 50% 35%, rgba(245, 197, 24, 0.12), transparent 70%);
 }
 
+/* Searchlight beams (DESIGN.md Premiere Night): two soft gold shafts rising
+   from the bottom corners, crossing behind the hero title. Ambient drift is
+   ±4deg over ~20s, beams counter-phased via differing durations; the global
+   reduced-motion rule ends both loops instantly, leaving the static base
+   rotation. Kept at low alpha so posters stay the visual anchor. */
+.searchlights::before,
+.searchlights::after {
+  content: "";
+  position: absolute;
+  bottom: -15%;
+  width: 55%;
+  height: 150%;
+  background-image: linear-gradient(
+    to top,
+    rgba(245, 197, 24, 0.13),
+    rgba(245, 197, 24, 0.09) 45%,
+    transparent 78%
+  );
+  clip-path: polygon(38% 100%, 0% 0%, 100% 0%, 62% 100%);
+  filter: blur(35px);
+  transform-origin: bottom center;
+}
+.searchlights::before {
+  left: -18%;
+  transform: rotate(-16deg);
+  animation: searchlight-left 22s ease-in-out infinite alternate;
+}
+.searchlights::after {
+  right: -18%;
+  transform: rotate(16deg);
+  animation: searchlight-right 19s ease-in-out infinite alternate;
+}
+@keyframes searchlight-left {
+  from { transform: rotate(-16deg); }
+  to { transform: rotate(-12deg); }
+}
+@keyframes searchlight-right {
+  from { transform: rotate(16deg); }
+  to { transform: rotate(12deg); }
+}
+
 /* Marquee wordmark (DESIGN.md Premiere Night): warm gold sweep clipped to the
    glyphs. The shimmer runs ONCE per load (no loop); the global reduced-motion
    rule below collapses it to an instant final state. */
