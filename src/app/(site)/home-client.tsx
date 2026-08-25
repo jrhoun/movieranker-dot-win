@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import CandidateTray from "@/components/CandidateTray";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import MoviePoster from "@/components/list/MoviePoster";
@@ -16,6 +16,8 @@ import type { TmdbMovieCredit } from "@/lib/tmdb";
 export interface TonightStrip {
   title: string;
   blurb: string;
+  /** Theme slug (shortlist rotation id); null when the fetch came up empty. */
+  themeSlug: string | null;
   movies: TmdbMovieCredit[];
   /** Proposer's public handle when tonight's theme is a community proposal. */
   proposedBy: string | null;
@@ -75,6 +77,8 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
   const [candidates, setCandidates] = useState<TmdbMovieCredit[]>([]);
   const [confirmResume, setConfirmResume] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
+  // which entry point opened the resume confirm: tray "Start" vs "Rank this list"
+  const pendingCuratedRef = useRef(false);
 
   useEffect(() => {
     // async hop so pre-hydration markup matches first client render (same as play room)
@@ -98,18 +102,20 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
     }
   }
 
-  function start() {
+  function start(curated = false) {
     // read localStorage at interaction time to avoid SSR/hydration concerns
     const existing = loadSession();
     if (existing && (existing.movies?.length ?? 0) >= 2) {
+      pendingCuratedRef.current = curated;
       setConfirmResume(true);
       return;
     }
-    begin();
+    begin(curated);
   }
 
-  function begin() {
-    const movies: RankedMovie[] = candidates.map((m) => ({
+  function begin(curated = false) {
+    const source = curated ? tonight.movies : candidates;
+    const movies: RankedMovie[] = source.map((m) => ({
       tmdbId: m.tmdbId,
       title: m.title,
       posterPath: m.posterPath,
@@ -119,11 +125,15 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
       parked: false,
     }));
     saveSession({
-      title: title.trim() || "Movie ranking",
+      // curated sessions are seeded with exactly the theme movies, titled by the theme
+      title: curated ? tonight.title : title.trim() || "Movie ranking",
       participants,
       movies,
       votesSinceOrderChange: 0,
       nudgeShown: false,
+      ...(curated && tonight.themeSlug
+        ? { themeSlug: tonight.themeSlug, curated: true }
+        : {}),
     });
     router.push("/r/play");
   }
@@ -228,7 +238,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
               onClick={() => {
                 clearSession();
                 setConfirmResume(false);
-                begin();
+                begin(pendingCuratedRef.current);
               }}
               className="min-h-11 rounded-full bg-surface-raised px-5 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
@@ -268,7 +278,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
         onParticipantsChange={setParticipants}
         title={title}
         onTitleChange={setTitle}
-        onStart={start}
+        onStart={() => start()}
       />
       {/* How It Works (DESIGN.md "Premiere Night"): marquee-headed explainer for
           first-timers. Static cards; hover lift is motion-safe-only. */}
@@ -321,6 +331,17 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
             {tonight.settledCount} ranking{tonight.settledCount === 1 ? "" : "s"} already
             settled tonight
           </p>
+        )}
+        {tonight.themeSlug && (
+          <div className="mt-5 text-center">
+            <button
+              type="button"
+              onClick={() => start(true)}
+              className="inline-block min-h-11 rounded-full bg-gold px-6 text-sm font-bold uppercase tracking-wide text-bg shadow-lg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
+            >
+              Rank this list 🔒
+            </button>
+          </div>
         )}
         {/* Rankings preview row: compact cards into each list, with a small
             "vs" affordance opening the compare picker pre-filled with that id. */}

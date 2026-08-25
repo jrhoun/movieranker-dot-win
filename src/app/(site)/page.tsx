@@ -11,6 +11,7 @@ import type { TmdbMovieCredit } from "@/lib/tmdb";
 export default async function Page() {
   let title = "";
   let blurb = "";
+  let slug: string | null = null;
   let credits: TmdbMovieCredit[] = [];
   let proposedBy: string | null = null;
   let activity: ThemeCommunityActivity = { count: 0, previews: [] };
@@ -18,6 +19,7 @@ export default async function Page() {
     const { theme, movieIds, activity: a } = await getTonightsShortlist();
     title = theme.title;
     blurb = theme.blurb;
+    slug = theme.slug;
     proposedBy = theme.proposedBy;
     activity = a;
     credits = (
@@ -40,6 +42,7 @@ export default async function Page() {
       tonight={{
         title,
         blurb,
+        themeSlug: slug,
         movies: credits,
         proposedBy,
         settledCount: activity.count,

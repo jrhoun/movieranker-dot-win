@@ -58,9 +58,19 @@ export default function SaveGateSheet({
       res = await fetch(existingId ? `/api/lists/${existingId}` : "/api/lists", {
         method: existingId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        // PATCH is partial: only POST needs title/participants
+        // PATCH is partial: only POST needs title/participants (+ theme metadata);
+        // themeSlug/curated only ride along when the session came from a theme
         body: JSON.stringify(
-          existingId ? payload : { ...payload, title: session.title, participants: session.participants },
+          existingId
+            ? payload
+            : {
+                ...payload,
+                title: session.title,
+                participants: session.participants,
+                ...(session.themeSlug
+                  ? { themeSlug: session.themeSlug, curated: !!session.curated }
+                  : {}),
+              },
         ),
       });
     } catch {

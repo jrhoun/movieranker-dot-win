@@ -106,6 +106,8 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   const [sheetStatus, setSheetStatus] = useState<"done" | "draft" | null>(null);
   const [authNotice, setAuthNotice] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
+  // Curated Lock Mode: inline confirm card for leaving tonight's themed list
+  const [unlockOpen, setUnlockOpen] = useState(false);
   // set once an OAuth redirect away from the page has begun (leave-warning stays disarmed)
   const [authRedirecting, setAuthRedirecting] = useState(false);
   // Real Participants: resumed drafts let a signed-in viewer claim a chip.
@@ -353,6 +355,16 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     router.push("/");
   }
 
+  // Unlock exits curated mode (chip goes muted); themeSlug is kept so stage-B
+  // community stats can still credit the list. No reverse re-lock.
+  function handleUnlock() {
+    if (!session) return;
+    const next = { ...session, curated: false };
+    setSession(next);
+    saveSession(next);
+    setUnlockOpen(false);
+  }
+
   function startSharpen() {
     if (!session) return;
     // belt-and-braces: button is hidden when no comfort-band pair exists
@@ -394,6 +406,29 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         )}
         <div className="min-w-0">
           <h1 className="truncate text-lg font-bold sm:text-2xl">{session.title}</h1>
+          {session.themeSlug && (
+            <div className="mt-0.5 flex flex-wrap items-center gap-2">
+              <span
+                className={
+                  session.curated
+                    ? "rounded-full bg-gold/15 px-2.5 py-0.5 text-xs font-bold text-gold ring-1 ring-gold/40"
+                    : "rounded-full bg-surface-raised px-2.5 py-0.5 text-xs font-medium text-muted ring-1 ring-white/10"
+                }
+              >
+                {session.curated ? "🔒 Tonight's Shortlist" : "🔓 Tonight's Shortlist"}
+              </span>
+              {session.curated && !finished && (
+                <button
+                  type="button"
+                  onClick={() => setUnlockOpen((v) => !v)}
+                  aria-expanded={unlockOpen}
+                  className="min-h-8 rounded px-1.5 text-xs text-muted underline-offset-4 transition-colors duration-200 ease-out hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-accent"
+                >
+                  Unlock
+                </button>
+              )}
+            </div>
+          )}
           {session.participants.length > 0 && (
             <p className="truncate text-xs text-muted sm:text-sm">
               {session.participants.map((p, i) => (
@@ -427,6 +462,35 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           </div>
         )}
       </header>
+
+      {unlockOpen && session.curated && !finished && (
+        <div
+          role="group"
+          aria-labelledby="unlock-title"
+          className="mx-auto w-full max-w-2xl animate-fade-in px-4 pt-3 sm:px-6"
+        >
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded bg-surface p-3 ring-1 ring-white/10">
+            <p id="unlock-title" className="min-w-0 flex-1 text-sm text-muted">
+              Unlocking lets you add more movies, but this ranking will no longer
+              count as tonight&apos;s themed list.
+            </p>
+            <button
+              type="button"
+              onClick={() => setUnlockOpen(false)}
+              className="min-h-11 rounded bg-surface-raised px-4 text-sm font-medium transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+            >
+              Keep it locked
+            </button>
+            <button
+              type="button"
+              onClick={handleUnlock}
+              className="min-h-11 rounded bg-surface-raised px-4 text-sm font-medium text-accent-red transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+            >
+              Unlock anyway
+            </button>
+          </div>
+        </div>
+      )}
 
       {exitOpen && !finished && (
         <div
