@@ -4,7 +4,7 @@ import type { ThemeCommunityActivity } from "@/lib/shortlist";
 import { getMovieById, getPreferredPosterPath } from "@/lib/tmdb";
 import type { TmdbMovieCredit } from "@/lib/tmdb";
 
-// Server component: resolves tonight's themed shortlist (deterministic daily
+// Server component: resolves this week's themed marquee (deterministic weekly
 // rotation) and hydrates the movie details both the hero fan and the strip
 // render. Any failure degrades to an empty strip; HomeClient falls back to the
 // curated hero-posters set.

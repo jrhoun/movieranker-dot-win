@@ -19,39 +19,15 @@ export interface TonightStrip {
   /** Theme slug (shortlist rotation id); null when the fetch came up empty. */
   themeSlug: string | null;
   movies: TmdbMovieCredit[];
-  /** Proposer's public handle when tonight's theme is a community proposal. */
+  /** Proposer's public handle when this week's theme is a community proposal. */
   proposedBy: string | null;
-  /** Done lists sharing >=3 movies with tonight's theme (0 = show nothing). */
+  /** Done lists sharing >=3 movies with this week's theme (0 = show nothing). */
   settledCount: number;
   previews: { id: string; title: string }[];
 }
 
-const STEPS = [
-  {
-    n: "01",
-    icon: "🔍",
-    alt: "Magnifying glass",
-    title: "Build your list",
-    body: "Search any actor, director, studio, or vibe. Tap the posters worth arguing about.",
-  },
-  {
-    n: "02",
-    icon: "⚔️",
-    alt: "Crossed swords",
-    title: "Battle head-to-head",
-    body: "Movies enter the arena two at a time. Your crew debates, you tap the winner.",
-  },
-  {
-    n: "03",
-    icon: "🏆",
-    alt: "Trophy",
-    title: "Crown the champion",
-    body: "Our engine settles the order and gives you a shareable ranked wall.",
-  },
-];
-
 export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
-  // Hero fan mirrors tonight's themed shortlist so it previews the daily
+  // Hero fan mirrors this week's themed marquee so it previews the weekly
   // rotation; falls back to the curated set when the shortlist fetch came up
   // empty so the marquee never goes dark.
   const liveFan = tonight.movies.length > 0;
@@ -78,7 +54,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
   const [confirmResume, setConfirmResume] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
   // which entry point opened the resume confirm: tray "Start" vs "Rank this list"
-  const pendingCuratedRef = useRef(false);
+    const pendingCuratedRef = useRef(false);
 
   useEffect(() => {
     // async hop so pre-hydration markup matches first client render (same as play room)
@@ -203,7 +179,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
           </ul>
           {liveFan && (
             <p className="mt-5 font-display text-sm uppercase tracking-[0.2em] text-gold drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]">
-              Tonight&apos;s theme · {tonight.title}
+              This week&apos;s marquee · {tonight.title}
             </p>
           )}
         </div>
@@ -261,91 +237,29 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
           </Link>
         </div>
       )}
-      <div id="start">
-        <SearchPanel
-          onPick={toggleCandidate}
-          onAddAll={(movies) => setCandidates((prev) => mergeCandidates(prev, movies))}
-          isSelected={(m) => candidates.some((c) => c.tmdbId === m.tmdbId)}
-        />
-      </div>
-      <CandidateTray
-        candidates={candidates}
-        onRemove={(id) =>
-          setCandidates((prev) => prev.filter((c) => c.tmdbId !== id))
-        }
-        onClearAll={() => setCandidates([])}
-        participants={participants}
-        onParticipantsChange={setParticipants}
-        title={title}
-        onTitleChange={setTitle}
-        onStart={() => start()}
-      />
-      {/* How It Works (DESIGN.md "Premiere Night"): marquee-headed explainer for
-          first-timers. Static cards; hover lift is motion-safe-only. */}
-      <section aria-label="How it works" className="mt-16">
-        <MarqueeHeading as="h2">How it works</MarqueeHeading>
-        <ol className="mt-8 grid list-none gap-4 sm:grid-cols-3">
-          {STEPS.map((s) => (
-            <li key={s.n}>
-              <div className="h-full rounded-lg bg-surface p-5 ring-1 ring-white/10 transition-transform duration-200 ease-out motion-safe:hover:-translate-y-0.5">
-                <div className="flex items-center justify-between">
-                  <p aria-hidden="true" className="font-display text-3xl leading-none text-gold">{s.n}</p>
-                  <span role="img" aria-label={s.alt} className="text-2xl">{s.icon}</span>
-                </div>
-                <h3 className="mt-3 font-display text-2xl uppercase tracking-wide">{s.title}</h3>
-                <p className="mt-1 text-sm text-muted">{s.body}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-        <p className="mt-6 text-center text-sm text-muted">
-          No account needed to play — sign up only to save your lists.
-        </p>
-      </section>
-      {/* Tonight's Shortlist (contract "Keep": filmstrip texture, Premiere Night
-          type): themed strip that rotates daily — server-resolved theme +
-          movie details. Posters stay tap-to-add candidates, same tray toggle as
-          the hero fan. */}
+      {/* CHOOSE YOUR PREMIERE (user-directed): the site's two entry paths
+          become the page's organizing structure. Path A — this week's themed
+          marquee (rotates weekly); Path B — build your own list. Cards stack
+          at 390px (single column by default). */}
+      <MarqueeHeading as="h2">Choose your premiere</MarqueeHeading>
+      {/* Path A (prominent): THIS WEEK'S MARQUEE — server-resolved theme +
+          movie details. Posters stay tap-to-add candidates, same tray toggle
+          as the hero fan. */}
       {tonight.movies.length > 0 && (
-      <section aria-label="Tonight's shortlist" className="mt-16">
-        {/* Two ways in (user-directed): dual-path framing leading into the
-            shortlist. Pure anchors — no new flow, no competition with the
-            hero CTA. Grid stacks to one column under sm (mobile). */}
-        <div className="mx-auto mb-8 grid max-w-2xl gap-3 sm:grid-cols-2">
-          <a
-            href="#rank-tonight"
-            className="rounded bg-surface p-4 ring-1 ring-white/10 transition-colors duration-200 ease-out hover:ring-gold/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-          >
-            <span className="font-display text-xl uppercase tracking-wide text-gold">
-              1 · Rank tonight&apos;s theme
-            </span>
-            <span className="mt-1 block text-sm text-muted">
-              Tonight we&apos;re settling {tonight.title}. Jump in.
-            </span>
-          </a>
-          <a
-            href="#start"
-            className="rounded bg-surface p-4 ring-1 ring-white/10 transition-colors duration-200 ease-out hover:ring-gold/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-          >
-            <span className="font-display text-xl uppercase tracking-wide text-text">
-              2 · Or rank your own list
-            </span>
-            <span className="mt-1 block text-sm text-muted">
-              Search any movies you want, build a custom list.
-            </span>
-          </a>
-        </div>
-        <div className="flex items-center gap-3">
-          <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60" />
-          <p className="font-display text-sm uppercase tracking-[0.2em] text-gold">
-            Tonight&apos;s shortlist · rotates daily
-          </p>
-          <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60" />
-        </div>
-        <h2 className="mt-2 text-center font-display text-4xl uppercase leading-none tracking-[0.12em] text-gold drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)] sm:text-5xl">
+      <section
+        aria-label="This week's marquee"
+        className="mt-8 rounded-lg bg-surface p-5 ring-1 ring-gold/40 sm:p-8"
+      >
+        <p className="text-center font-display text-sm uppercase tracking-[0.2em] text-muted">
+          This week&apos;s marquee · rotates weekly
+        </p>
+        <h3 className="mt-2 text-center font-display text-4xl uppercase leading-none tracking-[0.12em] text-gold drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)] sm:text-5xl">
           {tonight.title}
-        </h2>
+        </h3>
         <p className="mx-auto mt-2 max-w-xl text-center text-sm text-muted">{tonight.blurb}</p>
+        <p className="mt-2 text-center text-sm text-text">
+          {tonight.movies.length} movies · rank them head-to-head until a champion emerges.
+        </p>
         {/* Proposal credit + real community activity (no fake social proof:
             both lines render only when the data actually exists). */}
         {tonight.proposedBy && (
@@ -356,7 +270,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
         {tonight.settledCount > 0 && (
           <p className="mt-1 text-center text-xs text-muted" data-testid="settled-count">
             {tonight.settledCount} ranking{tonight.settledCount === 1 ? "" : "s"} already
-            settled tonight
+            settled this week
           </p>
         )}
         {tonight.themeSlug && (
@@ -377,7 +291,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
             {tonight.previews.map((p) => (
               <li
                 key={p.id}
-                className="flex items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-xs ring-1 ring-white/10"
+                className="flex items-center gap-2 rounded-full bg-surface-raised px-3 py-1.5 text-xs ring-1 ring-white/10"
               >
                 <Link
                   href={`/l/${p.id}`}
@@ -397,7 +311,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
             ))}
           </ul>
         )}
-        <ul className="mt-8 flex gap-4 overflow-x-auto pb-4">
+        <ul className="mt-6 flex gap-4 overflow-x-auto pb-4">
           {tonight.movies.map((m) => {
             const inTray = candidates.some((c) => c.tmdbId === m.tmdbId);
             return (
@@ -433,6 +347,42 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
         </ul>
       </section>
       )}
+      {/* Gold rule with ✦ center between the two premiere paths. */}
+      <div className="my-8 flex items-center gap-3" role="presentation">
+        <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60" />
+        <span aria-hidden="true" className="text-gold">✦</span>
+        <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60" />
+      </div>
+      {/* Path B: BUILD YOUR OWN LIST — the search panel lives inside this card. */}
+      <section
+        aria-label="Build your own list"
+        className="rounded-lg bg-surface p-5 ring-1 ring-white/10 sm:p-6"
+      >
+        <h3 className="font-display text-3xl uppercase leading-none tracking-wide">Build your own list</h3>
+        <p className="mt-1 text-sm text-muted">
+          Search any actor, director, studio — settle anything.
+        </p>
+        <div id="start" className="mt-4 scroll-mt-6">
+          <SearchPanel
+            onPick={toggleCandidate}
+            onAddAll={(movies) => setCandidates((prev) => mergeCandidates(prev, movies))}
+            isSelected={(m) => candidates.some((c) => c.tmdbId === m.tmdbId)}
+          />
+        </div>
+        <p className="mt-4 text-sm text-muted">…then share your ranked wall.</p>
+      </section>
+      <CandidateTray
+        candidates={candidates}
+        onRemove={(id) =>
+          setCandidates((prev) => prev.filter((c) => c.tmdbId !== id))
+        }
+        onClearAll={() => setCandidates([])}
+        participants={participants}
+        onParticipantsChange={setParticipants}
+        title={title}
+        onTitleChange={setTitle}
+        onStart={() => start()}
+      />
       </main>
     </>
   );
