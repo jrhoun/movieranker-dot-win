@@ -19,10 +19,16 @@ export default async function PublicProfilePage({
   params: Promise<{ handle: string }>;
 }) {
   const { handle: raw } = await params;
-  const handle = normalizeHandle(decodeURIComponent(raw));
+  // App Router delivers dynamic params percent-encoded, so decode manually;
+  // malformed input (e.g. /u/%zz) falls back to the raw string -> lookup miss -> 404.
+  let decoded = raw;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch {}
+  const handle = normalizeHandle(decoded);
   const supabase = await createSupabaseServerClient();
 
-  // Public SELECT RLS exposes only visibility='public' rows to this query.
+  // Profiles RLS allows read-any; the visibility gate is the notFound() check below.
   const { data: profile } = await supabase
     .from("profiles")
     .select("id,handle,visibility,created_at")
@@ -36,7 +42,11 @@ export default async function PublicProfilePage({
     .from("lists")
     .select("id,title,status,visibility,created_at,list_movies(title,poster_path)")
     .eq("owner_id", profile.id)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    // Mirror /u/me: without this, PostgREST join order is unspecified and cards
+    // may showcase arbitrary movies instead of top-ranked ones.
+    .order("final_rank", { foreignTable: "list_movies", ascending: true, nullsFirst: false })
+    .order("elo", { foreignTable: "list_movies", ascending: false });
 
   const { cards, moviesRanked, level } = shapePublicProfile(lists ?? []);
   const joined = new Date(profile.created_at).toLocaleDateString("en-US", {

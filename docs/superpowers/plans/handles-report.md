@@ -58,3 +58,9 @@ Spec ✅ / Approved. Deferred minors: Claim button uses --accent not literal gol
 - Profile lookup is exact-match on the normalized (lowercase) handle; URLs like `/u/CinePhile_99` work because the page normalizes params before querying.
 - Public-profile card grid is a small inline server component rather than reusing owner `ListCard` (which carries delete/visibility controls); if a third consumer appears, extract a shared read-only card.
 - Header gains one profiles query per request for signed-in users — negligible now; revisit if header perf ever shows up in metrics.
+
+### Fix round (public profile)
+- `/u/[handle]` list_movies join now ordered (`final_rank` asc nulls-last, `elo` desc, mirroring `/u/me`) so showcase cards show top-ranked movies instead of PostgREST's unspecified join order.
+- Misleading comments reworded: page comment now states profiles RLS is read-any and the gate is the JS `notFound()` check; `public-profile.ts` ponytail comment now states the query does NOT scope to public+done and the JS filter IS the guarantee.
+- `decodeURIComponent(raw)` wrapped in try/catch (App Router params arrive percent-encoded, so the decode is kept): malformed input like `/u/%zz` falls back to the raw string → lookup miss → styled 404 instead of a 500.
+- Verified: npm test 175 passed / 21 files; tsc clean; eslint clean; next build passes.
