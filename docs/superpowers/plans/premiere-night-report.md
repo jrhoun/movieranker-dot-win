@@ -251,3 +251,28 @@ never read or printed.
 - TMDB `/search/company` may omit `popularity`; dedupe then keeps the first
   occurrence per name (TMDB order), which for A24 puts the major entry first via
   the exact-match float anyway.
+
+## Design iteration: identity dropdown + profile density pass (2026-08-24, branch master)
+
+Commits: f62333945d61931d51ddd94769b98e7d70184dc1 (design: identity dropdown nav), 3f82ea1a24f585afecd4f55753fdb0f2a72228c0 (design: profile density pass).
+
+### Header → identity dropdown
+- New `src/components/IdentityDropdown.tsx` (client): gold ✦ `@handle` Bebas trigger with chevron; panel = surface bg, gold ring, shadow, 200ms ease-out fade/scale-in (motion-reduce kills it), closes on outside pointer-down/Escape (Escape refocuses trigger), ArrowDown/ArrowUp cycles menu items, all items min-h-11 with gold focus-visible rings. Items: Profile → /u/<handle> when public else /u/me, My Lists → /u/me, separator, Sign out (server action passed as prop — documented Next pattern).
+- `SiteHeader.tsx`: signed out unchanged (gold sign-in). Signed in without handle: plain "My Lists" link. Signed in with handle: dropdown only ("My lists"/"My profile" links + separate quiet Sign out pill deleted).
+- Copy: pre-claim header link and dropdown item now "My Lists" (matches page heading); privacy page's "from My Lists" already consistent.
+
+### /u/me density pass
+- Stats section kept but tightened (p-6→p-4, level numeral 6xl→5xl, reduced gaps).
+- Unlockables + achievements moved OUT of the stats card into a side-by-side pair (`sm:grid-cols-2`) above the list rows, re-rendered as compact pill chips (✓ name for earned; title tooltips carry the full description/unlock-rank text that was inline).
+- Lists grid → single-column rows via new `src/components/profile/ListRow.tsx`: leading poster at true 2:3 (w-11, MoviePoster reuse) · truncated title · Draft/Done badge · date · native `<select>` visibility chip (replaces the 3-button radiogroup, same PATCH endpoint) · Resume/View, Propose (hidden <sm to keep one line), Delete. Hover raise (-translate-y-0.5 + gold ring tint), motion-reduce safe. Propose-theme form expands under its row, logic unchanged.
+- Empty state ("trophy shelf") preserved above the rows branch.
+- AccountSection collapsed into a native `<details>` disclosure (summary styled marquee-caps; Export/Delete flow untouched inside).
+
+### Verification
+- tsc --noEmit clean; eslint clean; vitest 185/185 across 21 files; next build passes (all routes compile).
+- ClaimHandleCard.tsx, handles.ts, /api/profile untouched per coordination note; git status scoped before each commit.
+
+### Notes / ceilings
+- Row visibility control is a native select styled as a chip — OS renders the option list; swap for a custom popover only if contrast complaints arrive.
+- Achievements/unlockable descriptions now live in tooltips (title attr) — touch users lose the long text; acceptable for v1 info-only strips.
+- 8+ lists visible at 1440px depends on viewport height (~800px fits stats pair + ~7–9 rows); further compression would mean shrinking below 44px targets.
