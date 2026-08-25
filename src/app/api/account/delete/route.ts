@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { dbErrorResponse } from "@/lib/lists-api";
+import { LIMITS, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 // Permanently deletes the caller's account: owned lists first (RLS-scoped,
 // movies cascade), then the auth user via the service-role admin API.
@@ -11,6 +12,10 @@ export async function POST() {
   if (!data.user)
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   const userId = data.user.id;
+
+  // destructive + service-role call behind it: tightest limit
+  const rl = rateLimit(`delete:${userId}`, LIMITS.accountDelete);
+  if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   const { error } = await supabase.from("lists").delete().eq("owner_id", userId);
   if (error) return dbErrorResponse(error);

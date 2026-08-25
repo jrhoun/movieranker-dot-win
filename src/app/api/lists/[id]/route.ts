@@ -9,6 +9,7 @@ import {
   parseVisibility,
   type MovieInput,
 } from "@/lib/lists-api";
+import { LIMITS, rateKey, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 interface PatchBody {
   title?: unknown;
@@ -41,6 +42,9 @@ export async function PATCH(
   const { data } = await supabase.auth.getUser();
   if (!data.user)
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+
+  const rl = rateLimit(await rateKey("lists", request, data.user.id), LIMITS.lists);
+  if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   // RLS hides other owners' rows, so "not found" and "not yours" are the same.
   if (!(await ownedListId(supabase, id)))
@@ -142,7 +146,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
@@ -150,6 +154,9 @@ export async function DELETE(
   const { data } = await supabase.auth.getUser();
   if (!data.user)
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+
+  const rl = rateLimit(await rateKey("lists", request, data.user.id), LIMITS.lists);
+  if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   if (!(await ownedListId(supabase, id)))
     return NextResponse.json({ error: "forbidden" }, { status: 403 });

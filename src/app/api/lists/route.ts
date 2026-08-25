@@ -9,6 +9,7 @@ import {
   parseVisibility,
   type MovieInput,
 } from "@/lib/lists-api";
+import { LIMITS, rateKey, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 interface PostBody {
   title?: unknown;
@@ -24,6 +25,9 @@ export async function POST(request: Request) {
   const { data } = await supabase.auth.getUser();
   if (!data.user)
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+
+  const rl = rateLimit(await rateKey("lists", request, data.user.id), LIMITS.lists);
+  if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   let body: PostBody;
   try {

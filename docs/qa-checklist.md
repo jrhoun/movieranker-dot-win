@@ -162,3 +162,24 @@ and Safari if available for the beforeunload prompt.
 - Anonymous sessions use single-slot localStorage — resuming a draft and
   playing anonymously overwrites the other session's save.
 - `shareUrl` trusts `x-forwarded-host` — pin production host when domain lands.
+
+## Abuse & moderation
+
+45. [ ] **Email confirmation stays ON** in the Supabase dashboard (Auth →
+        Providers → Email → "Confirm email"). If it's ever turned off,
+        anyone can sign up with an address they don't own.
+46. [ ] The proposal queue is the public-content gate: nothing a user submits
+        goes public without review (`shortlist_proposals.status = 'pending'`
+        until approved). Verify no other route publishes user content
+        unreviewed.
+47. [ ] Report-abuse / copyright contact is still the `[CONTACT]` placeholder
+        in `src/lib/site.ts` (`CONTACT_EMAIL`) — replace before launch; it's
+        referenced by About, Privacy, and Terms.
+48. [ ] Rate limits (constants live in `src/lib/rate-limit.ts` `LIMITS` —
+        tune there): lists writes 20/min per key, proposals 5/min, account
+        delete 3/hour. Keys are userId, falling back to first
+        `x-forwarded-for` IP for anonymous traffic. Exceeding returns 429
+        with a `Retry-After` header.
+49. [ ] Note: limiter is in-memory and resets per serverless instance — fine
+        for v1 single-instance; move to Upstash (or similar) if abuse shows
+        up across instances.

@@ -3,12 +3,24 @@ import { nanoid } from "nanoid";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { dbErrorResponse, invalid } from "@/lib/lists-api";
 import { parseProposal } from "@/lib/proposals-api";
+import {
+  LIMITS,
+  rateKey,
+  rateLimit,
+  tooManyRequests,
+} from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase.auth.getUser();
   if (!data.user)
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+
+  const rl = rateLimit(
+    await rateKey("proposals", request, data.user.id),
+    LIMITS.proposals,
+  );
+  if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
   let body: Parameters<typeof parseProposal>[0];
   try {
