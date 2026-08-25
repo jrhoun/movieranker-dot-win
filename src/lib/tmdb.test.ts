@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { rankCompanies, searchByKeyword, shapeCredits } from "./tmdb";
+import { pickPoster, rankCompanies, searchByKeyword, shapeCredits } from "./tmdb";
 import fixture from "./fixtures/combined-credits.json";
 
 const allRaw = [...fixture.cast, ...fixture.crew];
@@ -43,6 +43,35 @@ describe("shapeCredits", () => {
     const shaped = credits.find((c) => c.tmdbId === sample!.id);
     const year = shaped?.releaseYear;
     expect(year).toBe(Number((sample!.release_date ?? "").slice(0, 4)));
+  });
+});
+
+describe("pickPoster", () => {
+  it("prefers an English-tagged poster", () => {
+    expect(
+      pickPoster(
+        [
+          { iso_639_1: "es", file_path: "/es.jpg" },
+          { iso_639_1: "en", file_path: "/en.jpg" },
+          { iso_639_1: null, file_path: "/null.jpg" },
+        ],
+        "/primary.jpg",
+      ),
+    ).toBe("/en.jpg");
+  });
+
+  it("falls back to a language-less poster", () => {
+    expect(
+      pickPoster([{ iso_639_1: null, file_path: "/null.jpg" }], "/primary.jpg"),
+    ).toBe("/null.jpg");
+  });
+
+  it("falls back to the primary path when no en/null poster exists or list is empty", () => {
+    expect(pickPoster([{ iso_639_1: "fr", file_path: "/fr.jpg" }], "/primary.jpg")).toBe(
+      "/primary.jpg",
+    );
+    expect(pickPoster([], "/primary.jpg")).toBe("/primary.jpg");
+    expect(pickPoster([], null)).toBeNull();
   });
 });
 

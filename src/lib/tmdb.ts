@@ -138,6 +138,33 @@ export async function searchByKeyword(q: string): Promise<TmdbMovieCredit[]> {
   return discoverMovies({ with_keywords: String(kw.id), sort_by: "popularity.desc" });
 }
 
+// Pure: prefer an English-tagged poster, then a language-less one, then whatever
+// the movie's primary art is. Posters come from /movie/{id}/images.
+export function pickPoster(
+  posters: { iso_639_1?: string | null; file_path?: string | null }[],
+  primaryPath: string | null,
+): string | null {
+  const pick =
+    posters.find((p) => p.iso_639_1 === "en") ??
+    posters.find((p) => p.iso_639_1 == null);
+  return pick?.file_path ?? primaryPath;
+}
+
+/** Poster path preferring English art; falls back to primaryPath on any failure. */
+export async function getPreferredPosterPath(
+  tmdbId: number,
+  primaryPath: string | null,
+): Promise<string | null> {
+  try {
+    const data = await tmdbFetch<{
+      posters?: { iso_639_1?: string | null; file_path?: string | null }[];
+    }>(`/movie/${tmdbId}/images`, { include_image_language: "en,null" }, 86400);
+    return pickPoster(data.posters ?? [], primaryPath);
+  } catch {
+    return primaryPath;
+  }
+}
+
 /** Single movie by TMDB id (cached a day); null on failure or missing poster art. */
 export async function getMovieById(id: number): Promise<TmdbMovieCredit | null> {
   try {
