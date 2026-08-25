@@ -31,3 +31,6 @@ Pure helpers: `normalizeHandle` (lowercase+trim), `isValidHandle` (`/^[a-z0-9_-]
 - Availability endpoint is auth-gated; if a public signup form ever needs it, drop the 401 gate.
 - Rate limiter remains in-memory per instance (existing documented ceiling).
 - No data migration of old `user_metadata.profile_visibility` values: anyone who had set public there must flip the toggle again after claiming a handle. Accepted because visibility was inert until now (no profile page existed to expose).
+
+## Review (stage 1)
+Spec ✅ / Approved. Deferred minors: Claim button uses --accent not literal gold (DESIGN.md-consistent); "coming with handles" toggle copy goes stale when handles ship — Stage 2 to fix; truncated third minor in reviewer output accepted as cosmetic.
