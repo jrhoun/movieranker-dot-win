@@ -296,13 +296,13 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     isStable(active, session.votesSinceOrderChange, fieldSplit);
 
   // Close-call baseline, captured once when the room first reaches stability.
-  // Absolute counts barely move per vote (~16–32 elo), so progress reads as
-  // resolved-vs-initial instead. Render-phase state init: no first-paint flicker.
+  // Only backs the consensus-screen line ("resolved vs initial"); the voting
+  // view now shows an absolute secondary chip instead. Render-phase init:
+  // no first-paint flicker.
   const [initialClosePairs, setInitialClosePairs] = useState<number | null>(null);
   if (stable && initialClosePairs === null) {
     setInitialClosePairs(countClosePairs(active));
   }
-  const closePairs = countClosePairs(active);
 
   function handleVote(winnerId: number, loserId: number) {
     if (!session || settlingLoserId !== null) return;
@@ -393,13 +393,22 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
 
   const canUndo = !!session.undoSnapshot && settlingLoserId === null;
   const canSharpen = !!selectNextPair(session, true);
+  const closePairs = countClosePairs(active);
   const remainingVotes = estimateRemainingVotes(active);
   const doneVotes = Math.round(totalComparisons(session) / 2);
-  // Honest bar: share of the empirically expected votes-to-consensus cast.
-  // The old done/(done+closePairs*2) shape asymptoted near ~70% because every
-  // adjacent gap stays inside Sharpen's comfort band at K=32, so "remaining"
-  // never shrank. Capped at 99% — only stability itself is 100%.
-  const pct = Math.min(99, Math.round((doneVotes / Math.max(1, expectedConsensusVotes(active.length))) * 100));
+  // UNIFIED progress signal (user feedback: bar and ~N text diverged). ONE
+  // primary number: "X of ~Y votes". Y = votes cast + comfort-band estimate
+  // of what's left, never below the empirical expectation (⌈n·log₂n⌉ sim
+  // median). It updates EVERY vote — X increments, and Y re-derives from the
+  // live close-pair count, shrinking toward reality as gaps widen past the
+  // comfort band or growing if the session runs long. Bar pct = X/Y from the
+  // same two values, so bar and text are arithmetically incapable of
+  // disagreeing. Capped at 99% — only stability itself is 100%.
+  const estTotal = Math.max(
+    expectedConsensusVotes(active.length),
+    doneVotes + remainingVotes,
+  );
+  const pct = Math.min(99, Math.round((doneVotes / Math.max(1, estTotal)) * 100));
 
   return (
     <main className="mx-auto flex min-h-dvh w-full flex-col">
@@ -611,7 +620,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           >
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded bg-surface p-3 ring-1 ring-white/10">
               <p className="min-w-0 flex-1 text-sm text-muted">
-                Make an account now and this session is safe.
+                Create an account now to save your progress.
               </p>
               <button
                 type="button"
@@ -730,7 +739,9 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         </section>
       ) : pair ? (
         <section className="flex flex-1 flex-col px-3 pb-2 pt-1 sm:px-6">
-          <div className="my-3">
+          {/* Mini marquee board: one trusted "X of ~Y votes" number in Bebas
+              gold between thin gold rules; close calls demoted to a chip. */}
+          <div className="my-3 rounded bg-surface/80 px-4 py-3 ring-1 ring-white/10">
             <div
               role="progressbar"
               aria-label="Ranking progress"
@@ -740,20 +751,36 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               className="h-2 w-full overflow-hidden rounded-full bg-surface-raised"
             >
               <div
-                className="h-full rounded-full bg-accent transition-all duration-200 ease-out"
+                className="h-full rounded-full bg-gradient-to-r from-accent to-gold transition-all duration-200 ease-out"
                 style={{ width: `${pct}%` }}
               />
             </div>
-            <div className="mt-1.5 flex items-baseline justify-between gap-3">
-              <p aria-live="polite" className="text-sm text-muted sm:text-base">
-                {sharpening
-                  ? "Sharpening — closest call first"
-                  : initialClosePairs !== null
-                    ? closeCallProgress(closePairs, initialClosePairs)
-                    : `~${remainingVotes} close calls left`}
-                {!sharpening &&
-                  remainingVotes >= ESTIMATE_HINT_THRESHOLD &&
-                  " — you can also finish anytime"}
+            <div className="mt-2.5 flex items-center justify-between gap-3">
+              <p aria-live="polite" className="min-w-0 text-sm text-muted sm:text-base">
+                {sharpening ? (
+                  "Sharpening — closest call first"
+                ) : (
+                  <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <span className="flex shrink-0 items-baseline gap-x-1.5 whitespace-nowrap">
+                      <span aria-hidden="true">Settling ·</span>
+                      <span className="font-display text-xl leading-none tracking-wide text-gold sm:text-2xl">
+                        {doneVotes}
+                      </span>
+                      of ~
+                      <span className="font-display text-xl leading-none tracking-wide text-gold sm:text-2xl">
+                        {estTotal}
+                      </span>
+                      votes
+                    </span>
+                    {closePairs > 0 && (
+                      <span className="shrink-0 rounded-full bg-surface-raised px-2.5 py-0.5 text-xs ring-1 ring-white/10">
+                        {closePairs} too close to call
+                      </span>
+                    )}
+                    {remainingVotes >= ESTIMATE_HINT_THRESHOLD &&
+                      " — finish anytime"}
+                  </span>
+                )}
               </p>
               <button
                 type="button"
@@ -764,12 +791,17 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               </button>
             </div>
           </div>
-          <MatchupStage
-            pair={pair}
-            settlingLoserId={settlingLoserId}
-            onVote={handleVote}
-            onPark={(id) => handleParkToggle(id, true)}
-          />
+          <div className="relative flex-1">
+            {/* Premiere Night stage lighting: static low-intensity curtain
+                vocabulary (spotlight + vignette) behind the matchup pair. */}
+            <div aria-hidden="true" className="stage-spotlight pointer-events-none absolute -inset-x-6 inset-y-0" />
+            <MatchupStage
+              pair={pair}
+              settlingLoserId={settlingLoserId}
+              onVote={handleVote}
+              onPark={(id) => handleParkToggle(id, true)}
+            />
+          </div>
         </section>
       ) : null}
 
