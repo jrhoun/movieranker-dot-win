@@ -44,6 +44,18 @@ export function parseDescription(raw: unknown): DescriptionResult {
   return { ok: true, value: trimmed === "" ? null : trimmed };
 }
 
+export type Visibility = "unlisted" | "public" | "private";
+
+/** Optional list visibility; defaults to 'unlisted'. */
+export function parseVisibility(
+  raw: unknown,
+): { ok: true; value: Visibility } | { ok: false; error: string } {
+  if (raw === undefined) return { ok: true, value: "unlisted" };
+  if (raw === "unlisted" || raw === "public" || raw === "private")
+    return { ok: true, value: raw };
+  return { ok: false, error: "visibility must be 'unlisted', 'public' or 'private'" };
+}
+
 /**
  * Returns the list id if visible+owned by the caller (RLS hides other owners'
  * rows), else null. Used as an ownership precheck for PATCH/DELETE.

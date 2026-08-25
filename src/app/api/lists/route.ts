@@ -6,6 +6,7 @@ import {
   fullMovieRow,
   invalid,
   parseDescription,
+  parseVisibility,
   type MovieInput,
 } from "@/lib/lists-api";
 
@@ -14,6 +15,7 @@ interface PostBody {
   description?: unknown;
   participants?: unknown;
   status?: unknown;
+  visibility?: unknown;
   movies?: unknown;
 }
 
@@ -37,6 +39,8 @@ export async function POST(request: Request) {
   const description = parsed.value;
   if (status !== "draft" && status !== "done")
     return invalid("status must be 'draft' or 'done'");
+  const visibility = parseVisibility(body.visibility);
+  if (!visibility.ok) return invalid(visibility.error);
   if (!Array.isArray(participants) || participants.some((p) => typeof p !== "string"))
     return invalid("participants must be an array of strings");
   // Reject malformed numeric/string fields before they reach the DB insert.
@@ -67,6 +71,16 @@ export async function POST(request: Request) {
     p_movies: (movies as MovieInput[]).map((m) => fullMovieRow(m, id)),
   });
   if (error) return dbErrorResponse(error);
+
+  // Visibility is a follow-up owner update so live DBs only need the ALTER —
+  // no save_list signature change to re-run.
+  if (visibility.value !== "unlisted") {
+    const { error: visError } = await supabase
+      .from("lists")
+      .update({ visibility: visibility.value })
+      .eq("id", id);
+    if (visError) return dbErrorResponse(visError);
+  }
 
   return NextResponse.json({ id }, { status: 201 });
 }

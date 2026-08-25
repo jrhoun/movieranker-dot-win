@@ -15,14 +15,35 @@ export interface ListCardData {
   posters: { title: string; posterPath: string | null }[];
   /** TMDB ids, best first (proposals submit the top 8). */
   movieIds?: number[];
+  /** Owner-only sharing scope; defaults to unlisted when absent. */
+  visibility?: "unlisted" | "public" | "private";
 }
 
 const btn =
   "min-h-11 flex-1 rounded px-3 text-sm font-medium transition-all duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50";
 
+const VISIBILITY_OPTIONS = [
+  {
+    value: "unlisted",
+    label: "Unlisted",
+    title: "Only people with the link can see this list.",
+  },
+  {
+    value: "public",
+    label: "Public",
+    title: "Anyone on movieranker.win can view this list.",
+  },
+  {
+    value: "private",
+    label: "Private",
+    title: "Only you can see this list, even when finished.",
+  },
+] as const;
+
 export default function ListCard({ list }: { list: ListCardData }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [visibility, setVisibility] = useState(list.visibility ?? "unlisted");
   const [proposeOpen, setProposeOpen] = useState(false);
   const [pTitle, setPTitle] = useState(list.title.slice(0, 80));
   const [pBlurb, setPBlurb] = useState("");
@@ -70,6 +91,24 @@ export default function ListCard({ list }: { list: ListCardData }) {
     setPNote(null);
   }
 
+  async function changeVisibility(value: (typeof VISIBILITY_OPTIONS)[number]["value"]) {
+    if (value === visibility) return;
+    const previous = visibility;
+    setVisibility(value);
+    let res: Response;
+    try {
+      res = await fetch(`/api/lists/${list.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visibility: value }),
+      });
+    } catch {
+      setVisibility(previous);
+      return;
+    }
+    if (!res.ok) setVisibility(previous);
+  }
+
   const isDraft = list.status === "draft";
   const href = isDraft ? `/r/play?id=${list.id}` : `/l/${list.id}`;
   const date = new Date(list.createdAt).toLocaleDateString("en-US", {
@@ -112,6 +151,30 @@ export default function ListCard({ list }: { list: ListCardData }) {
             </span>
             {date}
           </p>
+        </div>
+        {/* Per-list visibility: quiet segmented control, owner-only surface. */}
+        <div
+          role="radiogroup"
+          aria-label={`Visibility for ${list.title}`}
+          className="flex overflow-hidden rounded ring-1 ring-white/15"
+        >
+          {VISIBILITY_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              role="radio"
+              aria-checked={visibility === opt.value}
+              title={opt.title}
+              onClick={() => void changeVisibility(opt.value)}
+              className={`min-h-9 flex-1 px-1 text-xs transition-colors duration-200 ease-out focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${
+                visibility === opt.value
+                  ? "bg-gold/15 font-semibold text-gold"
+                  : "text-muted hover:bg-white/5"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
         <div className="flex gap-2">
           <Link

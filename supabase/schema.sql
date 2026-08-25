@@ -18,15 +18,24 @@ create table list_movies (
 );
 create unique index list_movies_list_tmdb_unique on list_movies (list_id, tmdb_id);
 alter table lists add constraint lists_status_check check (status in ('draft','ranking','done'));
+-- List visibility: unlisted (default; direct link only), public, private (owner-only even when done).
+alter table lists add column if not exists visibility text not null default 'unlisted'
+  check (visibility in ('unlisted','public','private'));
 alter table lists enable row level security;
 create policy "owner all" on lists for all using (auth.uid() = owner_id);
 alter table list_movies enable row level security;
 create policy "owner via list" on list_movies for all using (
   exists (select 1 from lists l where l.id = list_id and l.owner_id = auth.uid())
 );
-create policy "anyone reads done lists" on lists for select using (status = 'done');
+-- Private done lists stay owner-only; unlisted/public done lists are readable by link.
+create policy "anyone reads done lists" on lists for select using (
+  status = 'done' and visibility in ('unlisted','public')
+);
 create policy "anyone reads done movies" on list_movies for select using (
-  exists (select 1 from lists l where l.id = list_id and l.status = 'done')
+  exists (
+    select 1 from lists l
+    where l.id = list_id and l.status = 'done' and l.visibility in ('unlisted','public')
+  )
 );
 
 -- Atomic list creation: inserts the list and its movies in one transaction.
@@ -61,6 +70,17 @@ $$;
 -- For existing databases:
 -- ALTER TABLE lists ADD COLUMN description text;
 -- Then re-run the save_list RPC above (drop/recreate) so POSTs can set it.
+--
+-- Profile Era v0 — list visibility. Run each statement once (see upgrade-1.sql):
+-- ALTER TABLE lists ADD COLUMN IF NOT EXISTS visibility text NOT NULL DEFAULT 'unlisted'
+--   CHECK (visibility IN ('unlisted','public','private'));
+-- DROP POLICY IF EXISTS "anyone reads done lists" ON lists;
+-- CREATE POLICY "anyone reads done lists" ON lists FOR SELECT USING (
+--   status = 'done' AND visibility IN ('unlisted','public'));
+-- DROP POLICY IF EXISTS "anyone reads done movies" ON list_movies;
+-- CREATE POLICY "anyone reads done movies" ON list_movies FOR SELECT USING (
+--   EXISTS (SELECT 1 FROM lists l WHERE l.id = list_id AND l.status = 'done'
+--     AND l.visibility IN ('unlisted','public')));
 
 -- Community theme proposals for "Tonight's Shortlist" (added after v1).
 -- Safe to run on existing databases: brand-new table + policies, no ALTERs.

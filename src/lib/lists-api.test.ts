@@ -42,7 +42,7 @@ function makeDb(
   return { client, calls };
 }
 
-const { fetchResumableList } = await import("./lists-api");
+const { fetchResumableList, parseVisibility } = await import("./lists-api");
 
 beforeEach(() => {
   currentDb = makeDb();
@@ -106,5 +106,19 @@ describe("fetchResumableList", () => {
     expect(await fetchResumableList(currentDb.client, "abc123")).toBeNull();
     // and it never queries movies in that case
     expect(currentDb.calls.some((c) => c.table === "list_movies")).toBe(false);
+  });
+});
+
+describe("parseVisibility", () => {
+  it("accepts the enum and defaults missing to unlisted", () => {
+    expect(parseVisibility(undefined)).toEqual({ ok: true, value: "unlisted" });
+    expect(parseVisibility("public")).toEqual({ ok: true, value: "public" });
+    expect(parseVisibility("private")).toEqual({ ok: true, value: "private" });
+  });
+
+  it("rejects non-enum values", () => {
+    expect(parseVisibility("secret").ok).toBe(false);
+    expect(parseVisibility(null)!.ok).toBe(false);
+    expect(parseVisibility(1)!.ok).toBe(false);
   });
 });

@@ -6,6 +6,7 @@ import {
   invalid,
   ownedListId,
   parseDescription,
+  parseVisibility,
   type MovieInput,
 } from "@/lib/lists-api";
 
@@ -14,6 +15,7 @@ interface PatchBody {
   description?: unknown;
   participants?: unknown;
   status?: unknown;
+  visibility?: unknown;
   movies?: unknown;
 }
 
@@ -71,6 +73,11 @@ export async function PATCH(
     if (body.status !== "draft" && body.status !== "done")
       return invalid("status must be 'draft' or 'done'");
     listUpdate.status = body.status;
+  }
+  if (body.visibility !== undefined) {
+    const parsed = parseVisibility(body.visibility);
+    if (!parsed.ok) return invalid(parsed.error);
+    listUpdate.visibility = parsed.value;
   }
 
   if (Object.keys(listUpdate).length > 0) {

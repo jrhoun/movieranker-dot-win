@@ -18,3 +18,14 @@ alter table shortlist_proposals enable row level security;
 create policy "propose own" on shortlist_proposals for insert with check (auth.uid() = proposer_id);
 create policy "read own" on shortlist_proposals for select using (auth.uid() = proposer_id);
 create policy "anyone reads approved" on shortlist_proposals for select using (status = 'approved');
+
+-- 3. Profile Era v0 — list visibility (private done lists become owner-only)
+ALTER TABLE lists ADD COLUMN IF NOT EXISTS visibility text NOT NULL DEFAULT 'unlisted'
+  CHECK (visibility IN ('unlisted','public','private'));
+DROP POLICY IF EXISTS "anyone reads done lists" ON lists;
+CREATE POLICY "anyone reads done lists" ON lists FOR SELECT USING (
+  status = 'done' AND visibility IN ('unlisted','public'));
+DROP POLICY IF EXISTS "anyone reads done movies" ON list_movies;
+CREATE POLICY "anyone reads done movies" ON list_movies FOR SELECT USING (
+  EXISTS (SELECT 1 FROM lists l WHERE l.id = list_id AND l.status = 'done'
+    AND l.visibility IN ('unlisted','public')));
