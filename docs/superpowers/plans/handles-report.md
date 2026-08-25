@@ -172,3 +172,33 @@ Steam-style "pick what to feature": users pin up to 3 unlocked achievements and 
 ## Concerns / follow-ups
 - Attribution display names aren't kept in sync if the owner later edits/removes a participant chip (name edit leaves the old display_name binding until re-claim).
 - The room banner appears even mid-ranking of someone else's draft by design (link-shared); no notification exists yet — joining is purely self-serve.
+
+---
+
+# Versus Mode — report
+
+**Date:** 2026-08-26 · **Status:** built on master · **Commits:** `2b58b7a`, `0e7e283`
+
+## Computation (src/lib/versus.ts, pure + unit-tested)
+- `computeVersus(a, b)`: intersection by tmdbId in A's rank order; `SharedMovie` carries rankA/rankB/delta (=rankB−rankA, negative = B ranked it better).
+- Compatibility = pairwise order agreement % over all C(n,2) pairs of shared movies; rounded. `null` when <2 shared (no pairs to agree on). Rank ties count as disagreement (`ponytail:` note in code — revisit only if users notice).
+- `biggestArguments`: top 5 by |delta| desc (stable sort keeps A-order among equal magnitudes); `onlyInA`/`onlyInB` exclusives; `compatibilityTier` maps ≥90 "Basically twins" / ≥70 "Mostly aligned" / ≥50 "Spicy differences" / else "Opposite ends of the couch".
+- `canCompare(row, viewerId)` is THE access gate: done + public/unlisted for anyone with the link, or owned+done at any visibility. Drafts never comparable. Matches RLS + /l/[id] semantics.
+- `extractListId(raw)`: accepts bare list ids or movieranker `/l/<id>` URLs (any host), rejects everything else.
+
+## Pages
+- `/compare/[a]` picker: server-gated on anchor list comparability; client `ComparePicker` input accepting URL or id, self-compare blocked inline; v1 has no quick-picks (spec: optional polish).
+- `/compare/[a]/[b]`: fetches both lists + movies in two queries; either row missing or failing `canCompare` → styled 404 (`not-found.tsx`). Renders compatibility banner (big Bebas % + tier copy, "No overlap" variant when null), mirrored column heads with @handles (profiles lookup, falls back to "someone"), Biggest arguments (top 5, delta badge + "#A vs #B"), full Head-to-head mirror rows (gold A-rank | poster 2:3 center via existing MoviePoster | title | colored delta arrow ↑gold/↓red/=muted | gold B-rank), Only-in-A / Only-in-B columns, and a "Flip the sides" link to /compare/[b]/[a]. ShareButton shares the compare URL itself.
+
+## Entry point
+- /l/[id]: "Compare with a friend" button next to Share on done lists only → `/compare/<id>`.
+
+## Verification
+- `npm test`: 217 passed (12 new versus tests: full agreement, full reversal, partial 67%, 1-shared null, 0-shared exclusives, intersection-by-tmdbId, top-5 sort, tier boundaries, canCompare access matrix incl. unlisted-stranger/private-owner/drafts, extractListId). `tsc --noEmit` clean, `eslint` clean, `next build` passes (/compare/[a] and /compare/[a]/[b] both ƒ dynamic).
+- DESIGN.md holds: posters always true 2:3 via shared MoviePoster, Bebas display numerals/headings + Geist body, gold/red/muted state colors from tokens, single animate-fade-in-class motion budget untouched, dark-house surface (no curtain behind content).
+- Traffic hygiene: no live calls beyond local build/test; .env.local never read or printed.
+
+## Concerns / follow-ups
+- Spec item 5 said "unlisted accessible only to owner", but items 1–2 and the site's existing model make unlisted done lists link-readable anywhere (RLS + /l/[id]). I implemented link-readable unlisted (matches canCompare tests above). If owner-only unlisted is truly wanted it's a one-line change in canCompare + test update.
+- Pairwise agreement treats equal final_ranks as disagreement; finalizeRanks ties are rare so impact is negligible.
+- Quick-picks of your own other eligible lists were skipped (spec marked optional); the picker accepts pasted URLs/ids only.
