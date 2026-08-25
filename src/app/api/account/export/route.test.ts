@@ -8,6 +8,7 @@ const exportedLists = [
     title: "Best Sci-Fi",
     status: "done",
     list_movies: [{ title: "Alien", tmdb_id: 348 }],
+    participant_attributions: [{ display_name: "Ana", user_id: "u-2" }],
   },
 ];
 
@@ -69,6 +70,10 @@ describe("GET /api/account/export", () => {
     expect(new Date(body.exported_at).toString()).not.toBe("Invalid Date");
     expect(body.lists).toEqual(exportedLists);
     expect(body.lists[0].list_movies[0]).toMatchObject({ tmdb_id: 348 });
+    // Real Participants: attributions ride along in the export.
+    expect(body.lists[0].participant_attributions).toEqual([
+      { display_name: "Ana", user_id: "u-2" },
+    ]);
   });
 
   it("exports an empty lists array for a user with no lists", async () => {

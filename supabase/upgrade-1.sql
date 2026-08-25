@@ -45,3 +45,32 @@ create policy "write own" on profiles for all
 -- 5. Profile showcase curation (pinned achievements max 3 + one featured ranking).
 -- Shape: { "achievementKeys": ["first_premiere"], "favoriteListId": "abc" }.
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS showcase jsonb NOT NULL DEFAULT '{}';
+
+-- 6. Real Participants — account-to-participant-chip attributions. Brand-new
+-- table + policies, no ALTERs. Run once (see schema.sql canonical block).
+create table if not exists participant_attributions (
+  id bigint generated always as identity primary key,
+  list_id text not null references lists(id) on delete cascade,
+  display_name text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (list_id, user_id)
+);
+alter table participant_attributions enable row level security;
+create policy "claim own on readable lists" on participant_attributions for insert
+  with check (
+    auth.uid() = user_id and exists (
+      select 1 from lists l where l.id = list_id
+        and (l.owner_id = auth.uid()
+             or (l.status = 'done' and l.visibility in ('unlisted','public')))
+    )
+  );
+create policy "read via list" on participant_attributions for select using (
+  exists (
+    select 1 from lists l where l.id = list_id
+      and (l.owner_id = auth.uid()
+           or (l.status = 'done' and l.visibility in ('unlisted','public')))
+  )
+);
+create policy "remove own claim" on participant_attributions for delete
+  using (auth.uid() = user_id);

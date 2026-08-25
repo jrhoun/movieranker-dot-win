@@ -10,6 +10,7 @@ export const LIMITS = {
   // Handle claims: attempt-based, counts failures AND successes so
   // brute-force enumeration of handle variants is expensive.
   claimHandle: { limit: 5, windowMs: 3_600_000 }, // POST /api/profile
+  claimParticipant: { limit: 10, windowMs: 60_000 }, // POST/DELETE participant claims
 } as const;
 
 const buckets = new Map<string, number[]>();

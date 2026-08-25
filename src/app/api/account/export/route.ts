@@ -11,7 +11,7 @@ export async function GET() {
 
   const { data: lists, error } = await supabase
     .from("lists")
-    .select("*,list_movies(*)");
+    .select("*,list_movies(*),participant_attributions(*)");
   if (error) return dbErrorResponse(error);
 
   const body = JSON.stringify({

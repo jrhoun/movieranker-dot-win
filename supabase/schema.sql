@@ -103,6 +103,36 @@ create policy "anyone reads approved" on shortlist_proposals for select
 -- Approve/reject happens via /api/admin/proposals (OWNER_EMAIL-gated, server-side);
 -- no SQL policy grants updates.
 
+-- Real Participants (#5): links a signed-in user to a participant chip.
+-- One attribution per user per list (unique). RLS insert mirrors the lists
+-- read policy: drafts = owner only, done+unlisted/public = anyone with the link.
+create table participant_attributions (
+  id bigint generated always as identity primary key,
+  list_id text not null references lists(id) on delete cascade,
+  display_name text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (list_id, user_id)
+);
+alter table participant_attributions enable row level security;
+create policy "claim own on readable lists" on participant_attributions for insert
+  with check (
+    auth.uid() = user_id and exists (
+      select 1 from lists l where l.id = list_id
+        and (l.owner_id = auth.uid()
+             or (l.status = 'done' and l.visibility in ('unlisted','public')))
+    )
+  );
+create policy "read via list" on participant_attributions for select using (
+  exists (
+    select 1 from lists l where l.id = list_id
+      and (l.owner_id = auth.uid()
+           or (l.status = 'done' and l.visibility in ('unlisted','public')))
+  )
+);
+create policy "remove own claim" on participant_attributions for delete
+  using (auth.uid() = user_id);
+
 -- Profile handles ("Premiere Night" profiles). New table — no ALTERs, so this
 -- block is safe to run on existing databases (run once; see upgrade-1.sql §4).
 create table profiles (
