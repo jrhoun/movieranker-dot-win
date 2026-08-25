@@ -12,11 +12,13 @@ export default async function Page() {
   let title = "";
   let blurb = "";
   let credits: TmdbMovieCredit[] = [];
+  let proposedBy: string | null = null;
   let activity: ThemeCommunityActivity = { count: 0, previews: [] };
   try {
     const { theme, movieIds, activity: a } = await getTonightsShortlist();
     title = theme.title;
     blurb = theme.blurb;
+    proposedBy = theme.proposedBy;
     activity = a;
     credits = (
       await Promise.all(movieIds.map((id) => getMovieById(id)))
@@ -31,6 +33,7 @@ export default async function Page() {
         title,
         blurb,
         movies: credits,
+        proposedBy,
         settledCount: activity.count,
         previews: activity.previews,
       }}

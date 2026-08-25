@@ -17,6 +17,8 @@ export interface TonightStrip {
   title: string;
   blurb: string;
   movies: TmdbMovieCredit[];
+  /** Proposer's public handle when tonight's theme is a community proposal. */
+  proposedBy: string | null;
   /** Done lists sharing >=3 movies with tonight's theme (0 = show nothing). */
   settledCount: number;
   previews: { id: string; title: string }[];
@@ -307,8 +309,13 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
           {tonight.title}
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-center text-sm text-muted">{tonight.blurb}</p>
-        {/* Real community activity only — no fake social proof: the stats line
-            and preview row render only when matching done lists exist. */}
+        {/* Proposal credit + real community activity (no fake social proof:
+            both lines render only when the data actually exists). */}
+        {tonight.proposedBy && (
+          <p className="mt-1 text-center text-xs text-muted">
+            Proposed by <span className="font-medium text-gold">@{tonight.proposedBy}</span>
+          </p>
+        )}
         {tonight.settledCount > 0 && (
           <p className="mt-1 text-center text-xs text-muted" data-testid="settled-count">
             {tonight.settledCount} ranking{tonight.settledCount === 1 ? "" : "s"} already

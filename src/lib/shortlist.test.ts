@@ -47,6 +47,8 @@ describe("tonightsShortlist", () => {
       blurb: "",
       movieIds: [1, 2, 3, 4, 5, 6],
       source: "community" as const,
+      proposalId: "x",
+      proposedBy: "cinephile92",
     },
   ];
 
@@ -77,6 +79,37 @@ describe("tonightsShortlist", () => {
     const a = tonightsShortlist([], d(0 * DAY))!.slug;
     const b = tonightsShortlist([], d(SHORTLIST_THEMES.length * DAY))!.slug;
     expect(a).toBe(b);
+  });
+
+  it("tags curated themes with no proposal id or proposer", () => {
+    const picked = tonightsShortlist(proposals, d(0 * DAY));
+    if (picked!.source === "curated") {
+      expect(picked!.proposalId).toBeNull();
+      expect(picked!.proposedBy).toBeNull();
+    }
+    // and at least one curated day exists across the rotation
+    const curated = Array.from({ length: SHORTLIST_THEMES.length + proposals.length }, (_, i) =>
+      tonightsShortlist(proposals, d(i * DAY)),
+    ).filter((t) => t!.source === "curated");
+    expect(curated.length).toBeGreaterThan(0);
+    for (const t of curated) {
+      expect(t!.proposalId).toBeNull();
+      expect(t!.proposedBy).toBeNull();
+    }
+  });
+
+  it("tags community picks with their proposal id and proposer handle", () => {
+    const total = SHORTLIST_THEMES.length + proposals.length;
+    let sawCommunity = false;
+    for (let i = 0; i < total; i++) {
+      const picked = tonightsShortlist(proposals, d(i * DAY))!;
+      if (picked.source === "community") {
+        sawCommunity = true;
+        expect(picked.proposalId).toBe("x");
+        expect(picked.proposedBy).toBe("cinephile92");
+      }
+    }
+    expect(sawCommunity).toBe(true);
   });
 });
 

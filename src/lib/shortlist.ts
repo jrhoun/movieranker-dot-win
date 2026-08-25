@@ -10,6 +10,10 @@ import { SHORTLIST_THEMES, type ShortlistTheme } from "./shortlist-themes";
 
 export type ShortlistEntry = ShortlistTheme & {
   source: "curated" | "community";
+  /** Approved-proposal id when sourced from the community; null for curated. */
+  proposalId: string | null;
+  /** Proposer's public profile handle, when known; never a private handle. */
+  proposedBy: string | null;
 };
 
 /** Whole UTC days since 1970-01-01 — stable regardless of local timezone. */
@@ -32,7 +36,12 @@ export function tonightsShortlist(
   date: Date = new Date(),
 ): ShortlistEntry | undefined {
   const pool = [
-    ...SHORTLIST_THEMES.map((t) => ({ ...t, source: "curated" as const })),
+    ...SHORTLIST_THEMES.map((t) => ({
+      ...t,
+      source: "curated" as const,
+      proposalId: null,
+      proposedBy: null,
+    })),
     ...proposals,
   ];
   return pickTonightsEntry(pool, daysSinceUtcEpoch(date));
@@ -56,9 +65,28 @@ export const getApprovedProposals = unstable_cache(
       // curated-only (e.g. schema not yet re-run on live DB).
       const { data } = await db
         .from("shortlist_proposals")
-        .select("id,title,blurb,movie_ids")
+        .select("id,title,blurb,movie_ids,proposer_id")
         .eq("status", "approved");
-      return ((data ?? []) as Record<string, unknown>[])
+      const rows = (data ?? []) as Record<string, unknown>[];
+      // Credit handles: one batched lookup of proposer profiles; only PUBLIC
+      // profiles surface (missing/private -> no credit). Failures omit credit.
+      let handles = new Map<string, string>();
+      const proposerIds = [
+        ...new Set(
+          rows.map((r) => r.proposer_id).filter((v): v is string => typeof v === "string"),
+        ),
+      ];
+      if (proposerIds.length > 0) {
+        const { data: profs } = await db
+          .from("profiles")
+          .select("id,handle")
+          .in("id", proposerIds)
+          .eq("visibility", "public");
+        handles = new Map(
+          ((profs ?? []) as { id: string; handle: string }[]).map((p) => [p.id, p.handle]),
+        );
+      }
+      return rows
         .filter((r) => Array.isArray(r.movie_ids))
         .map((r) => ({
           slug: `community-${String(r.id)}`,
@@ -68,6 +96,11 @@ export const getApprovedProposals = unstable_cache(
             (v): v is number => Number.isInteger(v),
           ),
           source: "community" as const,
+          proposalId: String(r.id),
+          proposedBy:
+            typeof r.proposer_id === "string"
+              ? (handles.get(r.proposer_id) ?? null)
+              : null,
         }));
     } catch {
       return [];
