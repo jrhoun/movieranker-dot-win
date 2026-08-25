@@ -12,6 +12,7 @@ import {
   closeCallProgress,
   countClosePairs,
   estimateRemainingVotes,
+  expectedConsensusVotes,
   finalizeRanks,
   isStable,
   recordMatchupResult,
@@ -393,9 +394,12 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   const canUndo = !!session.undoSnapshot && settlingLoserId === null;
   const canSharpen = !!selectNextPair(session, true);
   const remainingVotes = estimateRemainingVotes(active);
-  // Honest convergence: share of votes cast vs. votes still estimated to remain.
   const doneVotes = Math.round(totalComparisons(session) / 2);
-  const pct = Math.min(100, Math.round((doneVotes / (doneVotes + remainingVotes)) * 100));
+  // Honest bar: share of the empirically expected votes-to-consensus cast.
+  // The old done/(done+closePairs*2) shape asymptoted near ~70% because every
+  // adjacent gap stays inside Sharpen's comfort band at K=32, so "remaining"
+  // never shrank. Capped at 99% — only stability itself is 100%.
+  const pct = Math.min(99, Math.round((doneVotes / Math.max(1, expectedConsensusVotes(active.length))) * 100));
 
   return (
     <main className="mx-auto flex min-h-dvh w-full flex-col">

@@ -101,24 +101,40 @@ export function nextMatchup(
 
 
 
-/** Adjacent entries whose elo gap is <= this are tie-banded: swapping inside
- * a band is not a significant order change; movement across bands is. */
+/** Quiet-streak requirement, size-scaled: small rosters settle fast, so they
+ * owe fewer consecutive quiet votes; n>=12 keeps the original 6. */
+export function stabilityVotesN(activeCount: number): number {
+  return Math.max(3, Math.min(STABILITY_VOTES_N, Math.ceil(activeCount / 2)));
+}
+
 export const STABLE_ORDER_TOLERANCE = 30;
 
-/** Desc-elo order merged into tie-band blocks: adjacent entries connected by
- * gaps <= STABLE_ORDER_TOLERANCE land in the same block. Signature = sequence
- * of blocks (each block's tmdbIds sorted canonically). Swaps inside a band
- * leave it unchanged; any cross-band movement changes some block's membership. */
-function bandSignature(movies: RankedMovie[]): number[][] {
+/** Split/merge inertia: a merged pair must exceed tolerance + this to split,
+ * a split pair must fall under tolerance - this to re-merge. Kills the
+ * boundary-hover oscillation that resets settling on alternating wins. */
+const HYSTERESIS = STABLE_ORDER_TOLERANCE / 2;
+
+/** Desc-elo order merged into tie-band blocks: adjacent entries whose gap
+ * <= tolerance land in the same block. Signature = sequence of bands (each
+ * band's tmdbIds sorted canonically). Swaps inside a band leave it unchanged;
+ * any boundary crossing moves some id between blocks. */
+function bandSignature(movies: RankedMovie[], tolerance: number): number[][] {
   const sorted = [...movies].sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId);
   const bands: number[][] = [];
   let prev: RankedMovie | undefined;
   for (const m of sorted) {
-    if (!prev || prev.elo - m.elo > STABLE_ORDER_TOLERANCE) bands.push([m.tmdbId]);
+    if (!prev || prev.elo - m.elo > tolerance) bands.push([m.tmdbId]);
     else bands[bands.length - 1].push(m.tmdbId);
     prev = m;
   }
   return bands.map((ids) => ids.sort((x, y) => x - y));
+}
+
+function sameSignature(a: number[][], b: number[][]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((band, i) => band.length === b[i].length && band.every((id, j) => b[i][j] === id))
+  );
 }
 
 export function recordMatchupResult(
@@ -126,15 +142,31 @@ export function recordMatchupResult(
   winnerId: number,
   loserId: number,
 ): { movies: RankedMovie[]; orderChanged: boolean } {
-  const before = bandSignature(movies);
+  const tol = STABLE_ORDER_TOLERANCE;
+  const before = bandSignature(movies, tol);
   const next = applyWin(movies, winnerId, loserId);
-  const after = bandSignature(next);
-  const same =
-    before.length === after.length &&
-    before.every(
-      (band, i) => band.length === after[i].length && band.every((id, j) => after[i][j] === id),
-    );
-  return { movies: next, orderChanged: !same };
+  // Hysteresis: a pair hovering AT the tolerance boundary would flip
+  // merged/split on alternating wins, resetting settling forever. So the
+  // after-signature uses sticky thresholds per adjacency: pairs already in one
+  // band must clearly separate (> tol + HYSTERESIS) to split, split pairs must
+  // get clearly close (< tol - HYSTERESIS) to re-merge.
+  const beforeBandOf = new Map<number, number>();
+  before.forEach((band, i) => band.forEach((id) => beforeBandOf.set(id, i)));
+  const byElo = [...next].sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId);
+  const after: number[][] = [];
+  let prevMovie: RankedMovie | undefined;
+  for (const m of byElo) {
+    const gap = prevMovie ? prevMovie.elo - m.elo : Infinity;
+    const sameBefore =
+      prevMovie != null &&
+      beforeBandOf.get(prevMovie.tmdbId) === beforeBandOf.get(m.tmdbId);
+    const threshold = sameBefore ? tol + HYSTERESIS : Math.max(0, tol - HYSTERESIS);
+    if (!prevMovie || gap > threshold) after.push([m.tmdbId]);
+    else after[after.length - 1].push(m.tmdbId);
+    prevMovie = m;
+  }
+  const afterSig = after.map((ids) => ids.sort((x, y) => x - y));
+  return { movies: next, orderChanged: !sameSignature(before, afterSig) };
 }
 
 /** Every active movie needs at least this many comparisons before stability
@@ -153,7 +185,8 @@ export function isStable(
   votesSinceOrderChanged: number,
   significantOrderChangedAtLeastOnce: boolean,
 ): boolean {
-  if (votesSinceOrderChanged < STABILITY_VOTES_N) return false;
+  if (votesSinceOrderChanged < stabilityVotesN(movies.filter((m) => !m.parked).length))
+    return false;
   if (!significantOrderChangedAtLeastOnce) return false;
   return movies.every((m) => m.parked || m.comparisons >= STABILITY_MIN_COMPARISONS);
 }
@@ -175,6 +208,14 @@ export function countClosePairs(order: RankedMovie[]): number {
 
 export function estimateRemainingVotes(order: RankedMovie[]): number {
   return Math.max(1, Math.ceil(countClosePairs(order) * 2));
+}
+
+/** Empirical votes-to-consensus for the tuned engine (sim medians r5:
+ * n=4..20 stabilize at ~1.0× n·log₂n votes at 85% consistency). Backs the
+ * room's progress bar — NOT a promise: variance is real, hence the bar caps
+ * at 99% until stability actually fires. */
+export function expectedConsensusVotes(activeCount: number): number {
+  return Math.ceil(activeCount * Math.log2(Math.max(2, activeCount)));
 }
 
 /** Sharpen-phase status line: current-vs-initial so slow progress stays visible

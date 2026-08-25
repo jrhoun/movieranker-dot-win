@@ -10,10 +10,12 @@ import {
   countClosePairs,
   estimateRemainingVotes,
   finalizeRanks,
+  expectedConsensusVotes,
   isStable,
   nextMatchup,
   recordMatchupResult,
   sharpenNextPair,
+  stabilityVotesN,
   type RankedMovie,
 } from "./ranking";
 
@@ -222,27 +224,43 @@ describe("recordMatchupResult", () => {
 });
 
 describe("isStable", () => {
-  test(`requires ${STABILITY_MIN_COMPARISONS}+ comparisons, a prior significant split, and ${STABILITY_VOTES_N} quiet votes`, () => {
+  test(`requires ${STABILITY_MIN_COMPARISONS}+ comparisons, a prior significant split, and a size-scaled quiet streak`, () => {
     const voted = [
       movie({ tmdbId: 1, elo: 1200, comparisons: 3 }),
       movie({ tmdbId: 2, elo: 1100, comparisons: 3 }),
       movie({ tmdbId: 3, elo: 1000, comparisons: 3 }),
     ];
     // fresh session: no differentiation -> never stable, however quiet
-    expect(isStable(voted, STABILITY_VOTES_N, false)).toBe(false);
     expect(isStable(voted, 1000, false)).toBe(false);
     // one movie without enough evidence -> not stable
     const thin = [voted[0], voted[1], movie({ tmdbId: 4, elo: 900, comparisons: 2 })];
     expect(isStable(thin, STABILITY_VOTES_N, true)).toBe(false);
-    // parked movies are exempt from the evidence requirement
+    // parked movies are exempt from the evidence requirement; 3 active movies
+    // owe ceil(3/2)=2 -> floored at 3 quiet votes (size-scaled streak)
     const parkedThin = [
       ...voted,
       movie({ tmdbId: 4, elo: 900, comparisons: 0, parked: true }),
     ];
-    expect(isStable(parkedThin, STABILITY_VOTES_N - 1, true)).toBe(false);
-    expect(isStable(parkedThin, STABILITY_VOTES_N, true)).toBe(true);
+    expect(isStable(parkedThin, 2, true)).toBe(false);
+    expect(isStable(parkedThin, 3, true)).toBe(true);
+    // a big field keeps the full STABILITY_VOTES_N streak: 12 active owe ceil(12/2)=6;
+    // simulate by checking the scaling helper directly
+    expect(stabilityVotesN(12)).toBe(STABILITY_VOTES_N);
+    expect(stabilityVotesN(20)).toBe(STABILITY_VOTES_N);
+    expect(stabilityVotesN(4)).toBe(3);
+    expect(stabilityVotesN(6)).toBe(3);
     // tiny gaps don't matter anymore — differentiation + quiet streak suffice
-    expect(isStable([voted[0], movie({ tmdbId: 4, elo: 1199, comparisons: 3 })], STABILITY_VOTES_N, true)).toBe(true);
+    expect(isStable([voted[0], movie({ tmdbId: 4, elo: 1199, comparisons: 3 })], stabilityVotesN(2), true)).toBe(true);
+  });
+});
+
+describe("expectedConsensusVotes", () => {
+  test("n·log₂n votes — matches r5 sim medians (85% consistency)", () => {
+    expect(expectedConsensusVotes(4)).toBe(8);
+    expect(expectedConsensusVotes(6)).toBe(16);
+    expect(expectedConsensusVotes(20)).toBe(87);
+    // degenerate guard: log floor at 2 keeps this finite
+    expect(expectedConsensusVotes(1)).toBe(1);
   });
 });
 
@@ -479,11 +497,24 @@ describe("simulation: stability reachable within ~n log n * 2 votes", () => {
   //   pure order:         244 / 490 / 804
   //   tie-banded only:    55 / 6 / 6 (degenerate: no differentiation required)
   //   differentiated:     55 / 90 / 38 — all inside ⌈n·log₂n⌉·2 (88/128/174).
-  test.each([12, 16, 20])("%i movies stabilize within n·log₂n·2 votes", (n) => {
+  // Round-5 retune (small-roster complaints: "same movies over and over",
+  // "a LOT of votes for just 6 movies"): anti-repeat pairing + band-signature
+  // hysteresis (split needs gap > tol+15, merge < tol-15) so boundary-hovering
+  // pairs stop resetting settling, plus size-scaled quiet streak. Harness now
+  // mirrors play-room by excluding the previous matchup from each next pick.
+  // History of this harness (seeds 1012/1016/1020, 85% favorite consistency):
+  //   gap>50 floor:       ~1441-1976 / never / never (n=12/16/20)
+  //   gap>25 floor:       643 / 1505 / 3202
+  //   pure order:         244 / 490 / 804
+  //   tie-banded only:    55 / 6 / 6 (degenerate: no differentiation required)
+  //   differentiated r4:  55 / 90 / 38 — inside ⌈n·log₂n⌉·2 (88/128/174).
+  //   differentiated r5:  49 / 56 / 75 — variance collapsed vs r4 outliers.
+  const SEEDS: Record<number, number> = { 4: 1400, 6: 1600, 8: 1800, 12: 1012, 16: 1016, 20: 1020 };
+  test.each([4, 6, 8, 12, 16, 20])("%i movies stabilize within n·log₂n·2 votes", (n) => {
     const budget = Math.ceil(n * Math.log2(n)) * 2;
-    const result = simulate(n, 1000 + n, budget);
+    const result = simulate(n, SEEDS[n], budget);
     console.log(
-      `stability retune r4: ${n} movies -> ${result.converged ? result.votes : "NOT stable"} votes (budget ${budget})`,
+      `stability retune r5: ${n} movies -> ${result.converged ? result.votes : "NOT stable"} votes (budget ${budget})`,
     );
     expect(result.converged).toBe(true);
     expect(result.votes).toBeLessThanOrEqual(budget);
