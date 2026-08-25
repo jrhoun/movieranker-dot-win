@@ -97,8 +97,12 @@ export function parkMovie(s: PlaySession, tmdbId: number, parked: boolean): Play
 export function selectNextPair(
   s: PlaySession,
   sharpening: boolean,
+  previousPair?: [RankedMovie, RankedMovie] | null,
 ): [RankedMovie, RankedMovie] | null {
   const active = s.movies.filter((m) => !m.parked);
   if (active.length < 2) return null;
-  return sharpening ? sharpenNextPair(active) : nextMatchup(active);
+  return sharpening
+    ? sharpenNextPair(active)
+    : nextMatchup(active,
+        previousPair ? ([previousPair[0].tmdbId, previousPair[1].tmdbId] as const) : undefined);
 }

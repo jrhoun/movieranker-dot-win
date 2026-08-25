@@ -313,7 +313,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     // loser-bop (180ms) + loser-dim (200ms) run before the next matchup swaps in
     settleTimer.current = setTimeout(() => {
       setSettlingLoserId(null);
-      const p = selectNextPair(next, sharpening);
+      const p = selectNextPair(next, sharpening, pair);
       if (sharpening && !p) setSharpening(false);
       setPair(p);
     }, 400);
@@ -324,7 +324,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     const next = parkMovie(session, tmdbId, toParked);
     setSession(next);
     saveSession(next);
-    const p = selectNextPair(next, sharpening);
+    const p = selectNextPair(next, sharpening, pair);
     if (sharpening && !p) setSharpening(false);
     setPair(p);
   }

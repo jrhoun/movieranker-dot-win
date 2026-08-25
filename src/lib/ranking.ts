@@ -41,7 +41,38 @@ export function applyWin(
   });
 }
 
-export function nextMatchup(movies: RankedMovie[]): [RankedMovie, RankedMovie] {
+/** All unordered pairs of a movie list; each pair ordered lower-elo first
+ * (tmdbId asc on ties) and the list ordered so the first pair is the closest-rated
+ * one — identical choice and tie-breaks as the original adjacent-scan: gap asc,
+ * then the lower movie's (elo, tmdbId). */
+function candidatePairs(list: RankedMovie[]): [RankedMovie, RankedMovie][] {
+  const byElo = [...list].sort((a, b) => a.elo - b.elo || a.tmdbId - b.tmdbId);
+  const pairs: [RankedMovie, RankedMovie][] = [];
+  for (let i = 0; i < byElo.length; i++)
+    for (let j = i + 1; j < byElo.length; j++) pairs.push([byElo[i], byElo[j]]);
+  return pairs.sort(
+    (p, q) =>
+      p[1].elo - p[0].elo - (q[1].elo - q[0].elo) ||
+      p[0].elo - q[0].elo ||
+      p[0].tmdbId - q[0].tmdbId,
+  );
+}
+
+function isPair(pair: [RankedMovie, RankedMovie], ids: readonly [number, number]): boolean {
+  const [x, y] = [pair[0].tmdbId, pair[1].tmdbId];
+  return (x === ids[0] && y === ids[1]) || (x === ids[1] && y === ids[0]);
+}
+
+/** Closest-rated least-compared pair. `previousPair` (tmdbIds, any order) is the
+ * anti-immediate-repeat rule: the exact last matchup is skipped whenever any
+ * alternative exists, so one vote can't leave the same two movies facing off
+ * again. Falls back to the wider roster if the least-compared tier IS the
+ * previous pair; with only two active movies the rematch is unavoidable and
+ * returned as-is. */
+export function nextMatchup(
+  movies: RankedMovie[],
+  previousPair?: readonly [number, number],
+): [RankedMovie, RankedMovie] {
   const active = movies.filter((m) => !m.parked);
   if (active.length < 2) throw new Error("nextMatchup needs at least 2 active movies");
 
@@ -60,13 +91,12 @@ export function nextMatchup(movies: RankedMovie[]): [RankedMovie, RankedMovie] {
     pool = [pool[0], other];
   }
 
-  // closest-rated pair in pool; ties broken by tmdbId ascending via the (elo, tmdbId) sort
-  const sorted = [...pool].sort((a, b) => a.elo - b.elo || a.tmdbId - b.tmdbId);
-  let best = 0;
-  for (let i = 1; i < sorted.length - 1; i++) {
-    if (sorted[i + 1].elo - sorted[i].elo < sorted[best + 1].elo - sorted[best].elo) best = i;
-  }
-  return [sorted[best], sorted[best + 1]];
+  const pairs = candidatePairs(pool);
+  const alternatives = previousPair ? pairs.filter((p) => !isPair(p, previousPair)) : pairs;
+  if (alternatives.length > 0) return alternatives[0];
+  // pool offered only the previous pair — widen to the whole roster
+  const wide = previousPair ? candidatePairs(active).filter((p) => !isPair(p, previousPair)) : [];
+  return wide[0] ?? pairs[0];
 }
 
 

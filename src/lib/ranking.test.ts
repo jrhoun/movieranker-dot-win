@@ -140,6 +140,44 @@ describe("nextMatchup", () => {
     const [a, b] = nextMatchup(movies);
     expect([a.tmdbId, b.tmdbId]).toEqual([1, 3]);
   });
+
+  describe("anti-immediate-repeat (previousPair)", () => {
+    const roster = [
+      movie({ tmdbId: 1, elo: 1000 }),
+      movie({ tmdbId: 2, elo: 1005 }),
+      movie({ tmdbId: 3, elo: 1012 }),
+    ];
+
+    test("skips the exact previous matchup when an alternative exists", () => {
+      // closest pair is 1&2; excluding it must yield the next-closest, 2&3
+      expect(nextMatchup(roster, [1, 2]).map((m) => m.tmdbId)).toEqual([2, 3]);
+    });
+
+    test("previousPair order does not matter", () => {
+      expect(nextMatchup(roster, [2, 1]).map((m) => m.tmdbId)).toEqual([2, 3]);
+    });
+
+    test("returns the rematch when only two active movies exist", () => {
+      const two = [roster[0], roster[1]];
+      expect(nextMatchup(two, [1, 2]).map((m) => m.tmdbId)).toEqual([1, 2]);
+    });
+
+    test("widens past the least-compared tier when it IS the previous pair", () => {
+      // least-compared tier is exactly {1,2} = last matchup -> fall back to the
+      // full roster and pick the closest pair that isn't {1,2}
+      const tiered = [
+        movie({ tmdbId: 1, elo: 1000, comparisons: 0 }),
+        movie({ tmdbId: 2, elo: 1004, comparisons: 0 }),
+        movie({ tmdbId: 3, elo: 1008, comparisons: 1 }),
+        movie({ tmdbId: 4, elo: 1200, comparisons: 1 }),
+      ];
+      expect(nextMatchup(tiered, [2, 1]).map((m) => m.tmdbId)).toEqual([2, 3]);
+    });
+
+    test("undefined previousPair keeps plain behavior", () => {
+      expect(nextMatchup(roster).map((m) => m.tmdbId)).toEqual([1, 2]);
+    });
+  });
 });
 
 describe("recordMatchupResult", () => {
@@ -395,7 +433,8 @@ describe("simulation: stability reachable within ~n log n * 2 votes", () => {
     };
   }
 
-  /** Vote with the engine's own pairing until isStable fires; returns vote count. */
+  /** Vote with the engine's own pairing until isStable fires; returns vote count.
+   * Mirrors play-room: each vote excludes the just-voted pair from the next pick. */
   function simulate(n: number, seed: number, maxVotes: number): { converged: boolean; votes: number } {
     const rand = rng(seed);
     const strength = Array.from({ length: n }, () => rand());
@@ -403,8 +442,9 @@ describe("simulation: stability reachable within ~n log n * 2 votes", () => {
     let votesSinceOrderChange = 0;
     let significantOnce = false;
     let votes = 0;
+    let prevIds: [number, number] | undefined;
     while (votes < maxVotes) {
-      const [a, b] = nextMatchup(movies);
+      const [a, b] = nextMatchup(movies, prevIds);
       const favoriteWins = rand() < 0.85;
       const favorite = strength[a.tmdbId - 1] > strength[b.tmdbId - 1] ? a : b;
       const underdog = favorite === a ? b : a;
@@ -412,6 +452,7 @@ describe("simulation: stability reachable within ~n log n * 2 votes", () => {
       const loser = winner === a ? b : a;
       const result = recordMatchupResult(movies, winner.tmdbId, loser.tmdbId);
       movies = result.movies;
+      prevIds = [a.tmdbId, b.tmdbId];
       if (result.orderChanged) {
         votesSinceOrderChange = 0;
         significantOnce = true;
