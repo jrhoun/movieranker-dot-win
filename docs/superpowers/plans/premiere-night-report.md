@@ -276,3 +276,46 @@ Commits: f62333945d61931d51ddd94769b98e7d70184dc1 (design: identity dropdown nav
 - Row visibility control is a native select styled as a chip — OS renders the option list; swap for a custom popover only if contrast complaints arrive.
 - Achievements/unlockable descriptions now live in tooltips (title attr) — touch users lose the long text; acceptable for v1 info-only strips.
 - 8+ lists visible at 1440px depends on viewport height (~800px fits stats pair + ~7–9 rows); further compression would mean shrinking below 44px targets.
+
+## Session: participant-add condense + english poster preference (master)
+
+### Fix 1 — Candidate tray add control condensed
+- `src/components/CandidateTray.tsx`: "Add a name…" input changed `flex-1` → `w-44`, so input + "+ Add" read as one tight unit (form already had `flex items-center gap-2`). Chips, helper line, Enter-to-add untouched.
+
+### Fix 2 — English-language poster art
+- `src/lib/tmdb.ts`: new pure `pickPoster(posters[], primaryPath)` (first `iso_639_1 === "en"`, else first `iso_639_1 == null`, else primary) and `getPreferredPosterPath(tmdbId, primaryPath)` calling `GET /movie/{id}/images?include_image_language=en,null` with the shared 86400 revalidate; any fetch failure returns primaryPath.
+- Wired in `src/app/(site)/page.tsx`: after tonight's shortlist credits resolve, each credit's `posterPath` is replaced via `getPreferredPosterPath`. No changes to MoviePoster/primitives/constants.
+- Tests: 3 new `pickPoster` cases in `src/lib/tmdb.test.ts` (en preferred; null-language fallback; neither/empty → primary).
+- Deviation from spec: signature takes `(tmdbId, primaryPath)` instead of just `tmdbId` — caller already has primaryPath, avoids a second `/movie/{id}` round-trip per shortlist title.
+
+### Verification
+- npm test: 225 passed (23 files), tsc clean, eslint clean, build passes.
+- Commits: 47c06a8 (fix: condensed participant add control), d3071a4 (feat: prefer english poster art).
+
+### Notes / ceilings
+- No live TMDB validation per traffic hygiene; pickPoster logic covered by unit tests, images endpoint shape is the standard TMDB contract.
+
+## Session: weekly marquee rotation + two-path home restructure (master)
+
+### Rotation: daily → weekly
+- `src/lib/shortlist.ts`: new pure `weeksSinceUtcEpoch(date)` = `Math.floor(daysSinceUtcEpoch(date) / 7)`; `tonightsShortlist` now indexes the pool by week, not day. Week boundaries fall on Thursdays UTC (epoch-aligned), rotation still pure/deterministic/cronless.
+- Copy sweep to "This Week's Marquee" everywhere user-facing: play room chip (`🔒/🔓 This Week's Marquee`), unlock copy ("count as this week's themed list"), list page community verdict lines, profile ListRow proposal prompt. Internal identifiers (`tonightsShortlist`, `TonightStrip`) kept — not user-facing.
+- Tests (`src/lib/shortlist.test.ts`): new `weeksSinceUtcEpoch` cases (stable within a 7-day window, advances on day 7); rotation test now asserts all 7 days of one window pick identically and adjacent windows differ; full-cycle and community-proposal loops iterate weeks.
+
+### Home restructure
+- `src/app/(site)/home-client.tsx`: How-It-Works section + STEPS constant deleted; old dual-path anchor cards and standalone shortlist section deleted.
+- New "CHOOSE YOUR PREMIERE" structure directly under hero (MarqueeHeading h2):
+  - Path A (prominent, gold-ringed surface card): "This week's marquee · rotates weekly" mini-header, Bebas-gold theme title, blurb, movie count with absorbed how-it-works one-liner ("rank them head-to-head until a champion emerges"), proposed-by credit, "N rankings already settled this week", gold "Rank this list 🔒" CTA, preview row + vs links, filmstrip tap-to-add.
+  - Gold rule + ✦ divider between paths.
+  - Path B card: "Build your own list" + "Search any actor, director, studio — settle anything." + SearchPanel rendered inline (#start anchor preserved for hero CTA) + "…then share your ranked wall."
+- Hero unchanged except theme chip line now reads "This week's marquee · {title}".
+- Tray, resume banners, curated-session seeding, fan tap-to-add, bulk add, compare/vs hooks untouched; cards are single-column by default so they stack at 390px; all motion stays motion-safe-gated hover lifts; focus-visible rings preserved.
+
+### Verification
+- npm test: 241 passed (25 files); tsc clean; eslint clean; build passes.
+- Commits: 7aeafd9 (feat: weekly marquee rotation), 7f43df5 (design: two-path home restructure).
+
+### Notes / ceilings
+- No live TMDB/Supabase calls per traffic hygiene; .env.local untouched.
+- Weekly boundary is Thursday-aligned (epoch math) rather than ISO Monday-start weeks; deterministic and tested — switch to ISO week number if Monday alignment ever matters.
+- When the theme fetch fails, Path A is hidden entirely and the page degrades to the search path only (same fallback as before).
