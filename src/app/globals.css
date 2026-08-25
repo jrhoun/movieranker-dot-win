@@ -148,6 +148,32 @@ body {
 }
 .thin-scrollbar::-webkit-scrollbar-track { background: transparent; }
 
+/* Vote settle (DESIGN.md motion budget, single beat): loser bops (scale
+   down-up ~180ms) then fades to ~25% opacity; winner stays full with a subtle
+   gold pulse (~250ms). Reduced motion: instant dim, no bop/pulse. */
+.loser-bop {
+  animation:
+    loser-bop 180ms ease-out forwards,
+    loser-dim 200ms ease-out 180ms forwards;
+}
+@keyframes loser-bop {
+  0% { transform: scale(1); }
+  45% { transform: scale(0.94); }
+  100% { transform: scale(1); }
+}
+@keyframes loser-dim {
+  to { opacity: 0.25; }
+}
+.winner-gold-pulse { animation: winner-gold-pulse 250ms ease-out; }
+@keyframes winner-gold-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 197, 24, 0); }
+  50% { box-shadow: 0 0 18px 2px rgba(245, 197, 24, 0.45); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loser-bop { animation: none; opacity: 0.25; }
+  .winner-gold-pulse { animation: none; }
+}
+
 @keyframes celebrate-beat {
   from { transform: scale(0.94); opacity: 0; }
   to { transform: scale(1); opacity: 1; }

@@ -310,12 +310,13 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     setSession(next);
     saveSession(next);
     setSettlingLoserId(loserId);
+    // loser-bop (180ms) + loser-dim (200ms) run before the next matchup swaps in
     settleTimer.current = setTimeout(() => {
       setSettlingLoserId(null);
       const p = selectNextPair(next, sharpening);
       if (sharpening && !p) setSharpening(false);
       setPair(p);
-    }, 220);
+    }, 400);
   }
 
   function handleParkToggle(tmdbId: number, toParked: boolean) {
@@ -422,10 +423,16 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
                   type="button"
                   onClick={() => setUnlockOpen((v) => !v)}
                   aria-expanded={unlockOpen}
-                  className="min-h-8 rounded px-1.5 text-xs text-muted underline-offset-4 transition-colors duration-200 ease-out hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-accent"
+                  className="min-h-11 rounded bg-surface px-3 text-sm font-medium text-muted ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised"
                 >
                   Unlock
                 </button>
+              )}
+              {session.curated && !finished && (
+                <p className="w-full text-xs font-normal text-muted">
+                  Tonight&apos;s list is locked to its themed movies. Unlocking lets
+                  you add any other movie — but it leaves This Week&apos;s Marquee.
+                </p>
               )}
             </div>
           )}
@@ -649,7 +656,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           <button
             type="button"
             onClick={() => setFinished(false)}
-            className="min-h-11 text-sm text-muted underline-offset-4 transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-accent hover:underline"
+            className="min-h-11 rounded bg-surface px-5 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised"
           >
             Keep voting
           </button>
@@ -747,7 +754,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               <button
                 type="button"
                 onClick={() => setFinished(true)}
-                className="inline-flex min-h-11 shrink-0 items-center text-xs font-medium text-accent underline-offset-4 transition-colors duration-200 ease-out hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:text-sm"
+                className="inline-flex min-h-11 shrink-0 items-center rounded bg-surface px-4 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised"
               >
                 Finish now →
               </button>
