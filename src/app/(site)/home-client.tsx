@@ -10,7 +10,7 @@ import SearchPanel from "@/components/SearchPanel";
 import { FAN_POSTERS } from "@/lib/hero-posters";
 import type { RankedMovie } from "@/lib/ranking";
 import { clearSession, loadSession, saveSession } from "@/lib/session";
-import { mergeCandidates } from "@/lib/tray";
+import { mergeCandidates, removeCandidates } from "@/lib/tray";
 import type { TmdbMovieCredit } from "@/lib/tmdb";
 
 export interface TonightStrip {
@@ -402,6 +402,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
           <SearchPanel
             onPick={toggleCandidate}
             onAddAll={(movies) => setCandidates((prev) => mergeCandidates(prev, movies))}
+            onRemoveAll={(movies) => setCandidates((prev) => removeCandidates(prev, movies))}
             isSelected={(m) => candidates.some((c) => c.tmdbId === m.tmdbId)}
           />
         </div>

@@ -49,7 +49,7 @@ export default function MoviePosterCard({
           ✓
         </span>
       )}
-      <p className={`mt-1.5 truncate text-sm ${selected ? "text-gold" : "text-text"}`}>{movie.title}</p>
+      <p className={`mt-1.5 line-clamp-2 text-sm leading-snug ${selected ? "text-gold" : "text-text"}`}>{movie.title}</p>
       <p className="text-xs text-muted">{movie.releaseYear ?? "—"}</p>
     </button>
   );

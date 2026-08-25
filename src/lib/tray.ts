@@ -11,6 +11,15 @@ export function mergeCandidates(
   );
 }
 
+/** Dedupe-safe batch removal: drops every candidate whose tmdbId appears in incoming. */
+export function removeCandidates(
+  current: TmdbMovieCredit[],
+  incoming: TmdbMovieCredit[],
+): TmdbMovieCredit[] {
+  const gone = new Set(incoming.map((m) => m.tmdbId));
+  return current.filter((c) => !gone.has(c.tmdbId));
+}
+
 /** Inclusive index range between two positions, either order: (0,3)->[0,1,2,3], (4,2)->[2,3,4]. */
 export function rangeIndices(a: number, b: number): number[] {
   const [lo, hi] = a <= b ? [a, b] : [b, a];

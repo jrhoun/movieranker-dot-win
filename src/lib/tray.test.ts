@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeCandidates, parseParticipantNames, rangeIndices } from "./tray";
+import { mergeCandidates, parseParticipantNames, rangeIndices, removeCandidates } from "./tray";
 import type { TmdbMovieCredit } from "@/lib/tmdb";
 
 const movie = (tmdbId: number, title: string): TmdbMovieCredit => ({
@@ -24,6 +24,24 @@ describe("mergeCandidates", () => {
   it("returns an equivalent list when everything is a duplicate", () => {
     const existing = [movie(1, "Alien"), movie(2, "Barbie")];
     expect(mergeCandidates(existing, [movie(1, "Alien")])).toEqual(existing);
+  });
+});
+
+describe("removeCandidates", () => {
+  it("removes every candidate matching incoming tmdbIds", () => {
+    const current = [movie(1, "Alien"), movie(2, "Barbie"), movie(3, "Coco")];
+    expect(removeCandidates(current, [movie(2, "Barbie")]).map((m) => m.tmdbId)).toEqual([1, 3]);
+  });
+
+  it("removes nothing when incoming overlaps no candidates", () => {
+    const current = [movie(1, "Alien")];
+    expect(removeCandidates(current, [movie(9, "Dune")])).toEqual(current);
+  });
+
+  it("dedupes-safe: duplicate ids and empty incoming are fine", () => {
+    const current = [movie(1, "Alien"), movie(2, "Barbie")];
+    expect(removeCandidates(current, [movie(1, "Alien"), movie(1, "Alien")])).toEqual([movie(2, "Barbie")]);
+    expect(removeCandidates(current, [])).toEqual(current);
   });
 });
 

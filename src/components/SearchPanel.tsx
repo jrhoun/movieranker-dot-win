@@ -19,7 +19,7 @@ const TWO_STEP: Partial<Record<Mode, string>> = { person: "people", company: "st
 
 function SkeletonGrid() {
   return (
-    <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
       {Array.from({ length: 12 }, (_, i) => (
         <div key={i} className="animate-pulse">
           <div className="aspect-[2/3] w-full rounded bg-surface" />
@@ -33,10 +33,12 @@ function SkeletonGrid() {
 export default function SearchPanel({
   onPick,
   onAddAll,
+  onRemoveAll,
   isSelected,
 }: {
   onPick: (m: TmdbMovieCredit) => void;
   onAddAll: (movies: TmdbMovieCredit[]) => void;
+  onRemoveAll: (movies: TmdbMovieCredit[]) => void;
   isSelected: (m: TmdbMovieCredit) => boolean;
 }) {
   const [mode, setMode] = useState<Mode>("title");
@@ -235,22 +237,39 @@ export default function SearchPanel({
           </ul>
         ) : showMovies && movies.length > 0 ? (
           <div>
-            {/* results header: "Add all" is a secondary action under the search itself */}
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <p aria-live="polite" className="text-sm text-muted">
-                {movies.length} result{movies.length === 1 ? "" : "s"}
-              </p>
-              <button
-                type="button"
-                onClick={() => onAddAll(movies)}
-                disabled={movies.every(isSelected)}
-                title={movies.every(isSelected) ? "All results are already on your list" : undefined}
-                className="min-h-11 rounded-full bg-surface-raised px-4 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:text-muted"
-              >
-                Add all {movies.length}
-              </button>
-            </div>
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+            {/* results header: "Add all" adds the page; "Clear selection" (only
+                when something here is picked) batch-removes this page's picks */}
+            {(() => {
+              const selectedCount = movies.filter(isSelected).length;
+              return (
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <p aria-live="polite" className="text-sm text-muted">
+                    {movies.length} result{movies.length === 1 ? "" : "s"}
+                  </p>
+                  <div className="flex items-center gap-4">
+                    {selectedCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => onRemoveAll(movies)}
+                        className="min-h-11 text-sm text-accent transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                      >
+                        Clear selection ({selectedCount})
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => onAddAll(movies)}
+                      disabled={selectedCount === movies.length}
+                      title={selectedCount === movies.length ? "All results are already on your list" : undefined}
+                      className="min-h-11 rounded-full bg-surface-raised px-4 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:text-muted"
+                    >
+                      Add all {movies.length}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
               {movies.map((mv, i) => (
                 <MoviePosterCard
                   key={mv.tmdbId}
