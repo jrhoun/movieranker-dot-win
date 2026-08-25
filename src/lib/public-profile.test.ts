@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { shapePublicProfile, type DbPublicList } from "./public-profile";
+import {
+  mergeShowcase,
+  parseShowcase,
+  shapePublicProfile,
+  type DbPublicList,
+} from "./public-profile";
 
 function list(partial: Partial<DbPublicList>): DbPublicList {
   return {
@@ -12,6 +17,41 @@ function list(partial: Partial<DbPublicList>): DbPublicList {
     ...partial,
   };
 }
+
+describe("parseShowcase / mergeShowcase", () => {
+  it("treats null/undefined/'{}' as the empty showcase", () => {
+    expect(parseShowcase(null)).toEqual({ achievementKeys: [], favoriteListId: null });
+    expect(parseShowcase({})).toEqual({ achievementKeys: [], favoriteListId: null });
+  });
+
+  it("rejects invalid stored shapes", () => {
+    expect(parseShowcase(42)).toBeNull();
+    expect(parseShowcase({ achievementKeys: ["nope"] })).toBeNull();
+    expect(parseShowcase({ achievementKeys: ["first_premiere"], favoriteListId: 7 })).toBeNull();
+  });
+
+  it("enforces max-3 and catalog membership on merge", () => {
+    const keys = ["first_premiere", "marathoner", "centurion"];
+    expect(mergeShowcase({}, { achievementKeys: keys })).toEqual({
+      achievementKeys: keys,
+      favoriteListId: null,
+    });
+    expect(mergeShowcase({}, { achievementKeys: [...keys, "marathoner"] })).toBeNull();
+    expect(mergeShowcase({}, { achievementKeys: ["made_up"] })).toBeNull();
+  });
+
+  it("preserves the untouched field on a partial patch", () => {
+    const current = { achievementKeys: ["first_premiere"], favoriteListId: "l1" };
+    expect(mergeShowcase(current, { favoriteListId: null })).toEqual({
+      achievementKeys: ["first_premiere"],
+      favoriteListId: null,
+    });
+    expect(mergeShowcase(current, { achievementKeys: [] })).toEqual({
+      achievementKeys: [],
+      favoriteListId: "l1",
+    });
+  });
+});
 
 describe("shapePublicProfile", () => {
   it("keeps only public done lists", () => {

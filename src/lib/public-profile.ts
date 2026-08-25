@@ -1,6 +1,81 @@
 // Public profile shaping: derives showcase data from a user's PUBLIC done lists.
 // Private/unlisted rows must never leak into stats or the card grid.
-import { type Level, levelFor } from "./gamification";
+import { ACHIEVEMENTS, type Level, levelFor } from "./gamification";
+
+// --- Showcase curation (pinned achievements + one featured ranking) ---
+
+export const MAX_PINNED_ACHIEVEMENTS = 3;
+
+export interface ProfileShowcase {
+  achievementKeys: string[];
+  favoriteListId: string | null;
+}
+
+export const EMPTY_SHOWCASE: ProfileShowcase = { achievementKeys: [], favoriteListId: null };
+
+function validAchievementKeys(keys: unknown): string[] | null {
+  if (!Array.isArray(keys)) return null;
+  const allowed = new Set(ACHIEVEMENTS.map((a) => a.key));
+  const seen = new Set<string>();
+  for (const k of keys) {
+    if (typeof k !== "string" || !allowed.has(k) || seen.has(k)) return null;
+    seen.add(k);
+  }
+  return [...seen];
+}
+
+/** Parse a stored (jsonb) showcase value; null only when the shape is invalid. */
+export function parseShowcase(input: unknown): ProfileShowcase | null {
+  if (input == null) return EMPTY_SHOWCASE;
+  if (typeof input !== "object" || Array.isArray(input)) return null;
+  const o = input as Record<string, unknown>;
+  const keys = validAchievementKeys(o.achievementKeys ?? []);
+  if (!keys || keys.length > MAX_PINNED_ACHIEVEMENTS) return null;
+  const fav = o.favoriteListId ?? null;
+  if (fav !== null && typeof fav !== "string") return null;
+  return { achievementKeys: keys, favoriteListId: fav };
+}
+
+/**
+ * Validate a showcase PATCH payload against the currently stored value.
+ * Both fields are optional in the patch; the other field is preserved.
+ * Returns the merged full showcase, or null when the payload is malformed.
+ */
+export function mergeShowcase(
+  current: unknown,
+  patch: { achievementKeys?: unknown; favoriteListId?: unknown },
+): ProfileShowcase | null {
+  if (typeof patch !== "object" || patch === null || Array.isArray(patch)) return null;
+  const base = parseShowcase(current) ?? EMPTY_SHOWCASE;
+  let { achievementKeys, favoriteListId } = base;
+  if (patch.achievementKeys !== undefined) {
+    const keys = validAchievementKeys(patch.achievementKeys);
+    if (!keys || keys.length > MAX_PINNED_ACHIEVEMENTS) return null;
+    achievementKeys = keys;
+  }
+  if (patch.favoriteListId !== undefined) {
+    const fav = patch.favoriteListId;
+    if (fav !== null && typeof fav !== "string") return null;
+    favoriteListId = fav || null;
+  }
+  return { achievementKeys, favoriteListId };
+}
+
+/** Owner-UI helper: persist one showcase field via PATCH /api/profile. */
+export async function patchShowcase(
+  patch: Partial<ProfileShowcase>,
+): Promise<boolean> {
+  try {
+    const res = await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ showcase: patch }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
 
 export interface DbPublicList {
   id: string;

@@ -7,6 +7,8 @@ let currentDb: {
   client: unknown;
   calls: Call[];
   row?: unknown | null;
+  /** Per-table row override; falls back to `row`. */
+  rowsByTable?: Record<string, unknown | null>;
   writeResult?: DbResult;
 };
 
@@ -22,15 +24,23 @@ function makeDb(opts: { user?: { id: string } | null }) {
     },
     from(table: string) {
       const obj: Record<string, unknown> = {};
+      let isWrite = false;
       const track = (method: string) => (...args: unknown[]) => {
         calls.push({ table, method, args });
         return obj;
       };
       obj.select = track("select");
       obj.eq = track("eq");
-      obj.update = track("update");
-      // Terminal ops resolve with the configured result.
-      obj.maybeSingle = async () => currentDb.writeResult ?? { data: currentDb.row ?? null, error: null };
+      obj.update = (...args: unknown[]) => {
+        isWrite = true;
+        return track("update")(...args);
+      };
+      // Terminal ops resolve with the configured result; writes use
+      // writeResult, reads fall back to the stored row.
+      obj.maybeSingle = async () =>
+        isWrite
+          ? (currentDb.writeResult ?? { data: null, error: null })
+          : { data: table in (currentDb.rowsByTable ?? {}) ? currentDb.rowsByTable![table] : (currentDb.row ?? null), error: null };
       obj.upsert = async (...args: unknown[]) => {
         calls.push({ table, method: "upsert", args });
         return currentDb.writeResult ?? { data: null, error: null };
@@ -127,6 +137,87 @@ describe("POST /api/profile", () => {
     const res = await post("still-valid-but-blocked");
     expect(res.status).toBe(429);
     expect(res.headers.get("Retry-After")).toBeTruthy();
+  });
+});
+
+describe("PATCH /api/profile — showcase", () => {
+  async function patchShowcase(showcase: unknown) {
+    const { PATCH } = await import("./route");
+    return PATCH(
+      new Request("http://x/api/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ showcase }),
+      }),
+    );
+  }
+
+  it("400 on malformed showcase payloads", async () => {
+    currentDb.row = { id: "u-1", showcase: {} };
+    expect((await patchShowcase("nope")).status).toBe(400);
+    expect((await patchShowcase({ achievementKeys: "first_premiere" })).status).toBe(400);
+    expect((await patchShowcase({ achievementKeys: ["not_a_key"] })).status).toBe(400);
+    expect((await patchShowcase({ achievementKeys: [42] })).status).toBe(400);
+    expect((await patchShowcase({ achievementKeys: ["first_premiere", "first_premiere"] })).status).toBe(400);
+  });
+
+  it("400 when more than 3 achievements pinned", async () => {
+    currentDb.row = { id: "u-1", showcase: {} };
+    currentDb.writeResult = { data: { id: "u-1" }, error: null };
+    const keys = ["first_premiere", "marathoner", "centurion"];
+    expect((await patchShowcase({ achievementKeys: keys })).status).toBe(200);
+    expect((await patchShowcase({ achievementKeys: [...keys, "centurion"] })).status).toBe(400);
+  });
+
+  it("400 when favoriteListId is not an owned public done list", async () => {
+    // lists lookup resolves no row -> rejected at the trust boundary.
+    currentDb.row = { id: "u-1", showcase: {} };
+    currentDb.rowsByTable = { lists: null };
+    expect((await patchShowcase({ favoriteListId: "l-someone-elses" })).status).toBe(400);
+    const body = (await (
+      await patchShowcase({ favoriteListId: "l-private-one" })
+    ).json()) as { error: string };
+    expect(body.error).toMatch(/public finished/);
+  });
+
+  it("merges a partial patch and persists the full showcase object", async () => {
+    currentDb.row = {
+      id: "u-1",
+      showcase: { achievementKeys: ["first_premiere"], favoriteListId: null },
+    };
+    currentDb.writeResult = { data: { id: "u-1" }, error: null };
+    const res = await patchShowcase({ favoriteListId: "l-mine" });
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      showcase: { achievementKeys: ["first_premiere"], favoriteListId: "l-mine" },
+    });
+    const upd = currentDb.calls.find((c) => c.method === "update")!;
+    expect(upd.args[0]).toEqual({
+      showcase: { achievementKeys: ["first_premiere"], favoriteListId: "l-mine" },
+    });
+    // The lists trust-boundary check ran before the update.
+    const listsCall = currentDb.calls.find(
+      (c) => c.table === "lists" && c.method === "eq",
+    );
+    expect(listsCall).toBeTruthy();
+  });
+
+  it("409 'claim a handle first' when no profiles row exists", async () => {
+    const res = await patchShowcase({ achievementKeys: [] });
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("claim a handle first");
+  });
+
+  it("400 when neither visibility nor showcase is present", async () => {
+    currentDb.row = { id: "u-1", showcase: {} };
+    const { PATCH } = await import("./route");
+    const res = await PATCH(
+      new Request("http://x/api/profile", {
+        method: "PATCH",
+        body: JSON.stringify({}),
+      }),
+    );
+    expect(res.status).toBe(400);
   });
 });
 

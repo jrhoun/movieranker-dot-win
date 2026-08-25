@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { invalid } from "@/lib/lists-api";
 import { checkHandle } from "@/lib/handles";
+import { mergeShowcase, type ProfileShowcase } from "@/lib/public-profile";
 import {
   LIMITS,
   rateKey,
@@ -92,22 +93,59 @@ export async function PATCH(request: Request) {
   );
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
-  let body: { visibility?: unknown };
+  let body: { visibility?: unknown; showcase?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
     return invalid("invalid JSON");
   }
-  if (
-    typeof body.visibility !== "string" ||
-    !VISIBILITIES.has(body.visibility)
-  )
-    return invalid("visibility must be 'private' or 'public'");
+
+  const update: Record<string, string | ProfileShowcase> = {};
+  if (body.visibility !== undefined) {
+    if (typeof body.visibility !== "string" || !VISIBILITIES.has(body.visibility))
+      return invalid("visibility must be 'private' or 'public'");
+    update.visibility = body.visibility;
+  }
+
+  if (body.showcase !== undefined) {
+    if (typeof body.showcase !== "object" || body.showcase === null || Array.isArray(body.showcase))
+      return invalid("invalid showcase");
+    // Current stored value first so a partial patch preserves the other field.
+    const { data: row } = await supabase
+      .from("profiles")
+      .select("id,showcase")
+      .eq("id", auth.user.id)
+      .maybeSingle();
+    if (!row)
+      return NextResponse.json({ error: "claim a handle first" }, { status: 409 });
+    const merged = mergeShowcase(
+      (row as { showcase?: unknown }).showcase,
+      body.showcase as { achievementKeys?: unknown; favoriteListId?: unknown },
+    );
+    if (!merged) return invalid("invalid showcase");
+    if (merged.favoriteListId) {
+      // Trust boundary: the featured list must be owned AND a public done list.
+      const { data: fav } = await supabase
+        .from("lists")
+        .select("id")
+        .eq("id", merged.favoriteListId)
+        .eq("owner_id", auth.user.id)
+        .eq("status", "done")
+        .eq("visibility", "public")
+        .maybeSingle();
+      if (!fav)
+        return invalid("featured ranking must be one of your public finished lists");
+    }
+    update.showcase = merged;
+  }
+
+  if (!("visibility" in update) && !("showcase" in update))
+    return invalid("nothing to update");
 
   // Update-only: a profiles row exists only once a handle is claimed.
   const { data, error } = await supabase
     .from("profiles")
-    .update({ visibility: body.visibility })
+    .update(update)
     .eq("id", auth.user.id)
     .select("id")
     .maybeSingle();
@@ -115,5 +153,8 @@ export async function PATCH(request: Request) {
   if (!data)
     return NextResponse.json({ error: "claim a handle first" }, { status: 409 });
 
-  return NextResponse.json({ visibility: body.visibility });
+  return NextResponse.json({
+    ...(body.visibility !== undefined ? { visibility: body.visibility as string } : {}),
+    ...(update.showcase ? { showcase: update.showcase } : {}),
+  });
 }

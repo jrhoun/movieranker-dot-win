@@ -41,3 +41,7 @@ alter table profiles enable row level security;
 create policy "read any" on profiles for select using (true);
 create policy "write own" on profiles for all
   using (auth.uid() = id) with check (auth.uid() = id);
+
+-- 5. Profile showcase curation (pinned achievements max 3 + one featured ranking).
+-- Shape: { "achievementKeys": ["first_premiere"], "favoriteListId": "abc" }.
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS showcase jsonb NOT NULL DEFAULT '{}';
