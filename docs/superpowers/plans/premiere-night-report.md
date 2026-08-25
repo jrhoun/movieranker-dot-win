@@ -519,3 +519,53 @@ TV-distance legibility per DESIGN.md, class-only: room title text-lg/sm:2xl → 
 
 - Eager + w185 means the first batch still fires 30 concurrent requests on modal open; acceptable (browsers queue per-host), but if stalls recur the next lever is staggering or a true virtualized list.
 - "Show more" is a manual affordance rather than auto-loading on scroll — deliberate trade for simplicity; revisit if users report not finding results past batch 1.
+
+## Auth round: Google sign-in UX + friendly copy (d05644c)
+
+Files: `src/components/SaveGateSheet.tsx`, `src/app/(site)/login/page.tsx` only.
+
+### What changed
+- **OAuth error surfacing**: both `handleOAuth`s now try/catch around `signInWithOAuth`. Provider-not-enabled errors (matched on "not enabled / unsupported provider / provider is not") show "Google sign-in isn't set up yet — ask the site admin to enable it."; everything else gets a generic retry message. A resolved-but-no-redirect (blocked popup) shows "allow popups and try again." Console diagnostics log the error message only — no env values.
+- **Google G logo**: official multicolor mark inlined as SVG (18×18, left of label) in both Continue-with-Google buttons. Magic-link buttons untouched.
+- **Copy sweep**: no "safe"/"lose your progress" phrasing exists in my two files (sheet header is already warm: "Create an account to keep this ranking forever.").
+- Button styling for all three methods was already identical (`btnAlt`) across both surfaces; no change needed.
+
+### BLOCKER for item 1: nudge banner copy
+The exact string `"Make an account now and this session is safe."` lives at `src/app/r/play/play-room.tsx:614` — inside the do-not-touch zone (`src/app/r/play/*`). NOT changed. Suggested replacement for whoever owns that file:
+> Create an account now to save your progress
+
+### Supabase dashboard checklist (root cause of "it broke")
+1. Supabase Dashboard → Authentication → Providers → Google → enable it.
+2. Enter OAuth Client ID + Client Secret from a Google Cloud OAuth 2.0 client (Web application type).
+3. In Google Cloud console, add the Supabase redirect URI as an Authorized redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`.
+4. Supabase → Authentication → URL Configuration: set Site URL and add to Redirect Allow List:
+   - `http://localhost:3000/auth/callback` (dev)
+   - `https://movieranker.win/auth/callback` (prod)
+5. No code changes needed beyond what shipped — once the provider is enabled, existing flow works.
+
+### Concerns
+- If OAuth fails after we've called `onAuthRedirect?.()`, the leave-warning stays disarmed for the rest of the sheet session; host exposes no re-arm hook. Minor.
+- Raw `error.message` from signUp/magic-link handlers still surfaces verbatim (out of scope this round).
+
+## Design round: unified progress signal + play room engagement pass (2026-08-24)
+
+Files: `src/app/r/play/play-room.tsx`, `src/components/MatchupStage.tsx`, `src/app/globals.css`.
+
+### A. Investigation findings — why bar and ~N diverged
+Confirmed the feedback was accurate: two independent signals. The bar measured `doneVotes / expectedConsensusVotes(n)` (⌈n·log₂n⌉ sim median) and moved every vote; the text showed either `closeCallProgress` (adjacent pairs inside SHARPEN_COMFORT_GAP=120) or `~estimateRemainingVotes`. At K=32 an adjacent gap shrinks ~16–32 elo per vote, so gaps rarely cross 120 per vote — the close-call count sat frozen while the bar climbed. Not memoization staleness (both derive from live `session` state each render); the signals themselves were just different quantities.
+
+**Unification:** ONE primary number — "Settling · X of ~Y votes" where `X = doneVotes`, `Y = max(expectedConsensusVotes(n), doneVotes + estimateRemainingVotes(active))`. Y updates every vote (X increments; Y re-derives from the live close-pair count, shrinking as gaps widen past the comfort band, growing if a session runs long past the empirical expectation). Bar % = X/Y from the same two values, so bar and text are arithmetically incapable of disagreeing. Close calls demoted to secondary chip ("N too close to call", absolute count — dropped the initial-baseline dependency in the voting view; baseline kept only for the consensus screen's resolved-vs-initial line).
+
+### B. Engagement pass (Premiere Night)
+- `.stage-spotlight` utility (globals.css): static low-intensity curtain vocabulary behind the matchup pair — warm gold radial pool (rgba(245,197,24,.07)) over an edge vignette (transparent→rgba(0,0,0,.5)). Purely static gradients, nothing loops, reduced-motion needs no override.
+- VS divider: ✦/VS/✦ column — Bebas gold `tracking-widest` VS with drop-shadow, dimmed gold ✦ above/below.
+- Winner pulse retimed 250ms → 200ms per spec (loser bop/dim chain untouched, settle timer still 400ms).
+- Progress module restyled as mini marquee board: surface card (`bg-surface/80` ring-white/10), gradient accent→gold fill bar, "Settling · **12** of ~**34** votes" with Bebas gold numerals at TV-legible sizes (text-xl/sm:text-2xl numerals, sm/base line). "Finish anytime" hint kept, gated as before.
+- Participant chips/title were already TV-scaled from the prior readability round; unchanged this round.
+
+### C. Copy sweep (folded in on request)
+- Nudge banner "Make an account now and this session is safe." → "Create an account now to save your progress." Only threatening phrasing found; "Your ranking lives in this browser…" and "Unsaved — lives in this browser" are factual, exit-menu labels ("Resume later"/"Abandon") left intact per constraint C.
+
+### Verification
+- npm test 260/260 (26 files); tsc --noEmit clean; eslint clean; production build passes.
+- No tests referenced changed markup/classes (only pure helpers in ranking.test.ts — signatures unchanged). DESIGN.md rules hold: posters 2:3 untouched, ≥44px targets preserved, focus-visible rings preserved, all new motion static or killed by existing global prefers-reduced-motion rule. No live calls; .env.local untouched.
