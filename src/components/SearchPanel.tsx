@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Tabs from "./Tabs";
 import type { TmdbCompany, TmdbMovieCredit, TmdbPerson } from "@/lib/tmdb";
 import { rangeIndices } from "@/lib/tray";
+import { filterByTitle } from "@/lib/search-filter";
 import MoviePosterCard from "./MoviePosterCard";
 
 type Mode = "person" | "company" | "keyword" | "title";
@@ -330,6 +331,9 @@ function BrowseAllModal({
   }, [onClose]);
   const triggerRef = useRef<HTMLElement | null>(null);
   const selectedCount = movies.filter(isSelected).length;
+  // Client-side filter over the same source array; empty query shows everything.
+  const [filterQ, setFilterQ] = useState("");
+  const shown = filterByTitle(movies, filterQ);
 
   // Focus-on-open runs once; restoring focus to the trigger here covers close
   // via ✕, footer Close, overlay click, and Escape alike.
@@ -380,28 +384,57 @@ function BrowseAllModal({
         aria-label={`All ${movies.length} results`}
         className="animate-celebrate relative flex max-h-[85dvh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-surface shadow-2xl ring-1 ring-white/10"
       >
-        <div className="flex items-center justify-between gap-3 px-5 pt-4">
-          <h2 className="font-display text-lg uppercase tracking-wide text-text">
-            All {movies.length} results
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="flex size-11 shrink-0 items-center justify-center rounded text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          >
-            ✕
-          </button>
+        {/* Header/footer are static flex siblings of the scrolling grid, so they
+            stay pinned while the posters scroll. */}
+        <div className="border-b border-white/10 px-5 pt-4 pb-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-display text-lg uppercase tracking-wide text-text">
+              All {movies.length} results
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="flex size-11 shrink-0 items-center justify-center rounded text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="relative mt-2">
+            <input
+              type="search"
+              value={filterQ}
+              onChange={(e) => setFilterQ(e.target.value)}
+              placeholder="Filter by title…"
+              aria-label="Filter results by title"
+              className="min-h-11 w-full rounded bg-surface-raised pr-10 pl-4 text-sm text-text ring-1 ring-white/10 transition-shadow duration-200 ease-out hover:ring-white/20 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent"
+            />
+            {filterQ && (
+              <button
+                type="button"
+                onClick={() => setFilterQ("")}
+                aria-label="Clear filter"
+                className="absolute top-1/2 right-1 flex size-9 -translate-y-1/2 items-center justify-center rounded text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
-        <div className="grid flex-1 content-start grid-cols-2 gap-4 overflow-y-auto p-5 sm:grid-cols-3 md:grid-cols-4">
-          {movies.map((mv, i) => (
+        <div className="thin-scrollbar grid flex-1 content-start grid-cols-2 gap-4 overflow-y-auto p-5 sm:grid-cols-3 md:grid-cols-4">
+          {shown.map((mv) => (
             <MoviePosterCard
               key={mv.tmdbId}
               movie={mv}
               selected={isSelected(mv)}
-              onSelect={(e) => onSelect(mv, i, e)}
+              onSelect={(e) => onSelect(mv, movies.indexOf(mv), e)}
             />
           ))}
+          {shown.length === 0 && (
+            <p className="col-span-full py-8 text-center text-sm text-muted">
+              No results match “{filterQ.trim()}”.
+            </p>
+          )}
         </div>
         <footer className="flex min-h-11 items-center justify-between gap-3 border-t border-white/10 px-5 py-2">
           <p aria-live="polite" className="text-sm text-muted">

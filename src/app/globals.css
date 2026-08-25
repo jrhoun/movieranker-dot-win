@@ -135,6 +135,19 @@ body {
   to { background-position: 100% 0; }
 }
 
+/* Visible scrollbar for dark surfaces (browse-all modal): default thumbs are
+   near-invisible on #17171c, so users miss that the poster grid scrolls. */
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(236, 236, 241, 0.35) transparent;
+}
+.thin-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(236, 236, 241, 0.35);
+  border-radius: 4px;
+}
+.thin-scrollbar::-webkit-scrollbar-track { background: transparent; }
+
 @keyframes celebrate-beat {
   from { transform: scale(0.94); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
