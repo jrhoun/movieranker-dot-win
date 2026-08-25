@@ -138,3 +138,37 @@ Steam-style "pick what to feature": users pin up to 3 unlocked achievements and 
 ### Commits
 - `77622d2` feat: profile showcase storage + api
 - `3b5338c` design: showcase curation ui
+
+---
+
+# Real Participants (#5) — participant attributions via invite links
+
+**Date:** 2026-08-24 · **Status:** built on master · **Commits:** `f3fb946`, `c3f1afe`
+
+## Database
+- New `participant_attributions` (schema.sql canonical block + upgrade-1.sql §6): `list_id` FK cascade, `display_name`, `user_id` FK cascade, `unique (list_id, user_id)`.
+- RLS mirrors the lists read policy: INSERT requires `auth.uid() = user_id` AND the list is owner-readable OR done+unlisted/public (link-readable); SELECT uses the same list-readability EXISTS; DELETE own rows only. No ALTERs — brand-new table.
+- **Live DBs need a manual re-run: execute upgrade-1.sql §6** in the Supabase SQL editor.
+
+## API (/api/lists/[id]/participants/claim)
+- GET → `{ claimed, displayName? }` for the signed-in caller (RLS-scoped).
+- POST `{ displayName }`: 401 unauth; 404 when the list isn't RLS-readable; 400 on non-string/blank/>40-char names; case-insensitive match binds to the existing participant spelling, no match APPENDS to `lists.participants`; unique violation → 409 `{ error: "already participating" }`. Insert happens BEFORE the participants append so an already-claimed user never mutates the array. Rate-limited (`claimParticipant`, 10/min/user).
+- DELETE removes only the caller's own attribution row; the name stays on the list.
+
+## Room wiring (/r/play?id=…)
+- Signed-in viewer on a resumed draft gets a "Join as participant" banner (probe effect: profile handle prefill + GET claimed check). POST success shows their chip immediately with a gold person marker; errors surface inline. Anonymous/local sessions untouched.
+
+## Rendering
+- Shared `chipParticipants()` (src/lib/participants.ts) + `<ParticipantChips>` component: attributed names get a subtle person icon; links to `/u/<handle>` only for `visibility='public'` profiles (server-side lookup at render).
+- /l/[id] "Ranked by" line now renders chips; /u/me ListRows and /u/[handle] cards gained a compact "With …" participant line with the same markers/links.
+
+## Export
+- `/api/account/export` embeds `participant_attributions(*)` alongside `list_movies`.
+
+## Verification
+- `npm test`: 205 passed / 22 files (new claim-route tests: happy match w/o append, mismatch append, 409 already-participating + no append on violation, 401, 404, 400 name validation, DELETE scoping, GET claimed/unclaimed; export test asserts attributions ride along). `tsc --noEmit` clean, `eslint` clean, `next build` passes (route listed as ƒ dynamic).
+- Traffic hygiene: no live calls beyond local builds/tests; .env.local untouched.
+
+## Concerns / follow-ups
+- Attribution display names aren't kept in sync if the owner later edits/removes a participant chip (name edit leaves the old display_name binding until re-claim).
+- The room banner appears even mid-ranking of someone else's draft by design (link-shared); no notification exists yet — joining is purely self-serve.
