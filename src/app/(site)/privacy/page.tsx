@@ -33,6 +33,20 @@ export default function PrivacyPage() {
             up your ranked list. We store nothing else.
           </p>
 
+          <H2>Who can use the site</H2>
+          <p>
+            You must be at least 13 to use movieranker.win. Some countries
+            require you to be 16 — if that’s where you live, please wait until
+            then.
+          </p>
+
+          <H2>How long we keep it</H2>
+          <p>
+            Your account data is kept until you delete your account. Deletion
+            is immediate and permanent — there’s no archive and no grace
+            period.
+          </p>
+
           <H2>Cookies and local storage</H2>
           <p>
             The site sets exactly one cookie: your Supabase sign-in session.
@@ -44,9 +58,11 @@ export default function PrivacyPage() {
 
           <H2>Third parties</H2>
           <p>
-            Two services help the site run: Supabase (hosting, accounts, and
-            database) and TMDB (movie metadata and poster images). We don’t
-            sell or share your data with anyone else.
+            Two services process your data to make the site work: Supabase
+            (hosts the database and your sign-in on servers in the EU/US, and
+            handles authentication) and TMDB (supplies movie metadata and
+            poster images). We don’t share your data with anyone else, and we
+            never sell it.
           </p>
 
           <H2>Your rights</H2>

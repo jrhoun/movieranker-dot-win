@@ -33,10 +33,28 @@ export default function TermsPage() {
             you want a backup.
           </p>
 
+          <H2>Your content</H2>
+          <p>
+            You own your lists. By submitting titles, descriptions, participant
+            names, and rankings you give movieranker.win a non-exclusive,
+            worldwide license to display them — solely for operating the
+            service. Nothing more.
+          </p>
+
           <H2>Movies & posters</H2>
           <p>
             Movie titles, metadata, and poster images are courtesy of TMDB, but
-            this site is not endorsed by or affiliated with TMDB.
+            this site is not endorsed by or affiliated with TMDB. Poster art is
+            served via TMDB under their terms. If you believe content here
+            infringes your copyright, email{" "}
+            {/* TODO: replace [CONTACT] placeholder before launch */}
+            <span className="text-muted">{CONTACT_EMAIL}</span>.
+          </p>
+
+          <H2>Governing law</H2>
+          <p>
+            These terms are governed by the laws of the State of Texas, USA.
+            Disputes are handled in the courts of Texas.
           </p>
 
           <H2>Contact</H2>
