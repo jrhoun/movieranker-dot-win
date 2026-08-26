@@ -165,7 +165,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
               overflow would clip the leading posters out of reach); centered
               once the row fits (~sm+). Negative mx gives gentle edge overlap
               while keeping >=82% of each poster face visible. */}
-          <ul className="mt-10 flex justify-start overflow-x-auto px-4 pb-2 sm:justify-center">
+          <ul className="mt-6 flex justify-start overflow-x-auto px-4 pt-4 pb-2 sm:justify-center">
             {fanItems.map(({ m, tilt }, i) => {
               const inTray = candidates.some((c) => c.tmdbId === m.tmdbId);
               return (
@@ -345,7 +345,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
             padding, right-edge fade) signal more posters off-screen — the row
             intentionally overflows so the last visible poster peeks cut off. */}
         <ul
-          className="mt-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4"
+          className="mt-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pt-1 pb-4"
           style={{
             maskImage: "linear-gradient(to right, black 85%, transparent 100%)",
             WebkitMaskImage: "linear-gradient(to right, black 85%, transparent 100%)",
