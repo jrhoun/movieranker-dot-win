@@ -36,7 +36,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
     ? fanMovies.map((m, i) => ({
         m,
         // ponytail: linear tilt spread across the row; hand-tuned only if a wide fan looks off
-        tilt: fanMovies.length > 1 ? -4 + (8 * i) / (fanMovies.length - 1) : 0,
+        tilt: fanMovies.length > 1 ? -6 + (12 * i) / (fanMovies.length - 1) : 0,
       }))
     : FAN_POSTERS.map((p) => ({
         m: {
@@ -161,14 +161,18 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
           {/* Fanned marquee of real posters: overlapping, tilted -8°..8°,
               straighten+lift on hover (200ms ease-out; killed by reduced-motion).
               Slightly dimmed at rest so the Bebas headline above stays dominant. */}
-          <ul className="mt-10 flex justify-center gap-3 px-4 sm:mt-12 sm:gap-4">
+          {/* justify-start on mobile so overflow scrolls forward (centered
+              overflow would clip the leading posters out of reach); centered
+              once the row fits (~sm+). Negative mx gives gentle edge overlap
+              while keeping >=82% of each poster face visible. */}
+          <ul className="mt-10 flex justify-start overflow-x-auto px-4 pb-2 sm:justify-center">
             {fanItems.map(({ m, tilt }, i) => {
               const inTray = candidates.some((c) => c.tmdbId === m.tmdbId);
               return (
                 <li
                   key={m.tmdbId}
                   style={{ "--tilt": `${tilt}deg`, zIndex: fanItems.length - Math.abs(i - (fanItems.length - 1) / 2) } as React.CSSProperties}
-                  className="relative mx-1 w-24 origin-bottom rotate-(--tilt) transition-all duration-200 ease-out hover:z-20 hover:rotate-0 hover:-translate-y-2 sm:mx-2 sm:w-28"
+                  className="relative -mx-2 w-[7.2rem] shrink-0 origin-bottom rotate-(--tilt) transition-all duration-200 ease-out hover:z-20 hover:rotate-0 hover:-translate-y-2 sm:-mx-3 sm:w-[8.4rem]"
                 >
                   <button
                     type="button"
