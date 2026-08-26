@@ -172,7 +172,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
                 <li
                   key={m.tmdbId}
                   style={{ "--tilt": `${tilt}deg`, zIndex: fanItems.length - Math.abs(i - (fanItems.length - 1) / 2) } as React.CSSProperties}
-                  className="relative w-[7.2rem] shrink-0 origin-bottom rotate-(--tilt) transition-all duration-200 ease-out hover:z-20 hover:rotate-0 hover:-translate-y-2 sm:w-[8.4rem]"
+                  className="relative -mx-2 w-[7.2rem] shrink-0 origin-bottom rotate-(--tilt) transition-all duration-200 ease-out hover:z-20 hover:rotate-0 hover:-translate-y-2 sm:-mx-3 sm:w-[8.4rem]"
                 >
                   <button
                     type="button"
