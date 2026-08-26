@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getMovieById,
   pickPoster,
+  rankCompaniesByCount,
   rankNameResults,
   searchByKeyword,
+  searchCompany,
   shapeCredits,
 } from "./tmdb";
 import fixture from "./fixtures/combined-credits.json";
@@ -188,6 +190,105 @@ describe("rankNameResults (person + company suggestions)", () => {
     const ranked = rankNameResults(many, "zzz-no-match");
     expect(ranked).toHaveLength(8);
     expect(ranked[0]).toEqual({ id: 1, name: "Studio 1", popularity: 12 });
+  });
+});
+
+describe("rankCompaniesByCount (studio suggestions)", () => {
+  it("sorts by movie count descending", () => {
+    const ranked = rankCompaniesByCount(
+      [
+        { id: 1, name: "Disney Türkiye", movieCount: 12 },
+        { id: 2, name: "Walt Disney Pictures", movieCount: 700 },
+      ],
+      "disney",
+    );
+    expect(ranked.map((r) => r.id)).toEqual([2, 1]);
+  });
+
+  it("floats exact case-insensitive matches first even with fewer movies", () => {
+    const ranked = rankCompaniesByCount(
+      [
+        { id: 1, name: "A24 Films LLC", movieCount: 500 },
+        { id: 2, name: "a24", movieCount: 172 },
+      ],
+      "A24",
+    );
+    expect(ranked[0].id).toBe(2);
+  });
+
+  it("treats missing counts as 0, sorting them below any real count", () => {
+    const ranked = rankCompaniesByCount(
+      [
+        { id: 1, name: "No Count Co" },
+        { id: 2, name: "Tiny Studio", movieCount: 1 },
+        { id: 3, name: "Zero Studio", movieCount: 0 },
+      ],
+      "zzz-no-match",
+    );
+    // missing == 0: Zero Studio and No Count Co tie, name-asc breaks it
+    expect(ranked.map((r) => r.id)).toEqual([2, 1, 3]);
+  });
+
+  it("breaks ties by name ascending", () => {
+    const ranked = rankCompaniesByCount(
+      [
+        { id: 1, name: "Beta Films", movieCount: 10 },
+        { id: 2, name: "Alpha Films", movieCount: 10 },
+      ],
+      "zzz-no-match",
+    );
+    expect(ranked.map((r) => r.name)).toEqual(["Alpha Films", "Beta Films"]);
+  });
+});
+
+describe("searchCompany (count enrichment + ranking)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  function stubFetch(companies: unknown[]) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string | URL) => {
+        const u = String(url);
+        const body = u.includes("/search/company")
+          ? { results: companies }
+          : {
+              // discover/movie: count derived from the with_companies param
+              total_results: u.includes("with_companies=2") ? 700 : 3,
+            };
+        return { ok: true, json: async () => body } as Response;
+      }),
+    );
+  }
+
+  it("enriches results with movie counts and ranks by count descending", async () => {
+    stubFetch([
+      { id: 2, name: "Walt Disney Pictures", popularity: 40 },
+      { id: 1, name: "Disney Türkiye", popularity: 99 },
+    ]);
+    const ranked = await searchCompany("disney");
+    expect(ranked).toHaveLength(2);
+    expect(ranked[0]).toMatchObject({ id: 2, movieCount: 700 });
+    expect(ranked[1]).toMatchObject({ id: 1, movieCount: 3 });
+  });
+
+  it("keeps results with failed/missing counts at the end but still shown", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string | URL) => {
+        const u = String(url);
+        if (u.includes("/search/company")) {
+          return {
+            ok: true,
+            json: async () => ({
+              results: [{ id: 9, name: "Broken Count Co", popularity: 5 }],
+            }),
+          } as Response;
+        }
+        return { ok: false, status: 500 } as Response; // discover fails for this company
+      }),
+    );
+    const ranked = await searchCompany("broken");
+    expect(ranked).toEqual([{ id: 9, name: "Broken Count Co", popularity: 5 }]);
   });
 });
 

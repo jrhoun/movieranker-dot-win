@@ -626,3 +626,18 @@ User feedback: play screen too gray/flat next to the redesigned home; top bar od
 
 ### Verification
 npm test 261/261 (26 files); tsc --noEmit clean; eslint clean; production build passes. Commits: 6d1089f (atmosphere), 2303648 (top bar + exit menu). Only owned files touched; SearchPanel.tsx/tmdb.ts untouched; no live calls; .env.local unread.
+
+## Studio search ranked by movie count (v1, master)
+
+**Problem:** TMDB `/search/company` returns no usable popularity ordering — searching "disney" surfaced regional entries (Disney Türkiye) ahead of Walt Disney Pictures, and `rankNameResults`'s popularity sort silently no-oped on companies.
+
+**Fix:**
+- `src/lib/tmdb.ts`: added `getCompanyMovieCount(id)` (`GET /discover/movie?with_companies=<id>&page=1`, revalidate 3600, returns `total_results`), batch helper `getCompanyMovieCounts(ids)` (parallel via `Promise.allSettled`, per-count failures omit the id rather than failing suggestions), and pure `rankCompaniesByCount` (exact-match float first, then movieCount desc, ties name asc; missing counts treated as 0).
+- `searchCompany`: dedupes + caps to ≤8 candidates via the existing `rankNameResults` (popularity only picks *which* duplicates survive), enriches those with real counts server-side through cached `tmdbFetch`, then re-ranks by count. No client-side TMDB exposure.
+- `TmdbCompany.movieCount?: number`; SearchPanel studio chips render a "<N> movies" badge next to the origin_country chip, making duplicate-named studios (A24 ×172 vs A24 ×1) instantly disambiguable.
+- Tests: `rankCompaniesByCount` sorting/count-desc/ties/missing-count cases plus `searchCompany` enrichment incl. failed count lookups still returning results.
+
+**Expected live behavior:** searching "disney" should now put Walt Disney entities (hundreds of movies) above Disney Türkiye (~a dozen); "a24" exact match still floats first. Verify manually via dev server if desired.
+
+### Verification
+npm test 267/267 (26 files); tsc --noEmit clean; eslint clean; production build passes. Server-side enrichment only via existing cached tmdbFetch; .env.local unread; no raw payloads logged (counts summarized only).

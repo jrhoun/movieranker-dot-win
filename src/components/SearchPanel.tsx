@@ -233,6 +233,11 @@ export default function SearchPanel({
                           {(n as TmdbCompany).origin_country}
                         </span>
                       )}
+                      {(n as TmdbCompany).movieCount !== undefined && (
+                        <span className="mr-1.5 rounded bg-surface-raised px-1.5 py-0.5 tabular-nums">
+                          {(n as TmdbCompany).movieCount} movies
+                        </span>
+                      )}
                       Production company
                     </span>
                   )}

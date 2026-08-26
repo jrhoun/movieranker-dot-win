@@ -13,6 +13,7 @@ export interface TmdbCompany {
   name: string;
   origin_country?: string;
   popularity?: number;
+  movieCount?: number;
 }
 
 export interface TmdbMovieCredit {
@@ -113,9 +114,55 @@ export async function getPersonCredits(personId: number): Promise<TmdbMovieCredi
   return shapeCredits(data);
 }
 
+/** Total movie count for a company via /discover/movie (cached an hour). */
+export async function getCompanyMovieCount(companyId: number): Promise<number> {
+  const data = await tmdbFetch<{ total_results?: number }>(
+    "/discover/movie",
+    { with_companies: String(companyId), page: "1" },
+    3600,
+  );
+  return data.total_results ?? 0;
+}
+
+// ponytail: per-count failures just omit the id (ranked as 0) instead of failing suggestions
+export async function getCompanyMovieCounts(ids: number[]): Promise<Map<number, number>> {
+  const settled = await Promise.allSettled(ids.map(getCompanyMovieCount));
+  const map = new Map<number, number>();
+  settled.forEach((r, i) => {
+    if (r.status === "fulfilled") map.set(ids[i], r.value);
+  });
+  return map;
+}
+
+// Pure: companies ranked by total movie count (TMDB /search/company has no
+// usable popularity ordering — searching "disney" surfaced regional entries
+// like Disney Türkiye ahead of Walt Disney). Exact matches still float first;
+// missing counts sort last; ties break alphabetically.
+export function rankCompaniesByCount<T extends { name: string; movieCount?: number }>(
+  results: T[],
+  query: string,
+): T[] {
+  const q = query.trim().toLowerCase();
+  return [...results].sort((a, b) => {
+    const aExact = Number(a.name.toLowerCase() === q);
+    const bExact = Number(b.name.toLowerCase() === q);
+    if (aExact !== bExact) return bExact - aExact;
+    const diff = (b.movieCount ?? 0) - (a.movieCount ?? 0);
+    if (diff !== 0) return diff;
+    return a.name.localeCompare(b.name);
+  });
+}
+
 export async function searchCompany(q: string): Promise<TmdbCompany[]> {
   const data = await tmdbFetch<{ results: TmdbCompany[] }>("/search/company", { query: q }, 300);
-  return rankNameResults(data.results ?? [], q);
+  // Dedupe + cap via popularity first (only ≤8 displayed), then enrich those
+  // with real movie counts and re-rank by count.
+  const candidates = rankNameResults(data.results ?? [], q);
+  const counts = await getCompanyMovieCounts(candidates.map((c) => c.id));
+  return rankCompaniesByCount(
+    candidates.map((c) => ({ ...c, movieCount: counts.get(c.id) })),
+    q,
+  );
 }
 
 // ponytail: pages 1-3 fetched concurrently; sequential pages only if TMDB rate-limits
