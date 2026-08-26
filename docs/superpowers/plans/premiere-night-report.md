@@ -681,3 +681,15 @@ Verification: vitest 273 passed (26 files), tsc clean, eslint clean, next build 
 - 375px: 30 cards, imgH 206.3 ≤ btnH 226.8, overflowCount 0.
 - Screenshots captured pre/post fix (/tmp/browse-all-{1280,375}.png).
 - vitest 273 passed (26 files), tsc clean, eslint clean, next build passes.
+
+## Regression fix: selection ring clipped by MoviePosterCard button (2026-08-25)
+
+Commit `81c9292` — "fix: move overflow clipping to preserve selection ring".
+
+**Symptom:** the gold `ring-[3px] ring-gold` on MoviePosterCard's aspect div was cut off on three sides — the `<button>`'s `overflow-hidden` clips descendants' box-shadows, and a ring is a box-shadow painted 3px outside its element's border box.
+
+**Fix (simpler than proposed):** removed `overflow-hidden` from the button. The aspect div's own `overflow-hidden` stays — an element's own overflow does not clip its own box-shadow, so it still rounds/clips the poster img while the ring paints freely. The originally sketched intermediate wrapper div would NOT work: it tightly wraps the aspect div, so `overflow-hidden` on it re-clips the descendant ring one level down — same bug, new address.
+
+**Verification:**
+- Playwright/chromium check (`ring` fixture using the component's exact classes + built CSS): pixel-sampled 2px outside each poster edge with ring applied → all four sides gold (#f5c518), PASS. Negative control (button-level `overflow-hidden`, old code) fails top/left/right as reported.
+- npm test: 26 files / 273 tests passed; tsc clean; eslint clean; build passes.
