@@ -392,7 +392,7 @@ function BrowseAllModal({
         role="dialog"
         aria-modal="true"
         aria-label={`All ${movies.length} results`}
-        className="animate-celebrate relative flex max-h-[85dvh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-surface shadow-2xl ring-1 ring-white/10"
+        className="animate-celebrate relative flex max-h-[85dvh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-surface shadow-2xl ring-1 ring-white/10 xl:max-w-4xl 2xl:max-w-5xl"
       >
         {/* Header/footer are static flex siblings of the scrolling grid, so they
             stay pinned while the posters scroll. Header is one row: filter +
