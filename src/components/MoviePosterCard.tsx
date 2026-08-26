@@ -24,7 +24,7 @@ export default function MoviePosterCard({
       aria-label={`${selected ? "Remove" : "Add"} ${movie.title} (${movie.releaseYear ?? "?"})`}
       aria-pressed={selected}
       title={selected ? "On your list — tap to remove" : `${movie.title} (${movie.releaseYear ?? "?"})`}
-      className="group min-h-11 min-w-11 rounded text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:opacity-50"
+      className="group min-h-11 min-w-11 overflow-hidden rounded text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:opacity-50"
     >
       <div
         className={`aspect-[2/3] w-full overflow-hidden rounded bg-surface transition-shadow duration-200 ease-out group-active:scale-[0.98] ${

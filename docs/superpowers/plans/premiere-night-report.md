@@ -652,3 +652,32 @@ Cap candidate lists at MAX_LIST_SIZE=100 (SOFT_WARN_AT=40) so rankings stay fini
 - Tests: batch add stopping exactly at 100, oversized single batch, server 400 over-cap + 201/204 exactly-at-cap for both routes.
 
 Verification: vitest 273 passed (26 files), tsc clean, eslint clean, next build passes.
+
+## Visual fixes round 2 (2026-07-25, agent: general-purpose)
+
+- `81793a6` design: hero fan size up — posters w-24/sm:w-28 → 7.2rem/8.4rem (+20%), gap removed in favor of -mx-2/-mx-3 overlap (~16px mobile / ~24px sm+, faces ≥82% visible), live-fan tilt spread widened ±4°→±6°. ul now `justify-start overflow-x-auto` at mobile (centered flex overflow would clip leading posters out of scroll reach), centered again from sm up where the row fits max-w-5xl.
+- `4c7a05a` fix: marquee strip all-posters-visible — diagnosis confirmed the filmstrip layout was correct (scrollable ul); the defect was missing affordance. Added snap-x/snap-mandatory + li snap-start, px-4 edge padding inside the scroller, and a right-edge mask fade (`linear-gradient(to right, black 85%, transparent 100%)`, webkit-prefixed via inline style). Row intentionally overflows so a half poster peeks at the right edge. Grid conversion rejected per updated brief.
+- `9322ae9` fix: modal responsive width — BrowseAllModal panel max-w-3xl → xl:max-w-4xl 2xl:max-w-5xl; inner grid unchanged at md:grid-cols-4.
+
+Verification: vitest 273 passed (26 files), tsc clean, eslint clean, next build passes. DESIGN.md constraints held (2:3 posters via MoviePoster/MoviePosterCard primitives untouched; motion budget untouched — only existing 200ms transitions reused; tap targets ≥44px preserved).
+
+## Visual fixes round 3: browse-all poster shingling (2026-07-25, agent: general-purpose)
+
+**Symptom:** posters in BrowseAllModal overlapped vertically like shingles; user measured button ~93px vs image ~295px.
+
+**Diagnosis (reproduced at 1280px and 375px viewports via Playwright):**
+- Tailwind v4 DOES generate `.aspect-\[2\/3\] { aspect-ratio: 2/3 }` in compiled CSS (verified in served chunk); computed style on cards confirmed `aspect-ratio: 2 / 3`, `overflow: hidden` on the poster div. Not a purge/arbitrary-value issue.
+- Root cause: `overflow-y-auto` on the modal grid container breaks Chromium's intrinsic grid row sizing for aspect-ratio-derived heights. Rows collapsed to the button's min-height (min-h-11 → ~50px) while the aspect-ratio div resolved to full width×3/2 (~295.5px) and painted over the rows below.
+- Ruled out experimentally: inline `style={{aspectRatio:"2/3"}}` fallback does NOT fix it (the class was never the problem); removing `flex-1` or `content-start` does not fix it; removing `overflow-y-auto` fixes it (proves the scroller interaction).
+
+**Fixes:**
+- SearchPanel.tsx BrowseAllModal grid: added `auto-rows-min` (`grid-auto-rows: min-content`) so row track sizing accounts for the poster height even inside the overflow scroller.
+- MoviePosterCard.tsx: added `overflow-hidden` to the card button itself — belt-and-suspenders so any future layout quirk clips posters inside their card instead of overlapping rows.
+- Show more button: added `relative z-10` guard so it can never be covered by rendering quirks.
+- Hover contrast on bg-surface-raised buttons (Show more, footer Close): `hover:bg-white/10` → `hover:bg-[rgb(60,60,70)]`, solid and visible against rgb(31,31,38).
+
+**Verification (Playwright, Tom Hanks person search → Browse all 208 results):**
+- 1280px: 30 cards measured, imgH 295.5 ≤ btnH 316, overflowCount 0; row pitch 336 = 316 + 20 gap (clean separation).
+- 375px: 30 cards, imgH 206.3 ≤ btnH 226.8, overflowCount 0.
+- Screenshots captured pre/post fix (/tmp/browse-all-{1280,375}.png).
+- vitest 273 passed (26 files), tsc clean, eslint clean, next build passes.

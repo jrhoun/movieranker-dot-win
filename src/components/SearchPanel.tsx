@@ -433,7 +433,10 @@ function BrowseAllModal({
             ✕
           </button>
         </div>
-        <div className="thin-scrollbar grid flex-1 content-start grid-cols-2 gap-5 overflow-y-auto p-6 sm:grid-cols-3 md:grid-cols-4">
+        {/* auto-rows-min: the overflow-y-auto scroller breaks Chromium's intrinsic row
+            sizing for aspect-ratio poster heights (rows collapse to min-h-11 and posters
+            spill over each row below); min-content rows size correctly. */}
+        <div className="thin-scrollbar grid auto-rows-min flex-1 content-start grid-cols-2 gap-5 overflow-y-auto p-6 sm:grid-cols-3 md:grid-cols-4">
           {visible.map((mv) => (
             <MoviePosterCard
               key={mv.tmdbId}
@@ -448,7 +451,7 @@ function BrowseAllModal({
             <button
               type="button"
               onClick={() => setVisibleCount((c) => c + BATCH)}
-              className="col-span-full min-h-11 rounded bg-surface-raised px-4 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="relative z-10 col-span-full min-h-11 rounded bg-surface-raised px-4 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-[rgb(60,60,70)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               Show more ({shown.length - visibleCount} remaining)
             </button>
@@ -466,7 +469,7 @@ function BrowseAllModal({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-11 rounded-full bg-surface-raised px-4 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="min-h-11 rounded-full bg-surface-raised px-4 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-[rgb(60,60,70)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             Close
           </button>
