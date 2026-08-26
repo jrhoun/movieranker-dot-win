@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MAX_LIST_SIZE } from "@/lib/tray";
 
 type Call = { table: string; method: string; args: unknown[] };
 
@@ -143,6 +144,25 @@ describe("PATCH /api/lists/[id]", () => {
   it("rejects a movie payload without tmdbId with 400", async () => {
     const res = await PATCH(patchRequest({ movies: [{ title: "nope" }] }), ctx);
     expect(res.status).toBe(400);
+  });
+
+  it("rejects an over-cap resulting movie count with 400", async () => {
+    const overCap = Array.from({ length: MAX_LIST_SIZE + 1 }, (_, i) => ({
+      tmdbId: i + 1,
+      title: `Movie ${i + 1}`,
+    }));
+    const res = await PATCH(patchRequest({ movies: overCap }), ctx);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/capped/i);
+  });
+
+  it("accepts a movie payload at exactly the cap", async () => {
+    const atCap = Array.from({ length: MAX_LIST_SIZE }, (_, i) => ({
+      tmdbId: 500 + i,
+      title: `New Movie ${i + 1}`,
+    }));
+    const res = await PATCH(patchRequest({ movies: atCap }), ctx);
+    expect(res.status).toBe(204);
   });
 
   it("rejects an invalid status with 400", async () => {

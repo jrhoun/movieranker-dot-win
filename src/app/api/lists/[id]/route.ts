@@ -10,6 +10,7 @@ import {
   type MovieInput,
 } from "@/lib/lists-api";
 import { LIMITS, rateKey, rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { MAX_LIST_SIZE } from "@/lib/tray";
 
 interface PatchBody {
   title?: unknown;
@@ -100,6 +101,10 @@ export async function PATCH(
       )
     )
       return invalid("movies must be objects with tmdbId");
+    // movies is the full desired set (keepIds semantics), so its length IS the
+    // resulting movie count.
+    if (body.movies.length > MAX_LIST_SIZE)
+      return invalid(`lists are capped at ${MAX_LIST_SIZE} movies`);
 
     const { data: existing } = await supabase
       .from("list_movies")

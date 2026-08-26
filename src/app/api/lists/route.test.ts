@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MAX_LIST_SIZE } from "@/lib/tray";
 
 type Call = { table: string; method: string; args: unknown[] };
 
@@ -151,6 +152,25 @@ describe("POST /api/lists", () => {
   it("rejects movies without tmdbId/title with 400", async () => {
     const res = await POST(jsonRequest({ ...doneBody, movies: [{ title: "no id" }] }));
     expect(res.status).toBe(400);
+  });
+
+  it("rejects an over-cap movie payload with 400", async () => {
+    const overCap = Array.from({ length: MAX_LIST_SIZE + 1 }, (_, i) => ({
+      tmdbId: i + 1,
+      title: `Movie ${i + 1}`,
+    }));
+    const res = await POST(jsonRequest({ ...doneBody, movies: overCap }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/capped/i);
+  });
+
+  it("accepts a payload at exactly the cap", async () => {
+    const atCap = Array.from({ length: MAX_LIST_SIZE }, (_, i) => ({
+      tmdbId: i + 1,
+      title: `Movie ${i + 1}`,
+    }));
+    const res = await POST(jsonRequest({ ...doneBody, movies: atCap }));
+    expect(res.status).toBe(201);
   });
 
   it("passes a trimmed description to save_list", async () => {

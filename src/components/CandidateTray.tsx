@@ -4,7 +4,7 @@ import { useState } from "react";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import MoviePoster from "@/components/list/MoviePoster";
 import type { TmdbMovieCredit } from "@/lib/tmdb";
-import { parseParticipantNames } from "@/lib/tray";
+import { MAX_LIST_SIZE, SOFT_WARN_AT, parseParticipantNames } from "@/lib/tray";
 
 export default function CandidateTray({
   candidates,
@@ -29,6 +29,30 @@ export default function CandidateTray({
   const [open, setOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const ready = candidates.length >= 2;
+
+  // Gentle heads-up shown once per browser session when the list crosses the
+  // soft-warning size. Uses the "adjusting state when props change" render
+  // pattern (lint forbids setState directly in effects); sessionStorage flag
+  // keeps it once-per-session across reloads.
+  const [seenCount, setSeenCount] = useState(-1);
+  const [showSizeHint, setShowSizeHint] = useState(false);
+  if (seenCount !== candidates.length) {
+    setSeenCount(candidates.length);
+    if (
+      candidates.length >= SOFT_WARN_AT &&
+      typeof window !== "undefined"
+    ) {
+      try {
+        const seen = sessionStorage.getItem("mr-cap-hint") === "1";
+        sessionStorage.setItem("mr-cap-hint", "1");
+        if (!seen) setShowSizeHint(true);
+      } catch {
+        // ponytail: storage-blocked browsers get the hint once per page-load instead
+        setShowSizeHint(true);
+      }
+    }
+  }
+  const atCap = candidates.length >= MAX_LIST_SIZE;
 
   function addParticipants() {
     const names = parseParticipantNames(draft);
@@ -161,6 +185,14 @@ export default function CandidateTray({
             </span>
           </button>
         </div>
+        {/* Cap notices: non-blocking, muted, one line each. */}
+        {(atCap || showSizeHint) && (
+          <p role="status" className="pb-1 text-xs text-muted">
+            {atCap
+              ? `List limit reached (${MAX_LIST_SIZE} movies).`
+              : "Heads up: rankings this large take hours — consider splitting into multiple nights."}
+          </p>
+        )}
         {/* Two-zone control strip (density pass): zone 1 = naming (title
             capped at w-56 + condensed participant unit, stacked under lg,
             inline at lg+); zone 2 = Start ranking, prominent right. At 390px

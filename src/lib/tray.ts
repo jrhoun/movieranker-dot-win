@@ -1,14 +1,23 @@
 import type { TmdbMovieCredit } from "@/lib/tmdb";
 
-/** Dedupe-safe merge into the candidate tray, kept title-sorted like single adds. */
+/** Hard cap on movies per list: rankings beyond this take unrealistic time. */
+export const MAX_LIST_SIZE = 100;
+/** Crossing this size triggers a one-time gentle split-the-list hint. */
+export const SOFT_WARN_AT = 40;
+
+/** Dedupe-safe merge into the candidate tray, kept title-sorted like single adds.
+ *  Silently truncates at MAX_LIST_SIZE so every add path (single pick, hero fan,
+ *  shift+click range, "Add all") stops at the cap without extra caller logic. */
 export function mergeCandidates(
   current: TmdbMovieCredit[],
   incoming: TmdbMovieCredit[],
 ): TmdbMovieCredit[] {
   const known = new Set(current.map((c) => c.tmdbId));
-  return [...current, ...incoming.filter((m) => !known.has(m.tmdbId))].sort((a, b) =>
-    a.title.localeCompare(b.title),
-  );
+  const merged = [
+    ...current,
+    ...incoming.filter((m) => !known.has(m.tmdbId)),
+  ].slice(0, MAX_LIST_SIZE);
+  return merged.sort((a, b) => a.title.localeCompare(b.title));
 }
 
 /** Dedupe-safe batch removal: drops every candidate whose tmdbId appears in incoming. */

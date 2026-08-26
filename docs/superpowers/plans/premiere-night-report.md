@@ -641,3 +641,14 @@ npm test 261/261 (26 files); tsc --noEmit clean; eslint clean; production build 
 
 ### Verification
 npm test 267/267 (26 files); tsc --noEmit clean; eslint clean; production build passes. Server-side enrichment only via existing cached tmdbFetch; .env.local unread; no raw payloads logged (counts summarized only).
+
+## 100-Movie List Size Cap (2026-08-25)
+
+Cap candidate lists at MAX_LIST_SIZE=100 (SOFT_WARN_AT=40) so rankings stay finishable.
+
+- `src/lib/tray.ts`: exported `MAX_LIST_SIZE`/`SOFT_WARN_AT`; `mergeCandidates` now truncates at the cap — the single choke point every add path routes through (single pick, hero fan, shift+click range, "Add all").
+- `CandidateTray.tsx`: muted one-line notices above the control strip — hard-cap line when at 100, gentle "rankings this large take hours" hint once per session (sessionStorage flag) on crossing 40. Non-blocking; render-adjustment pattern instead of setState-in-effect (lint).
+- Server: POST /api/lists and PATCH /api/lists/[id] reject payloads whose resulting movie count exceeds the cap with 400 `{ error: "lists are capped at 100 movies" }`. PATCH movies is a full desired-set payload, so its length is the resulting count.
+- Tests: batch add stopping exactly at 100, oversized single batch, server 400 over-cap + 201/204 exactly-at-cap for both routes.
+
+Verification: vitest 273 passed (26 files), tsc clean, eslint clean, next build passes.

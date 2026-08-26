@@ -11,6 +11,7 @@ import {
   type MovieInput,
 } from "@/lib/lists-api";
 import { LIMITS, rateKey, rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { MAX_LIST_SIZE } from "@/lib/tray";
 
 interface PostBody {
   title?: unknown;
@@ -68,6 +69,8 @@ export async function POST(request: Request) {
     })
   )
     return invalid("movies must be objects with tmdbId and title");
+  if (movies.length > MAX_LIST_SIZE)
+    return invalid(`lists are capped at ${MAX_LIST_SIZE} movies`);
 
   const id = nanoid(10);
   // single atomic insert via save_list RPC (schema.sql); RLS applies (invoker rights)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeCandidates, parseParticipantNames, rangeIndices, removeCandidates } from "./tray";
+import { MAX_LIST_SIZE, mergeCandidates, parseParticipantNames, rangeIndices, removeCandidates } from "./tray";
 import type { TmdbMovieCredit } from "@/lib/tmdb";
 
 const movie = (tmdbId: number, title: string): TmdbMovieCredit => ({
@@ -24,6 +24,20 @@ describe("mergeCandidates", () => {
   it("returns an equivalent list when everything is a duplicate", () => {
     const existing = [movie(1, "Alien"), movie(2, "Barbie")];
     expect(mergeCandidates(existing, [movie(1, "Alien")])).toEqual(existing);
+  });
+
+  it("silently stops a batch add exactly at the cap", () => {
+    const existing = Array.from({ length: 99 }, (_, i) => movie(i + 1, `T${String(i + 1).padStart(3, "0")}`));
+    const batch = Array.from({ length: 50 }, (_, i) => movie(1000 + i, `Z${i}`));
+    const merged = mergeCandidates(existing, batch);
+    expect(merged).toHaveLength(MAX_LIST_SIZE);
+    expect(merged.map((m) => m.tmdbId)).toContain(1000); // first of batch fits
+    expect(merged.map((m) => m.tmdbId)).not.toContain(1049); // overflow dropped
+  });
+
+  it("caps a single oversized batch added from empty", () => {
+    const batch = Array.from({ length: 150 }, (_, i) => movie(i + 1, `M${String(i + 1).padStart(3, "0")}`));
+    expect(mergeCandidates([], batch)).toHaveLength(MAX_LIST_SIZE);
   });
 });
 
