@@ -341,11 +341,20 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
             ))}
           </ul>
         )}
-        <ul className="mt-6 flex gap-4 overflow-x-auto pb-4">
+        {/* Horizontal filmstrip: scroll affordances (snap points, edge
+            padding, right-edge fade) signal more posters off-screen — the row
+            intentionally overflows so the last visible poster peeks cut off. */}
+        <ul
+          className="mt-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4"
+          style={{
+            maskImage: "linear-gradient(to right, black 85%, transparent 100%)",
+            WebkitMaskImage: "linear-gradient(to right, black 85%, transparent 100%)",
+          }}
+        >
           {tonight.movies.map((m) => {
             const inTray = candidates.some((c) => c.tmdbId === m.tmdbId);
             return (
-              <li key={m.tmdbId} className="w-24 shrink-0 sm:w-32">
+              <li key={m.tmdbId} className="w-24 shrink-0 snap-start sm:w-32">
                 <button
                   type="button"
                   onClick={() => toggleCandidate(m)}
