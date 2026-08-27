@@ -1,7 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useSyncExternalStore, useState } from "react";
 import type { ReferralStats } from "@/lib/referrals";
+
+const emptySubscribe = () => () => {};
+
+function getClientOrigin() {
+  return typeof window !== "undefined" ? window.location.origin : "https://www.movieranker.win";
+}
+function getServerOrigin() {
+  return "https://www.movieranker.win";
+}
+
+function getCanShare() {
+  return typeof navigator !== "undefined" ? Boolean(navigator.share) : false;
+}
+function getServerCanShare() {
+  return false;
+}
 
 export default function ReferralInviteCard({
   handle,
@@ -11,14 +27,8 @@ export default function ReferralInviteCard({
   stats: ReferralStats;
 }) {
   const [copied, setCopied] = useState(false);
-  const [origin] = useState(() =>
-    typeof window !== "undefined"
-      ? window.location.origin
-      : "https://www.movieranker.win",
-  );
-  const [canShare] = useState(() =>
-    typeof window !== "undefined" ? Boolean(navigator.share) : false,
-  );
+  const origin = useSyncExternalStore(emptySubscribe, getClientOrigin, getServerOrigin);
+  const canShare = useSyncExternalStore(emptySubscribe, getCanShare, getServerCanShare);
 
   const referralCode = handle || "join";
   const inviteUrl = `${origin}/?ref=${encodeURIComponent(referralCode)}`;
@@ -80,7 +90,10 @@ export default function ReferralInviteCard({
 
       {/* Invite Link Bar */}
       <div className="mt-4 flex flex-col sm:flex-row gap-2">
-        <div className="flex-1 truncate rounded-lg bg-surface-raised px-3.5 py-2 font-mono text-xs text-text ring-1 ring-white/10 flex items-center select-all">
+        <div
+          suppressHydrationWarning
+          className="flex-1 truncate rounded-lg bg-surface-raised px-3.5 py-2 font-mono text-xs text-text ring-1 ring-white/10 flex items-center select-all"
+        >
           {inviteUrl}
         </div>
         <div className="flex gap-2">
