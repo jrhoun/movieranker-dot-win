@@ -560,7 +560,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           className="flex shrink-0 items-center gap-1 font-display text-base sm:text-lg uppercase tracking-widest text-text transition-colors duration-200 ease-out hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
         >
           <span aria-hidden="true" className="text-gold">✦</span>
-          movieranker
+          MovieRanker
         </Link>
         <div aria-hidden="true" className="h-5 w-px shrink-0 bg-white/10" />
         <div className="min-w-0 flex-1">

@@ -50,8 +50,8 @@ export default function ReferralInviteCard({
     }
     try {
       await navigator.share({
-        title: "Join me on movieranker",
-        text: "Rank your favorite movies and build lists with me on movieranker!",
+        title: "Join me on MovieRanker",
+        text: "Rank your favorite movies and build lists with me on MovieRanker!",
         url: inviteUrl,
       });
     } catch (err) {

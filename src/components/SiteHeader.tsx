@@ -35,7 +35,7 @@ export default async function SiteHeader() {
           className="flex min-h-11 items-center gap-2 px-1 font-display text-xl uppercase tracking-widest text-text transition-colors duration-200 ease-out hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
         >
           <span aria-hidden="true" className="text-gold">✦</span>
-          <span>movieranker</span>
+          <span>MovieRanker</span>
         </Link>
         <nav aria-label="Site Navigation" className="flex items-center gap-1.5 sm:gap-3">
           <Link

@@ -59,7 +59,7 @@ export const SITE_UPDATES: SiteUpdate[] = [
     date: "August 23, 2026",
     version: "v1.0",
     tag: "Milestone",
-    title: "movieranker.win Launch",
+    title: "MovieRanker Launch",
     summary:
       "The definitive head-to-head movie ranking web app. Settle film debates pairwise with Elo voting and crown your definitive winners.",
     highlights: [

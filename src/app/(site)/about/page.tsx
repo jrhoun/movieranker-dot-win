@@ -3,7 +3,7 @@ import Link from "next/link";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import { CONTACT_EMAIL } from "@/lib/site";
 
-export const metadata: Metadata = { title: "About · movieranker.win" };
+export const metadata: Metadata = { title: "About · MovieRanker" };
 
 export default function AboutPage() {
   return (
@@ -12,7 +12,7 @@ export default function AboutPage() {
       <div className="mt-6 rounded-xl bg-surface p-6 ring-1 ring-white/10 sm:p-8 shadow-2xl">
         <div className="space-y-5 text-sm leading-relaxed text-text">
           <p className="text-base text-gold font-medium">
-            movieranker.win turns “which movie should we watch?” into a fast, decisive head-to-head tournament.
+            MovieRanker turns “which movie should we watch?” into a fast, decisive head-to-head tournament.
           </p>
 
           <p>

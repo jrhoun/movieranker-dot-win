@@ -4,8 +4,8 @@ import { SITE_UPDATES } from "@/data/updates";
 import { CONTACT_EMAIL } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Site Updates & News | movieranker.win",
-  description: "Stay up to date with the latest features, releases, and announcements for movieranker.win.",
+  title: "Site Updates & News | MovieRanker",
+  description: "Stay up to date with the latest features, releases, and announcements for MovieRanker.",
 };
 
 const tagStyles = {
@@ -25,7 +25,7 @@ export default function UpdatesPage() {
           <span>Changelog &amp; Announcements</span>
         </div>
         <h1 className="font-display text-3xl uppercase tracking-wider text-text sm:text-4xl">
-          What&apos;s New on movieranker
+          What&apos;s New on MovieRanker
         </h1>
         <p className="mt-2 text-sm text-muted leading-relaxed sm:text-base">
           Recent releases, newly added features, and product announcements.
@@ -102,11 +102,11 @@ export default function UpdatesPage() {
           Have an idea or feature request?
         </h2>
         <p className="mt-2 text-xs text-muted leading-relaxed sm:text-sm max-w-lg mx-auto">
-          movieranker is built for movie lovers. If there&apos;s a theme, tool, or feature you&apos;d love to see, let us know!
+          MovieRanker is built for movie lovers. If there&apos;s a theme, tool, or feature you&apos;d love to see, let us know!
         </p>
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
           <a
-            href={`mailto:${CONTACT_EMAIL}?subject=movieranker Feature Request`}
+            href={`mailto:${CONTACT_EMAIL}?subject=MovieRanker Feature Request`}
             className="inline-flex min-h-10 items-center rounded-full bg-gold px-5 text-xs font-bold uppercase tracking-wider text-bg shadow hover:opacity-90 active:scale-95 transition-all"
           >
             ✉ Send Feedback

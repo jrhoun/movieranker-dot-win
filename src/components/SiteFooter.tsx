@@ -14,7 +14,7 @@ export default function SiteFooter() {
             <div className="flex items-center gap-2">
               <span aria-hidden="true" className="text-gold">✦</span>
               <span className="font-display text-lg uppercase tracking-wider text-text">
-                movieranker.win
+                MovieRanker.win
               </span>
             </div>
             <p className="text-xs leading-relaxed text-muted">
@@ -110,7 +110,7 @@ export default function SiteFooter() {
             . This product uses the TMDB API but is not endorsed or certified by TMDB.
           </p>
           <p className="shrink-0">
-            © 2026 JR Houn · movieranker.win
+            © 2026 JR Houn · MovieRanker.win
           </p>
         </div>
       </div>

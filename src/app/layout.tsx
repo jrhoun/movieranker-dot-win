@@ -19,8 +19,8 @@ const bebas = Bebas_Neue({
 });
 
 export const metadata: Metadata = {
-  title: "movieranker.win",
-  description: "Rank movies with friends",
+  title: "MovieRanker – Head-to-Head Film Tournaments & Rankings",
+  description: "Rank movies with friends, settle debates head-to-head, and build definitive film lists.",
 };
 
 export const viewport: Viewport = {

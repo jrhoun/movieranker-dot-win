@@ -196,7 +196,7 @@ export default function LoginPage() {
         <p className="mt-1 text-sm text-muted">
           {mode === "signin"
             ? "Sign in to manage and share your movie lists."
-            : "Join movieranker to save rankings, claim your @handle, and earn XP."}
+            : "Join MovieRanker to save rankings, claim your @handle, and earn XP."}
         </p>
 
         {/* 1-Click Instant Providers */}
