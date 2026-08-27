@@ -30,8 +30,8 @@ export default function MoviePosterCard({
         {/* No overflow-hidden on the button: it clips this ring. Own overflow-hidden here
             rounds the img corners but never clips the element's own box-shadow ring. */}
         <div
-          className={`aspect-[2/3] w-full overflow-hidden rounded bg-surface transition-shadow duration-200 ease-out group-active:scale-[0.98] ${
-            selected ? "ring-[3px] ring-gold" : "ring-1 ring-white/25"
+          className={`aspect-[2/3] w-full overflow-hidden rounded bg-surface transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform-gpu group-hover:-translate-y-1.5 group-hover:shadow-[0_12px_24px_rgba(0,0,0,0.6)] group-active:scale-[0.98] ${
+            selected ? "ring-[3px] ring-gold" : "ring-1 ring-white/25 group-hover:ring-white/50"
           }`}
         >
           {movie.posterPath ? (
@@ -40,7 +40,7 @@ export default function MoviePosterCard({
               src={`https://image.tmdb.org/t/p/${sizeVariant}${movie.posterPath}`}
               alt=""
               loading={eager ? "eager" : "lazy"}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center p-2 text-center text-xs text-muted">

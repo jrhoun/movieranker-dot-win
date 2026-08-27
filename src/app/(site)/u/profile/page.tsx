@@ -3,11 +3,13 @@ import { redirect } from "next/navigation";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import ClaimHandleCard from "@/components/profile/ClaimHandleCard";
 import LevelProgressionModal from "@/components/profile/LevelProgressionModal";
+import ReferralInviteCard from "@/components/profile/ReferralInviteCard";
 import ShowcaseCard from "@/components/profile/ShowcaseCard";
 import ShowcaseLists from "@/components/profile/ShowcaseLists";
 import type { ListRowData } from "@/components/profile/ListRow";
 import { chipParticipants } from "@/lib/participants";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getReferralStats } from "@/lib/referrals";
 import {
   EMPTY_SHOWCASE,
   parseShowcase,
@@ -79,15 +81,14 @@ export default async function MyListsPage() {
     string,
     { display_name: string; user_id: string }[]
   >();
-  let referralCount = 0;
   for (const a of attributions ?? []) {
     const arr = attrByList.get(a.list_id as string) ?? [];
     arr.push({ display_name: a.display_name, user_id: a.user_id });
     attrByList.set(a.list_id as string, arr);
-    if (a.user_id && a.user_id !== auth.user.id) {
-      referralCount++;
-    }
   }
+
+  // Active referral stats (friends who joined and published a ranking)
+  const referralStats = await getReferralStats(supabase, auth.user.id);
 
   const cards: ListRowData[] = ((lists ?? []) as (DbList & { theme_slug?: string | null })[]).map((l) => ({
     id: l.id,
@@ -116,7 +117,7 @@ export default async function MyListsPage() {
   // Deleting a list from your shelf will never reduce your lifetime XP or level.
   const currentXp = calculateTotalXp({
     lists: cards.map((c) => ({ movieCount: c.posters.length })),
-    referralCount,
+    referralCount: referralStats.activeReferrals,
   });
   const lifetimeXp = Math.max(currentXp, showcase.lifetimeXp ?? 0);
   const progress = xpProgress(lifetimeXp);
@@ -250,17 +251,20 @@ export default async function MyListsPage() {
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
             <LevelProgressionModal currentLevel={level.level} currentXp={lifetimeXp} />
-            {referralCount > 0 && (
+            {referralStats.activeReferrals > 0 && (
               <span className="text-[11px] font-mono text-gold/80 flex items-center gap-1">
                 <span>🎟️</span>
-                <span>+{referralCount * 15} XP from {referralCount} claimed invite{referralCount === 1 ? "" : "s"}</span>
+                <span>
+                  +{referralStats.bonusXp} XP from {referralStats.activeReferrals} active referral
+                  {referralStats.activeReferrals === 1 ? "" : "s"}
+                </span>
               </span>
             )}
           </div>
         </div>
       </section>
 
-      {/* Row 2 (2 Cols): Left = Unlockables & Trophies, Right = Showcase Featured */}
+      {/* Row 2 (2 Cols): Left = Unlockables & Trophies, Right = Invite Card & Quick Stats */}
       <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Left Col: Unlocks & Achievement Showcase */}
         <div className="space-y-4">
@@ -303,8 +307,10 @@ export default async function MyListsPage() {
           <ShowcaseCard achievements={achievements} initialKeys={showcase.achievementKeys} />
         </div>
 
-        {/* Right Col: Quick Status & Navigation Guide */}
+        {/* Right Col: Invite Card & Quick Status */}
         <div className="space-y-4">
+          <ReferralInviteCard handle={profile?.handle ?? null} stats={referralStats} />
+
           <div className="rounded-xl bg-surface p-5 ring-1 ring-white/10 shadow-lg">
             <h2 className="font-display text-sm uppercase tracking-[0.14em] text-gold">
               Quick Stats

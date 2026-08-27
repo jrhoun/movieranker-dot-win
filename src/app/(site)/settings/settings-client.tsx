@@ -29,6 +29,11 @@ export default function SettingsClient({
   const [emailBusy, setEmailBusy] = useState(false);
   const [emailMsg, setEmailMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Password update state (for email/password users)
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordBusy, setPasswordBusy] = useState(false);
+  const [passwordMsg, setPasswordMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   // Export state
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -59,6 +64,30 @@ export default function SettingsClient({
         text: `Confirmation link sent to ${newEmail}. Please check your inbox to finalize the change.`,
       });
       setNewEmail("");
+    }
+  }
+
+  async function handlePasswordUpdate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 6) {
+      setPasswordMsg({ type: "error", text: "Password must be at least 6 characters." });
+      return;
+    }
+    setPasswordBusy(true);
+    setPasswordMsg(null);
+
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+    setPasswordBusy(false);
+    if (error) {
+      setPasswordMsg({ type: "error", text: error.message });
+    } else {
+      setPasswordMsg({
+        type: "success",
+        text: "Password updated successfully!",
+      });
+      setNewPassword("");
     }
   }
 
@@ -194,6 +223,41 @@ export default function SettingsClient({
                   {emailMsg.text}
                 </p>
               )}
+
+              <div className="pt-2 border-t border-white/5">
+                <form onSubmit={handlePasswordUpdate} className="space-y-2.5">
+                  <label htmlFor="new-password" className="block text-xs font-semibold uppercase tracking-wider text-muted">
+                    Change Password
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      id="new-password"
+                      type="password"
+                      required
+                      minLength={6}
+                      placeholder="New password (min 6 characters)"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="h-10 flex-1 rounded-lg bg-surface-raised px-3.5 text-xs text-text placeholder:text-muted ring-1 ring-white/10 focus-visible:outline-2 focus-visible:outline-gold"
+                    />
+                    <button
+                      type="submit"
+                      disabled={passwordBusy || !newPassword}
+                      className="min-h-10 shrink-0 rounded-lg bg-surface-raised px-4 text-xs font-bold uppercase tracking-wider text-text ring-1 ring-white/20 hover:ring-gold hover:text-gold disabled:opacity-40 transition-colors"
+                    >
+                      {passwordBusy ? "Updating…" : "Update Password"}
+                    </button>
+                  </div>
+                  {passwordMsg && (
+                    <p
+                      role="status"
+                      className={`text-xs ${passwordMsg.type === "success" ? "text-accent-emerald font-medium" : "text-accent-red"}`}
+                    >
+                      {passwordMsg.text}
+                    </p>
+                  )}
+                </form>
+              </div>
             </form>
           )}
         </div>

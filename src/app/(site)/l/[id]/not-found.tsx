@@ -9,6 +9,7 @@ export default function ListNotFound() {
           <img
             src="/images/cutting-room-floor.jpg"
             alt="Discarded film strips on cutting room floor"
+            loading="lazy"
             className="h-full w-full object-cover brightness-[0.7]"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-black/60" />

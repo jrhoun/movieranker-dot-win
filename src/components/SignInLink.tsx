@@ -9,7 +9,7 @@ export default function SignInLink({ className }: { className: string }) {
   const next = pathname && pathname !== "/login" ? `?next=${encodeURIComponent(pathname)}` : "";
   return (
     <Link href={`/login${next}`} className={className}>
-      Sign in
+      Sign in / Join
     </Link>
   );
 }

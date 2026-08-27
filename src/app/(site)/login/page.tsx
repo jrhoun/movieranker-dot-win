@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -8,12 +7,14 @@ import { safeNext } from "@/lib/redirect";
 
 // ?next= is passed by links to /login; the callback route re-validates it.
 function requestedNext(): string | null {
+  if (typeof window === "undefined") return null;
   return new URLSearchParams(window.location.search).get("next");
 }
 
 function callbackUrl() {
   const next = requestedNext();
-  return `${window.location.origin}/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ""}`;
+  const target = next && next !== "/" ? next : "/u/profile";
+  return `${window.location.origin}/auth/callback?next=${encodeURIComponent(target)}`;
 }
 
 const inputCls =
@@ -25,10 +26,14 @@ const btnAlt =
 
 export default function LoginPage() {
   const router = useRouter();
+  const [mode, setMode] = useState<"signin" | "signup">(() => {
+    if (typeof window === "undefined") return "signin";
+    return new URLSearchParams(window.location.search).get("mode") === "signup" ? "signup" : "signin";
+  });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
+  const [note, setNote] = useState<{ type: "info" | "error" | "success"; text: string } | null>(null);
 
   useEffect(() => {
     // already signed in? straight to your profile & lists
@@ -39,29 +44,44 @@ export default function LoginPage() {
       });
   }, [router]);
 
-  async function handlePassword(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setNote(null);
     const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      // maybe they never had an account — fall back to signup
-      const { error: signUpError } = await supabase.auth.signUp({ email, password });
+
+    if (mode === "signup") {
+      const { data, error } = await supabase.auth.signUp({ email, password });
       setBusy(false);
-      setNote(
-        signUpError
-          ? signUpError.message
-          : "No existing account found — we created one. Check your inbox to confirm.",
-      );
-      return;
+      if (error) {
+        setNote({ type: "error", text: error.message });
+      } else if (data?.user && !data.session) {
+        setNote({
+          type: "success",
+          text: `Account created! We sent a confirmation link to ${email}. Please check your inbox.`,
+        });
+      } else {
+        router.push(safeNext(requestedNext()));
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setBusy(false);
+        setNote({
+          type: "error",
+          text: error.message.includes("Invalid login credentials")
+            ? "Invalid email or password. If you don't have an account yet, click 'Create Account' above or use Magic Link."
+            : error.message,
+        });
+        return;
+      }
+      router.push(safeNext(requestedNext()));
     }
-    router.push(safeNext(requestedNext()));
   }
 
   async function handleMagicLink() {
     if (!email.trim()) {
-      setNote("Enter your email above first.");
+      setNote({ type: "error", text: "Enter your email above first to receive a magic sign-in link." });
       return;
     }
     setBusy(true);
@@ -71,80 +91,116 @@ export default function LoginPage() {
       options: { emailRedirectTo: callbackUrl() },
     });
     setBusy(false);
-    setNote(error ? error.message : `Magic link sent to ${email}.`);
+    if (error) {
+      setNote({ type: "error", text: error.message });
+    } else {
+      setNote({
+        type: "success",
+        text: `Magic link sent to ${email}. Click the link in your inbox to sign in or register instantly.`,
+      });
+    }
+  }
+
+  async function handleResetPassword() {
+    if (!email.trim()) {
+      setNote({
+        type: "error",
+        text: "Enter your email address above first, then click Forgot Password.",
+      });
+      return;
+    }
+    setBusy(true);
+    setNote(null);
+    const { error } = await createSupabaseBrowserClient().auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/settings?reset=password`,
+    });
+    setBusy(false);
+    if (error) {
+      setNote({ type: "error", text: error.message });
+    } else {
+      setNote({
+        type: "success",
+        text: `Password reset instructions sent to ${email}. Please check your inbox.`,
+      });
+    }
   }
 
   async function handleOAuth(provider: "google" | "azure") {
     setBusy(true);
     setNote(null);
     try {
-      const { error } = await createSupabaseBrowserClient().auth.signInWithOAuth({
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: { redirectTo: callbackUrl() },
       });
       if (error) throw error;
-      // Resolved without navigating away: usually a blocked/closed popup.
-      console.warn(`[auth] ${provider} sign-in returned without redirecting`);
-      setBusy(false);
-      setNote(
-        "Couldn't open Google sign-in — allow popups for this site and try again.",
-      );
+      if (data?.url) {
+        window.location.href = data.url;
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[auth] ${provider} sign-in failed: ${msg}`);
       setBusy(false);
-      setNote(
-        /not enabled|unsupported provider|invalid provider|provider is not/i.test(
-          msg,
-        )
+      setNote({
+        type: "error",
+        text: /not enabled|unsupported provider|invalid provider|provider is not/i.test(msg)
           ? "Google sign-in isn't set up yet — ask the site admin to enable it."
-          : "Couldn't start Google sign-in — please try again.",
-      );
+          : `Sign-in error: ${msg}`,
+      });
     }
   }
 
   return (
     <main className="bg-curtain flex flex-1 flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-md rounded-xl bg-surface/95 p-6 sm:p-8 ring-1 ring-white/10 shadow-2xl backdrop-blur-md">
-        <h1 className="font-display text-3xl uppercase tracking-wide text-text">Welcome Back</h1>
-        <p className="mt-1 text-sm text-muted">Sign in to manage and share your movie lists.</p>
-
-        <form onSubmit={handlePassword} className="mt-5 space-y-3">
-          <input
-            type="email"
-            required
-            autoComplete="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={inputCls}
-            aria-label="Email"
-          />
-          <input
-            type="password"
-            required
-            autoComplete="current-password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={inputCls}
-            aria-label="Password"
-          />
-          <button type="submit" disabled={busy} className={btnPrimary}>
-            Sign in
+        {/* Mode Selector Tabs */}
+        <div className="mb-6 grid grid-cols-2 rounded-lg bg-surface-raised p-1 ring-1 ring-white/10" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "signin"}
+            onClick={() => {
+              setMode("signin");
+              setNote(null);
+            }}
+            className={`rounded-md py-2 text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+              mode === "signin"
+                ? "bg-gold text-bg shadow-md"
+                : "text-muted hover:text-text"
+            }`}
+          >
+            Sign In
           </button>
-        </form>
-
-        <div className="my-4 flex items-center gap-3 text-xs text-muted" role="separator">
-          <span className="h-px flex-1 bg-white/10" />
-          or
-          <span className="h-px flex-1 bg-white/10" />
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "signup"}
+            onClick={() => {
+              setMode("signup");
+              setNote(null);
+            }}
+            className={`rounded-md py-2 text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+              mode === "signup"
+                ? "bg-gold text-bg shadow-md"
+                : "text-muted hover:text-text"
+            }`}
+          >
+            Create Account
+          </button>
         </div>
 
-        <div className="space-y-2.5">
-          <button type="button" onClick={handleMagicLink} disabled={busy} className={btnAlt}>
-            ✉ Email me a magic link
-          </button>
+        <h1 className="font-display text-3xl uppercase tracking-wide text-text">
+          {mode === "signin" ? "Welcome Back" : "Create Your Account"}
+        </h1>
+        <p className="mt-1 text-sm text-muted">
+          {mode === "signin"
+            ? "Sign in to manage and share your movie lists."
+            : "Join movieranker to save rankings, claim your @handle, and earn XP."}
+        </p>
+
+        {/* 1-Click Instant Providers */}
+        <div className="mt-5 space-y-2.5">
           <button
             type="button"
             onClick={() => handleOAuth("google")}
@@ -162,33 +218,122 @@ export default function LoginPage() {
               />
               <path
                 fill="#FBBC05"
-                d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"
+                d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.13-1.57.38-2.29V6.61H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.39l3.98-3.1z"
               />
               <path
                 fill="#EA4335"
-                d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09C6.22 6.86 8.87 4.75 12 4.75z"
+                d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.61l3.98 3.1c.95-2.85 3.6-4.96 6.73-4.96z"
               />
             </svg>
-            Continue with Google
+            {busy ? "Redirecting to Google..." : "Continue with Google"}
           </button>
+          <button type="button" onClick={handleMagicLink} disabled={busy} className={btnAlt}>
+            ✉ Email me a passwordless link
+          </button>
+          <p className="text-center text-[11px] text-muted/80">
+            ✦ Google &amp; passwordless links sign in or register instantly with no password needed.
+          </p>
         </div>
 
+        <div className="my-5 flex items-center gap-3 text-xs text-muted" role="separator">
+          <span className="h-px flex-1 bg-white/10" />
+          or use email &amp; password
+          <span className="h-px flex-1 bg-white/10" />
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input
+            type="email"
+            required
+            autoComplete="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={inputCls}
+            aria-label="Email"
+          />
+          <div className="space-y-1">
+            <input
+              type="password"
+              required
+              autoComplete={mode === "signin" ? "current-password" : "new-password"}
+              placeholder={mode === "signin" ? "Password" : "Create a password (min 6 characters)"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={inputCls}
+              aria-label="Password"
+              minLength={mode === "signup" ? 6 : undefined}
+            />
+            {mode === "signin" && (
+              <div className="flex justify-end pt-0.5">
+                <button
+                  type="button"
+                  onClick={handleResetPassword}
+                  disabled={busy}
+                  className="text-[11px] text-muted hover:text-gold transition-colors underline underline-offset-2 cursor-pointer"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
+          </div>
+          <button type="submit" disabled={busy} className={btnPrimary}>
+            {busy
+              ? mode === "signin"
+                ? "Signing in..."
+                : "Creating account..."
+              : mode === "signin"
+                ? "Sign in"
+                : "Create Account"}
+          </button>
+        </form>
+
         {note && (
-          <p role="status" className="mt-4 text-xs leading-relaxed text-accent">
-            {note}
+          <p
+            role="status"
+            className={`mt-4 text-xs leading-relaxed ${
+              note.type === "success"
+                ? "text-gold"
+                : note.type === "error"
+                  ? "text-accent-red"
+                  : "text-accent"
+            }`}
+          >
+            {note.text}
           </p>
         )}
 
-        <p className="mt-5 text-center text-xs text-muted">
-          New here?{" "}
-          <Link
-            href="/"
-            className="underline underline-offset-4 transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-accent"
-          >
-            Start ranking
-          </Link>{" "}
-          — you&apos;ll save at the end.
-        </p>
+        <div className="mt-6 border-t border-white/10 pt-4 text-center text-xs text-muted">
+          {mode === "signin" ? (
+            <p>
+              Don&apos;t have an account yet?{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("signup");
+                  setNote(null);
+                }}
+                className="font-bold text-gold underline underline-offset-4 hover:text-white cursor-pointer"
+              >
+                Create one now
+              </button>
+            </p>
+          ) : (
+            <p>
+              Already have an account?{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("signin");
+                  setNote(null);
+                }}
+                className="font-bold text-gold underline underline-offset-4 hover:text-white cursor-pointer"
+              >
+                Sign in here
+              </button>
+            </p>
+          )}
+        </div>
       </div>
     </main>
   );

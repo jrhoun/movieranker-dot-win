@@ -90,13 +90,14 @@ export async function generateMetadata({
   };
 }
 
-async function shareUrl(listId: string): Promise<string> {
+async function shareUrl(listId: string, refHandle?: string | null): Promise<string> {
   const base = process.env.NEXT_PUBLIC_SITE_URL;
-  if (base) return `${base.replace(/\/+$/, "")}/l/${listId}`;
+  const refQuery = refHandle ? `?ref=${encodeURIComponent(refHandle)}` : "";
+  if (base) return `${base.replace(/\/+$/, "")}/l/${listId}${refQuery}`;
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "movieranker.win";
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}/l/${listId}`;
+  return `${proto}://${host}/l/${listId}${refQuery}`;
 }
 
 export default async function PublicListPage({
@@ -139,7 +140,7 @@ export default async function PublicListPage({
     .from("participant_attributions")
     .select("display_name,user_id")
     .eq("list_id", id);
-  const userIds = [...new Set((attributions ?? []).map((a) => a.user_id))];
+  const userIds = [...new Set([...(attributions ?? []).map((a) => a.user_id), list.owner_id])];
   const { data: publicProfiles } =
     userIds.length > 0
       ? await supabase
@@ -153,6 +154,7 @@ export default async function PublicListPage({
     attributions ?? [],
     publicProfiles ?? [],
   );
+  const ownerProfile = (publicProfiles ?? []).find((p) => p.id === list.owner_id);
 
   // Community Verdict: aggregate every done room sharing this theme. RLS keeps
   // private rooms out for strangers, but "owner all" would admit the viewer's own
@@ -209,7 +211,7 @@ export default async function PublicListPage({
             {list.status === "done" && (
               <CompareModal listId={id} listTitle={list.title} />
             )}
-            <ShareButton title={list.title} url={await shareUrl(id)} />
+            <ShareButton title={list.title} url={await shareUrl(id, ownerProfile?.handle ?? null)} />
           </div>
         </div>
 

@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import HomeClient from "./home-client";
 import { getTonightsShortlist } from "@/lib/shortlist";
 import type { ThemeCommunityActivity } from "@/lib/shortlist";
@@ -9,7 +10,16 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 // rotation) and hydrates the movie details both the hero fan and the strip
 // render. Any failure degrades to an empty strip; HomeClient falls back to the
 // curated hero-posters set.
-export default async function Page() {
+export default async function Page({
+  searchParams,
+}: {
+  searchParams?: Promise<{ code?: string; next?: string }>;
+}) {
+  const sp = await searchParams;
+  if (sp?.code) {
+    const nextParam = sp.next ? `&next=${encodeURIComponent(sp.next)}` : "";
+    redirect(`/auth/callback?code=${encodeURIComponent(sp.code)}${nextParam}`);
+  }
   let title = "";
   let blurb = "";
   let slug: string | null = null;

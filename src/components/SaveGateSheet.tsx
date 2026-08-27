@@ -206,22 +206,17 @@ export default function SaveGateSheet({
     // page is about to navigate away — host must disarm its leave-warning
     onAuthRedirect?.();
     try {
-      const { error } = await createSupabaseBrowserClient().auth.signInWithOAuth({
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/r/play")}`,
         },
       });
       if (error) throw error;
-      // Resolved without navigating away: usually a blocked/closed popup.
-      console.warn(`[auth] ${provider} sign-in returned without redirecting`);
-      try {
-        sessionStorage.removeItem("mr_pending_auth_save");
-      } catch {}
-      setBusy(false);
-      setNote(
-        "Couldn't open Google sign-in — allow popups for this site and try again.",
-      );
+      if (data?.url) {
+        window.location.href = data.url;
+      }
     } catch (err) {
       try {
         sessionStorage.removeItem("mr_pending_auth_save");
@@ -234,7 +229,7 @@ export default function SaveGateSheet({
           msg,
         )
           ? "Google sign-in isn't set up yet — ask the site admin to enable it."
-          : "Couldn't start Google sign-in — please try again.",
+          : `Google sign-in failed: ${msg}`,
       );
     }
   }
@@ -260,8 +255,8 @@ export default function SaveGateSheet({
               {signedInUser
                 ? "Saving directly to your account…"
                 : status === "done"
-                  ? "Create an account to keep this ranking forever."
-                  : "Park it as a draft — finish voting any time."}
+                  ? "Sign in or create a free account to keep this ranking forever."
+                  : "Sign in or create a free account to save your draft."}
             </p>
           </div>
           {!signedInUser && (

@@ -237,14 +237,14 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
               overflow would clip the leading posters out of reach); centered
               once the row fits (~sm+). Negative mx gives gentle edge overlap
               while keeping >=82% of each poster face visible. */}
-          <ul className="mt-6 flex justify-start overflow-x-auto px-4 pt-4 pb-2 sm:justify-center">
+          <ul className="mt-6 flex justify-start overflow-x-auto px-4 pt-6 pb-4 sm:justify-center">
             {fanItems.map(({ m, tilt }, i) => {
               const inTray = candidates.some((c) => c.tmdbId === m.tmdbId);
               return (
                 <li
                   key={m.tmdbId}
                   style={{ "--tilt": `${tilt}deg`, zIndex: fanItems.length - Math.abs(i - (fanItems.length - 1) / 2) } as React.CSSProperties}
-                  className="relative -mx-2 w-[7.2rem] shrink-0 origin-bottom rotate-(--tilt) transition-all duration-200 ease-out hover:z-20 hover:rotate-0 hover:-translate-y-2 sm:-mx-3 sm:w-[8.4rem]"
+                  className="group relative -mx-2 w-[7.2rem] shrink-0 origin-bottom rotate-(--tilt) transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform-gpu hover:z-30 hover:rotate-0 hover:-translate-y-3 hover:scale-105 sm:-mx-3 sm:w-[8.4rem]"
                 >
                   <button
                     type="button"
@@ -254,13 +254,17 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
                     title={inTray ? "Already on your list — tap to remove" : `Add ${m.title}`}
                     className="block w-full cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
                   >
-                    <MoviePoster title={m.title} posterPath={m.posterPath} className="shadow-xl" />
-                    {overflowCount > 0 && i === fanItems.length - 1 && (
+                    <MoviePoster
+                      title={m.title}
+                      posterPath={m.posterPath}
+                      className="shadow-xl transition-shadow duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:shadow-[0_16px_36px_rgba(0,0,0,0.7)] group-hover:ring-2 group-hover:ring-gold/60"
+                    />
+                    {inTray && (
                       <span
                         aria-hidden
                         className="absolute right-1 bottom-1 z-10 rounded-full bg-gold px-1.5 py-0.5 text-xs font-bold text-bg shadow"
                       >
-                        +{overflowCount}
+                        ✓
                       </span>
                     )}
                   </button>
@@ -516,7 +520,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
                     <MoviePoster
                       title={m.title}
                       posterPath={m.posterPath}
-                      className="shadow-lg transition-transform duration-200 ease-out motion-safe:group-hover:-translate-y-1"
+                      className="shadow-lg transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform-gpu motion-safe:group-hover:-translate-y-2 motion-safe:group-hover:scale-[1.03] group-hover:shadow-[0_12px_24px_rgba(0,0,0,0.65)] group-hover:ring-1 group-hover:ring-gold/60"
                     />
                     {inTray && (
                       <span

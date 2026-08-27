@@ -8,6 +8,7 @@ import {
   levelFor,
   MIN_PIN_LIST_LEVEL,
 } from "@/lib/gamification";
+import { resolveReferrerId, getReferralStats } from "@/lib/referrals";
 import {
   LIMITS,
   rateKey,
@@ -72,11 +73,41 @@ export async function POST(request: Request) {
       { status: 400 },
     );
 
+  // Check for referrer cookie or request payload
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  const matchCookie = cookieHeader.match(/(?:^|;\s*)mr_ref=([^;]+)/);
+  const refCode =
+    (body as { ref?: string }).ref ??
+    (matchCookie ? decodeURIComponent(matchCookie[1]) : null);
+
+  let referrerId: string | null = null;
+  if (refCode) {
+    const resolved = await resolveReferrerId(supabase, refCode);
+    if (resolved && resolved !== auth.user.id) {
+      referrerId = resolved;
+    }
+  }
+
+  // Check if profile exists already to avoid overwriting existing referrer
+  const { data: existingProfile } = await supabase
+    .from("profiles")
+    .select("referred_by")
+    .eq("id", auth.user.id)
+    .maybeSingle();
+
+  const profilePayload: { id: string; handle: string; referred_by?: string } = {
+    id: auth.user.id,
+    handle: checked.handle,
+  };
+  if (!existingProfile?.referred_by && referrerId) {
+    profilePayload.referred_by = referrerId;
+  }
+
   // Upsert keyed on id: creates the row on first claim, updates only the
   // handle afterwards; existing visibility is never touched.
   const { error } = await supabase
     .from("profiles")
-    .upsert({ id: auth.user.id, handle: checked.handle }, { onConflict: "id" });
+    .upsert(profilePayload, { onConflict: "id" });
   if (error) {
     if (error.code === "23505")
       return NextResponse.json({ error: "that handle is taken" }, { status: 409 });
@@ -136,22 +167,13 @@ export async function PATCH(request: Request) {
           .from("lists")
           .select("id,list_movies(count)")
           .eq("owner_id", auth.user.id);
-        const listIds = (userLists ?? []).map((l) => l.id);
-        const { data: attributions } = listIds.length
-          ? await supabase
-              .from("participant_attributions")
-              .select("user_id")
-              .in("list_id", listIds)
-          : { data: [] };
-        const referralCount = (attributions ?? []).filter(
-          (a) => a.user_id && a.user_id !== auth.user.id,
-        ).length;
+        const { activeReferrals } = await getReferralStats(supabase, auth.user.id);
         lifetimeXp = calculateTotalXp({
           lists: (userLists ?? []).map((l) => {
             const c = Array.isArray(l.list_movies) ? l.list_movies[0]?.count ?? 0 : 0;
             return { movieCount: Number(c) };
           }),
-          referralCount,
+          referralCount: activeReferrals,
         });
       }
       const userLevel = levelFor(lifetimeXp).level;

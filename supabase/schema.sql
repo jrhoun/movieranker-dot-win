@@ -142,8 +142,10 @@ create table profiles (
   -- Showcase curation: { achievementKeys: string[] (max 3), favoriteListId: text|null }.
   -- Validated app-side; favoriteListId must reference an owned public done list to render.
   showcase jsonb not null default '{}',
+  referred_by uuid references auth.users(id),
   created_at timestamptz not null default now()
 );
+create index if not exists idx_profiles_referred_by on profiles(referred_by);
 alter table profiles enable row level security;
 create policy "read any" on profiles for select using (true);
 create policy "write own" on profiles for all

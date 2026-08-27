@@ -8,7 +8,7 @@ async function signOut() {
   "use server";
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
-  redirect("/");
+  redirect("/?signed_out=1");
 }
 
 export default async function SiteHeader() {

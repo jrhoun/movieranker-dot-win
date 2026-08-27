@@ -15,8 +15,11 @@ create table if not exists shortlist_proposals (
   created_at timestamptz default now()
 );
 alter table shortlist_proposals enable row level security;
+drop policy if exists "propose own" on shortlist_proposals;
 create policy "propose own" on shortlist_proposals for insert with check (auth.uid() = proposer_id);
+drop policy if exists "read own" on shortlist_proposals;
 create policy "read own" on shortlist_proposals for select using (auth.uid() = proposer_id);
+drop policy if exists "anyone reads approved" on shortlist_proposals;
 create policy "anyone reads approved" on shortlist_proposals for select using (status = 'approved');
 
 -- 3. Profile Era v0 — list visibility (private done lists become owner-only)
@@ -38,7 +41,9 @@ create table if not exists profiles (
   created_at timestamptz not null default now()
 );
 alter table profiles enable row level security;
+drop policy if exists "read any" on profiles;
 create policy "read any" on profiles for select using (true);
+drop policy if exists "write own" on profiles;
 create policy "write own" on profiles for all
   using (auth.uid() = id) with check (auth.uid() = id);
 
@@ -57,6 +62,7 @@ create table if not exists participant_attributions (
   unique (list_id, user_id)
 );
 alter table participant_attributions enable row level security;
+drop policy if exists "claim own on readable lists" on participant_attributions;
 create policy "claim own on readable lists" on participant_attributions for insert
   with check (
     auth.uid() = user_id and exists (
@@ -65,6 +71,7 @@ create policy "claim own on readable lists" on participant_attributions for inse
              or (l.status = 'done' and l.visibility in ('unlisted','public')))
     )
   );
+drop policy if exists "read via list" on participant_attributions;
 create policy "read via list" on participant_attributions for select using (
   exists (
     select 1 from lists l where l.id = list_id
@@ -72,6 +79,7 @@ create policy "read via list" on participant_attributions for select using (
            or (l.status = 'done' and l.visibility in ('unlisted','public')))
   )
 );
+drop policy if exists "remove own claim" on participant_attributions;
 create policy "remove own claim" on participant_attributions for delete
   using (auth.uid() = user_id);
 
@@ -103,3 +111,7 @@ begin
   );
 end;
 $$;
+
+-- 9. Referral tracking (stores which user referred this profile).
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS referred_by uuid REFERENCES auth.users(id);
+CREATE INDEX IF NOT EXISTS idx_profiles_referred_by ON profiles(referred_by);

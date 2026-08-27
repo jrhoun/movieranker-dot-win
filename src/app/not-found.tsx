@@ -35,6 +35,7 @@ export default function NotFound() {
             <img
               src="/images/cutting-room-floor.jpg"
               alt="Discarded 35mm film strips on a cutting room floor"
+              loading="lazy"
               className="h-full w-full object-cover brightness-[0.75] contrast-[1.1]"
             />
             {/* Vignette & Spotlight overlay */}
