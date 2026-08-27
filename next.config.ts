@@ -8,6 +8,16 @@ const nextConfig: NextConfig = {
         destination: "/u/profile",
         permanent: true,
       },
+      {
+        source: "/news",
+        destination: "/updates",
+        permanent: true,
+      },
+      {
+        source: "/changelog",
+        destination: "/updates",
+        permanent: true,
+      },
     ];
   },
 };

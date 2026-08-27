@@ -52,7 +52,7 @@ export async function generateMetadata({
   }
 
   const title = `@${profile.handle} – Movie Showcase | movieranker.win`;
-  const desc = `Explore @${profile.handle}'s movie rankings, trophy case, and featured films on MovieRanker.`;
+  const desc = `Explore @${profile.handle}'s movie rankings, achievements, and featured films on MovieRanker.`;
 
   return {
     title,
@@ -282,7 +282,7 @@ export default async function PublicProfilePage({
                           <span
                             title="Featured on Showcase"
                             className="text-gold text-[11px]"
-                            aria-label="Pinned trophy"
+                            aria-label="Pinned achievement"
                           >
                             ★
                           </span>

@@ -44,6 +44,11 @@ export default function SiteFooter() {
                 </Link>
               </li>
               <li>
+                <Link href="/updates" className={linkCls}>
+                  Site Updates &amp; News
+                </Link>
+              </li>
+              <li>
                 <Link href="/u/profile" className={linkCls}>
                   My Profile &amp; Lists
                 </Link>

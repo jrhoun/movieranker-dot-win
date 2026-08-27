@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { EvaluatedAchievement } from "@/lib/gamification";
 import { MAX_PINNED_ACHIEVEMENTS, patchShowcase } from "@/lib/public-profile";
 
-// Showcase curation: Trophy Case with unlocked badges and locked milestones.
+// Showcase curation: Achievements with unlocked badges and locked milestones.
 export default function ShowcaseCard({
   achievements,
   initialKeys,
@@ -44,10 +44,10 @@ export default function ShowcaseCard({
         <div>
           <h2 id="achv-heading" className="font-display text-base uppercase tracking-[0.14em] text-gold flex items-center gap-2">
             <span>🏆</span>
-            <span>Trophy Case</span>
+            <span>Achievements</span>
           </h2>
           <p className="mt-1 text-xs text-muted">
-            Pin up to {MAX_PINNED_ACHIEVEMENTS} trophies to showcase on your public profile.
+            Pin up to {MAX_PINNED_ACHIEVEMENTS} achievements to showcase on your public profile.
           </p>
         </div>
         <span className="rounded-full bg-gold/10 px-3 py-1 font-mono text-xs font-semibold text-gold ring-1 ring-gold/30">
@@ -55,14 +55,14 @@ export default function ShowcaseCard({
         </span>
       </div>
 
-      {/* Unlocked Trophies Container */}
+      {/* Unlocked Achievements Container */}
       <div className="mt-4">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-text/80 mb-2.5">
-          Unlocked Trophies
+          Unlocked Achievements
         </h3>
         {unlockedList.length === 0 ? (
           <p className="rounded-lg bg-surface-raised/40 p-4 text-xs italic text-muted/80 ring-1 ring-white/5">
-            Complete your first ranking to unlock your opening night trophy!
+            Complete your first ranking to unlock your first achievement!
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
