@@ -78,3 +78,28 @@ create policy "remove own claim" on participant_attributions for delete
 -- 7. Curated Lock Mode — themed lists from Tonight's Shortlist.
 ALTER TABLE lists ADD COLUMN IF NOT EXISTS theme_slug text;
 ALTER TABLE lists ADD COLUMN IF NOT EXISTS curated boolean NOT NULL DEFAULT false;
+
+-- 8. Atomic list creation RPC (drop and replace to ensure current columns are mapped)
+create or replace function save_list(
+  p_id text, p_title text, p_description text,
+  p_participants text[], p_status text, p_movies jsonb
+) returns void
+language plpgsql
+security invoker
+as $$
+begin
+  insert into lists (id, owner_id, title, description, participants, status)
+  values (p_id, auth.uid(), p_title, p_description, p_participants, p_status);
+
+  insert into list_movies
+    (list_id, tmdb_id, title, poster_path, release_year, elo, comparisons, parked, final_rank)
+  select
+    p_id, tmdb_id, title, poster_path, release_year,
+    coalesce(elo, 1000), coalesce(comparisons, 0),
+    coalesce(parked, false), final_rank
+  from jsonb_to_recordset(p_movies) as x(
+    tmdb_id int, title text, poster_path text, release_year int,
+    elo real, comparisons int, parked boolean, final_rank int
+  );
+end;
+$$;

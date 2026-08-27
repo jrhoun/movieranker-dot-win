@@ -10,9 +10,9 @@
   --color-text: var(--text);
   --color-muted: var(--muted);
   --radius: var(--radius);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-geist-sans), "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
   --font-mono: var(--font-geist-mono);
-  --font-display: var(--font-bebas);
+  --font-display: var(--font-bebas), var(--font-geist-sans), "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
 }
 
 :root {
@@ -186,30 +186,72 @@ body {
 }
 .thin-scrollbar::-webkit-scrollbar-track { background: transparent; }
 
-/* Vote settle (DESIGN.md motion budget, single beat): loser bops (scale
-   down-up ~180ms) then fades to ~25% opacity; winner stays full with a subtle
-   gold pulse (~250ms). Reduced motion: instant dim, no bop/pulse. */
-.loser-bop {
-  animation:
-    loser-bop 180ms ease-out forwards,
-    loser-dim 200ms ease-out 180ms forwards;
+/* Directional Hit & Recoil Matchup Animations */
+/* Left Winner lunges Rightward into opponent */
+.animate-hit-right {
+  animation: hit-right 380ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  z-index: 20;
 }
-@keyframes loser-bop {
-  0% { transform: scale(1); }
-  45% { transform: scale(0.94); }
-  100% { transform: scale(1); }
+@keyframes hit-right {
+  0% { transform: translateX(0) scale(1); }
+  40% { transform: translateX(36px) scale(1.08) rotate(-1deg); }
+  100% { transform: translateX(12px) scale(1.04); }
 }
-@keyframes loser-dim {
-  to { opacity: 0.25; }
+
+/* Right Loser recoils Rightward away from impact */
+.animate-recoil-right {
+  animation: recoil-right 380ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  z-index: 10;
 }
-.winner-gold-pulse { animation: winner-gold-pulse 200ms ease-out; }
-@keyframes winner-gold-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 197, 24, 0); }
-  50% { box-shadow: 0 0 18px 2px rgba(245, 197, 24, 0.45); }
+@keyframes recoil-right {
+  0% { transform: translateX(0) scale(1) rotate(0deg); opacity: 1; }
+  25% { transform: translateX(18px) scale(0.95) rotate(3deg); opacity: 0.7; }
+  100% { transform: translateX(70px) scale(0.85) rotate(6deg); opacity: 0; }
 }
+
+/* Right Winner lunges Leftward into opponent */
+.animate-hit-left {
+  animation: hit-left 380ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  z-index: 20;
+}
+@keyframes hit-left {
+  0% { transform: translateX(0) scale(1); }
+  40% { transform: translateX(-36px) scale(1.08) rotate(1deg); }
+  100% { transform: translateX(-12px) scale(1.04); }
+}
+
+/* Left Loser recoils Leftward away from impact */
+.animate-recoil-left {
+  animation: recoil-left 380ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  z-index: 10;
+}
+@keyframes recoil-left {
+  0% { transform: translateX(0) scale(1) rotate(0deg); opacity: 1; }
+  25% { transform: translateX(-18px) scale(0.95) rotate(-3deg); opacity: 0.7; }
+  100% { transform: translateX(-70px) scale(0.85) rotate(-6deg); opacity: 0; }
+}
+
+/* Winner poster tight gold halo glow */
+.animate-poster-winner {
+  animation: winner-poster-glow 380ms ease-out forwards;
+}
+@keyframes winner-poster-glow {
+  0% { box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 0 0 rgba(245, 197, 24, 0); }
+  40% { box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 35px 6px rgba(245, 197, 24, 0.6); }
+  100% { box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 20px 2px rgba(245, 197, 24, 0.35); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .loser-bop { animation: none; opacity: 0.25; }
-  .winner-gold-pulse { animation: none; }
+  .animate-hit-right,
+  .animate-hit-left,
+  .animate-recoil-right,
+  .animate-recoil-left {
+    animation: none !important;
+  }
+  .animate-recoil-right,
+  .animate-recoil-left {
+    opacity: 0.25 !important;
+  }
 }
 
 @keyframes celebrate-beat {
@@ -237,4 +279,9 @@ body {
     /* infinite loops (spin/pulse) would otherwise restart every 0.01ms */
     animation-iteration-count: 1 !important;
   }
+}
+
+/* Accessibility & Tab panels: Ensure hidden tabpanels do not take layout height or cause scroll overflow */
+[role="tabpanel"][aria-hidden="true"] {
+  display: none !important;
 }

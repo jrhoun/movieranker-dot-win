@@ -168,9 +168,17 @@ describe("PATCH /api/profile — showcase", () => {
     expect((await patchShowcase({ achievementKeys: [...keys, "centurion"] })).status).toBe(400);
   });
 
+  it("403 when user is below Level 10 attempting to pin favoriteListId", async () => {
+    currentDb.row = { id: "u-1", showcase: { lifetimeXp: 10 } }; // Level 3 (< 10)
+    const res = await patchShowcase({ favoriteListId: "l-mine" });
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toMatch(/Level 10/);
+  });
+
   it("400 when favoriteListId is not an owned public done list", async () => {
-    // lists lookup resolves no row -> rejected at the trust boundary.
-    currentDb.row = { id: "u-1", showcase: {} };
+    // user is Level 11 (50 XP), lists lookup resolves no row -> rejected at the trust boundary.
+    currentDb.row = { id: "u-1", showcase: { lifetimeXp: 50 } };
     currentDb.rowsByTable = { lists: null };
     expect((await patchShowcase({ favoriteListId: "l-someone-elses" })).status).toBe(400);
     const body = (await (
@@ -182,17 +190,17 @@ describe("PATCH /api/profile — showcase", () => {
   it("merges a partial patch and persists the full showcase object", async () => {
     currentDb.row = {
       id: "u-1",
-      showcase: { achievementKeys: ["first_premiere"], favoriteListId: null },
+      showcase: { achievementKeys: ["first_premiere"], favoriteListId: null, lifetimeXp: 50 },
     };
     currentDb.writeResult = { data: { id: "u-1" }, error: null };
     const res = await patchShowcase({ favoriteListId: "l-mine" });
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({
-      showcase: { achievementKeys: ["first_premiere"], favoriteListId: "l-mine" },
+      showcase: { achievementKeys: ["first_premiere"], favoriteListId: "l-mine", lifetimeXp: 50 },
     });
     const upd = currentDb.calls.find((c) => c.method === "update")!;
     expect(upd.args[0]).toEqual({
-      showcase: { achievementKeys: ["first_premiere"], favoriteListId: "l-mine" },
+      showcase: { achievementKeys: ["first_premiere"], favoriteListId: "l-mine", lifetimeXp: 50 },
     });
     // The lists trust-boundary check ran before the update.
     const listsCall = currentDb.calls.find(

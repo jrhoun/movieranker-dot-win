@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import MoviePoster from "@/components/list/MoviePoster";
 import ParticipantChips from "@/components/ParticipantChips";
 import type { ParticipantChip } from "@/lib/participants";
+import { MIN_PIN_LIST_LEVEL, MIN_PROPOSAL_LEVEL, rankForLevel } from "@/lib/gamification";
 
 export interface ListRowData {
   id: string;
   title: string;
   status: "draft" | "done";
   createdAt: string;
+  themeSlug?: string | null;
   /** Top-ranked posters, best first; row shows the leading one at 2:3. */
   posters: { title: string; posterPath: string | null }[];
   /** TMDB ids, best first (proposals submit the top 8). */
@@ -28,6 +30,8 @@ interface ListRowProps {
   featured?: boolean;
   /** When provided, a feature-star is rendered (done + public lists only). */
   onToggleFeature?: () => void;
+  /** User's career level to enforce unlock gates. */
+  userLevel?: number;
 }
 
 const btn =
@@ -52,14 +56,30 @@ const VISIBILITY_OPTIONS = [
 ] as const;
 
 // Compact single-line list row for /u/me: leading poster, meta, quiet actions.
-export default function ListRow({ list, featured, onToggleFeature }: ListRowProps) {
+export default function ListRow({ list, featured, onToggleFeature, userLevel }: ListRowProps) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [visibility, setVisibility] = useState(list.visibility ?? "unlisted");
+  const [localVisibility, setLocalVisibility] = useState<(typeof VISIBILITY_OPTIONS)[number]["value"] | null>(null);
+  const visibility: (typeof VISIBILITY_OPTIONS)[number]["value"] =
+    localVisibility ??
+    (list.visibility === "public" || list.visibility === "private"
+      ? list.visibility
+      : "unlisted");
   const [proposeOpen, setProposeOpen] = useState(false);
   const [pTitle, setPTitle] = useState(list.title.slice(0, 80));
   const [pBlurb, setPBlurb] = useState("");
   const [pNote, setPNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        setLocalVisibility(null);
+        router.refresh();
+      }
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, [router]);
 
   async function remove() {
     if (!window.confirm(`Delete "${list.title}" permanently? This can't be undone.`)) return;
@@ -105,8 +125,8 @@ export default function ListRow({ list, featured, onToggleFeature }: ListRowProp
 
   async function changeVisibility(value: (typeof VISIBILITY_OPTIONS)[number]["value"]) {
     if (value === visibility) return;
-    const previous = visibility;
-    setVisibility(value);
+    const previous = localVisibility;
+    setLocalVisibility(value);
     let res: Response;
     try {
       res = await fetch(`/api/lists/${list.id}`, {
@@ -115,10 +135,14 @@ export default function ListRow({ list, featured, onToggleFeature }: ListRowProp
         body: JSON.stringify({ visibility: value }),
       });
     } catch {
-      setVisibility(previous);
+      setLocalVisibility(previous);
       return;
     }
-    if (!res.ok) setVisibility(previous);
+    if (!res.ok) {
+      setLocalVisibility(previous);
+      return;
+    }
+    router.refresh();
   }
 
   const isDraft = list.status === "draft";
@@ -130,9 +154,11 @@ export default function ListRow({ list, featured, onToggleFeature }: ListRowProp
     timeZone: "UTC", // server renders UTC; client must match to avoid hydration mismatch
   });
   const top = list.posters[0];
-  const canPropose = !isDraft && (list.movieIds?.length ?? 0) >= 6;
-  // Featuring requires the same server-side preconditions: finished + public.
-  const canFeature = !isDraft && visibility === "public";
+  const canPropose = !isDraft && !list.themeSlug && (list.movieIds?.length ?? 0) >= 6;
+  const hasRankToPropose = (userLevel ?? 1) >= MIN_PROPOSAL_LEVEL;
+  const hasRankToFeature = (userLevel ?? 1) >= MIN_PIN_LIST_LEVEL;
+  // Featuring requires: finished + public + Level 10 milestone.
+  const canFeature = !isDraft && visibility === "public" && hasRankToFeature;
 
   return (
     <article className="rounded bg-surface ring-1 ring-white/10 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:ring-gold/40 motion-reduce:transition-none">
@@ -155,12 +181,17 @@ export default function ListRow({ list, featured, onToggleFeature }: ListRowProp
           )}
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
             <span
-              className={`inline-block rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${
-                isDraft ? "bg-accent/15 text-accent" : "bg-surface-raised text-muted ring-1 ring-gold/50"
+              className={`inline-block rounded px-2 py-0.5 text-xs font-semibold uppercase tracking-wider ${
+                isDraft ? "bg-accent/15 text-accent" : "bg-surface-raised text-gold ring-1 ring-gold/50"
               }`}
             >
               {isDraft ? "Draft" : "Done"}
             </span>
+            {list.themeSlug && (
+              <span className="inline-block rounded bg-gold/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-gold">
+                ✦ Marquee
+              </span>
+            )}
             <span>{date}</span>
             {/* Native select keeps visibility wired in one tight control. */}
             <select
@@ -179,54 +210,79 @@ export default function ListRow({ list, featured, onToggleFeature }: ListRowProp
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           {onToggleFeature && (
             <button
               type="button"
               onClick={onToggleFeature}
               disabled={!canFeature}
               aria-pressed={featured}
-              aria-label={featured ? `Unfeature ${list.title}` : `Feature ${list.title}`}
-              title={
-                !canFeature
-                  ? "Finish ranking and set visibility to public to feature it."
+              aria-label={
+                !hasRankToFeature
+                  ? `Pinning locked (unlocks at Level ${MIN_PIN_LIST_LEVEL})`
                   : featured
-                    ? "Unfeature this ranking"
-                    : "Feature this ranking on your public profile"
+                    ? `Unpin ${list.title}`
+                    : `Pin ${list.title} as featured ranking`
               }
-              className={`${btn} ${
+              title={
+                !hasRankToFeature
+                  ? `Pinning a featured ranking unlocks at Level ${MIN_PIN_LIST_LEVEL} (Theater Usher). You can pin 1 list at a time to showcase on your profile!`
+                  : !canFeature
+                    ? "Finish ranking and set visibility to public to feature it (1 pinned list at a time)."
+                    : featured
+                      ? "Unpin this featured ranking"
+                      : "Pin as your featured ranking on your public profile (replaces current)"
+              }
+              className={`flex size-9 items-center justify-center rounded-full text-sm transition-all duration-200 ease-out focus-visible:outline-2 focus-visible:outline-gold active:scale-95 ${
                 featured
-                  ? "bg-gold/10 text-gold ring-1 ring-gold"
+                  ? "bg-gold/20 text-gold ring-1 ring-gold"
                   : canFeature
-                    ? "text-muted hover:bg-white/10 hover:text-gold"
-                    : "pointer-events-none text-muted opacity-40"
+                    ? "bg-surface-raised text-muted ring-1 ring-white/10 hover:bg-gold/15 hover:text-gold hover:ring-gold/40"
+                    : "pointer-events-none text-muted/30 opacity-40 ring-1 ring-white/5 cursor-not-allowed"
               }`}
             >
-              ★
+              {!hasRankToFeature ? <span className="text-[11px]" aria-hidden="true">🔒</span> : "★"}
             </button>
           )}
           <Link
             href={href}
-            className={`${btn} bg-surface-raised hover:bg-white/10 ${isDraft ? "font-semibold text-accent" : ""}`}
+            className={`inline-flex min-h-9 items-center rounded-full px-3.5 py-1 text-xs font-bold uppercase tracking-wider transition-all duration-200 ease-out focus-visible:outline-2 focus-visible:outline-gold active:scale-95 ${
+              isDraft
+                ? "bg-accent/20 text-accent ring-1 ring-accent/40 hover:bg-accent hover:text-bg hover:shadow-md"
+                : "bg-surface-raised text-text ring-1 ring-white/10 hover:ring-gold hover:text-gold hover:bg-white/10"
+            }`}
           >
-            {isDraft ? "Resume" : "View"}
+            {isDraft ? "▶ Resume" : "View →"}
           </Link>
           {canPropose && (
-            <button
-              type="button"
-              onClick={() => setProposeOpen((v) => !v)}
-              aria-expanded={proposeOpen}
-              className={`${btn} hidden bg-surface-raised text-gold ring-1 ring-gold/40 hover:bg-white/10 sm:block`}
-            >
-              Propose
-            </button>
+            hasRankToPropose ? (
+              <button
+                type="button"
+                onClick={() => setProposeOpen((v) => !v)}
+                aria-expanded={proposeOpen}
+                title="Propose this ranking as a future 'This Week's Marquee' theme for the community to rank"
+                aria-label={`Propose ${list.title} as a weekly marquee theme`}
+                className="hidden sm:inline-flex min-h-9 items-center rounded-full bg-gold/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-gold ring-1 ring-gold/40 transition-all duration-200 ease-out hover:bg-gold hover:text-bg active:scale-95"
+              >
+                ✦ Propose
+              </button>
+            ) : (
+              <span
+                title={`Theme proposals unlock at Level ${MIN_PROPOSAL_LEVEL} (${rankForLevel(MIN_PROPOSAL_LEVEL)}). Suggest your top picks as a future weekly marquee theme!`}
+                aria-label={`Propose locked: unlocks at Level ${MIN_PROPOSAL_LEVEL}`}
+                className="hidden sm:inline-flex min-h-9 items-center gap-1 rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-muted/60 ring-1 ring-white/5 cursor-not-allowed select-none"
+              >
+                <span aria-hidden="true">🔒</span>
+                <span>Propose (Lv {MIN_PROPOSAL_LEVEL})</span>
+              </span>
+            )
           )}
           <button
             type="button"
             onClick={() => void remove()}
             disabled={busy}
             aria-label={`Delete ${list.title}`}
-            className={`${btn} text-accent-red hover:bg-accent-red/10`}
+            className="inline-flex min-h-9 items-center rounded-full px-2.5 py-1 text-xs text-muted transition-colors duration-200 ease-out hover:bg-accent-red/10 hover:text-accent-red active:scale-95 disabled:opacity-40"
           >
             Delete
           </button>

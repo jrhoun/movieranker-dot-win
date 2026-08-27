@@ -39,19 +39,19 @@ export default function ComparePicker({ listId }: { listId: string }) {
             setValue(e.target.value);
             setError(null);
           }}
-          placeholder="movieranker.win/l/…  or a list id"
+          placeholder="movieranker.win/l/… or list ID"
           autoComplete="off"
-          className="min-h-11 min-w-0 flex-1 rounded bg-surface-raised px-3 text-sm ring-1 ring-white/15 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
+          className="min-h-11 min-w-0 flex-1 rounded-lg bg-surface-raised px-3.5 text-sm text-text placeholder:text-muted ring-1 ring-white/15 focus-visible:outline-2 focus-visible:outline-gold"
         />
         <button
           type="submit"
-          className="min-h-11 shrink-0 rounded bg-accent px-5 text-sm font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+          className="min-h-11 shrink-0 rounded-full bg-gold px-6 text-sm font-bold uppercase tracking-wider text-bg shadow-md transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-gold active:scale-[0.98]"
         >
-          Compare
+          Compare →
         </button>
       </div>
       {error && (
-        <p role="alert" className="mt-2 text-sm text-accent-red">
+        <p role="alert" className="mt-2 text-xs font-medium text-accent-red">
           {error}
         </p>
       )}

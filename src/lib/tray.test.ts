@@ -1,6 +1,24 @@
-import { describe, expect, it } from "vitest";
-import { MAX_LIST_SIZE, mergeCandidates, parseParticipantNames, rangeIndices, removeCandidates } from "./tray";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  clearStagedDraft,
+  loadStagedDraft,
+  MAX_LIST_SIZE,
+  mergeCandidates,
+  parseParticipantNames,
+  rangeIndices,
+  removeCandidates,
+  saveStagedDraft,
+} from "./tray";
 import type { TmdbMovieCredit } from "@/lib/tmdb";
+
+const store = new Map<string, string>();
+
+vi.stubGlobal("localStorage", {
+  getItem: (k: string) => store.get(k) ?? null,
+  setItem: (k: string, v: string) => store.set(k, v),
+  removeItem: (k: string) => store.delete(k),
+  clear: () => store.clear(),
+});
 
 const movie = (tmdbId: number, title: string): TmdbMovieCredit => ({
   tmdbId,
@@ -86,5 +104,46 @@ describe("parseParticipantNames", () => {
   it("drops empties and duplicates within the batch", () => {
     expect(parseParticipantNames(", Dave,,Dave")).toEqual(["Dave"]);
     expect(parseParticipantNames("  ,")).toEqual([]);
+  });
+});
+
+describe("staged draft persistence", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("saves and loads staged draft correctly", () => {
+    const draft = {
+      title: "My Ranking",
+      participants: ["Alice", "Bob"],
+      candidates: [movie(1, "Inception"), movie(2, "Interstellar")],
+    };
+    saveStagedDraft(draft);
+    expect(loadStagedDraft()).toEqual(draft);
+  });
+
+  it("clears draft from storage", () => {
+    saveStagedDraft({
+      title: "Test",
+      participants: [],
+      candidates: [movie(1, "Inception")],
+    });
+    expect(loadStagedDraft()).not.toBeNull();
+    clearStagedDraft();
+    expect(loadStagedDraft()).toBeNull();
+  });
+
+  it("removes storage entry when saving empty draft", () => {
+    saveStagedDraft({
+      title: "Test",
+      participants: [],
+      candidates: [movie(1, "Inception")],
+    });
+    saveStagedDraft({
+      title: "",
+      participants: [],
+      candidates: [],
+    });
+    expect(loadStagedDraft()).toBeNull();
   });
 });

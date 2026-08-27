@@ -23,7 +23,7 @@ beforeEach(() => {
 });
 
 describe("GET /api/search", () => {
-  it.each(["person", "company", "keyword", "title"])(
+  it.each(["person", "director", "actor", "company", "keyword", "title"])(
     "rejects empty q with 400 for mode=%s without hitting TMDB",
     async (mode) => {
       const res = await GET(call(`mode=${mode}&q=%20%20`));
@@ -32,6 +32,22 @@ describe("GET /api/search", () => {
       for (const fn of Object.values(tmdb)) expect(fn).not.toHaveBeenCalled();
     },
   );
+
+  it("passes role parameter to getPersonCredits for person-credits mode", async () => {
+    const res = await GET(call("mode=person-credits&ref=488&role=director"));
+    expect(res.status).toBe(200);
+    expect(tmdb.getPersonCredits).toHaveBeenCalledWith(488, "director");
+  });
+
+  it("maps mode=director to searchPerson with Directing department", async () => {
+    await GET(call("mode=director&q=spielberg"));
+    expect(tmdb.searchPerson).toHaveBeenCalledWith("spielberg", "Directing");
+  });
+
+  it("maps mode=actor to searchPerson with Acting department", async () => {
+    await GET(call("mode=actor&q=tom+hanks"));
+    expect(tmdb.searchPerson).toHaveBeenCalledWith("tom hanks", "Acting");
+  });
 
   it("does not require q for company-discover (ref-based)", async () => {
     const res = await GET(call("mode=company-discover&ref=42"));

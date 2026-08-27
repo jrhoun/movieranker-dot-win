@@ -7,16 +7,13 @@ import { useEffect, useRef, useState } from "react";
 // panel (fade/scale-in 200ms ease-out; dies under reduced motion). Items are
 // >=44px with focus-visible gold rings and arrow-key navigation.
 const itemCls =
-  "flex min-h-11 items-center gap-2 rounded px-3 text-sm font-medium text-text transition-colors duration-200 ease-out hover:bg-white/5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-gold";
+  "flex min-h-10 items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-text transition-colors duration-150 ease-out hover:bg-white/10 hover:text-gold focus-visible:outline-2 focus-visible:outline-gold";
 
 export default function IdentityDropdown({
   handle,
-  profileHref,
   signOut,
 }: {
-  handle: string;
-  /** Public profile when visible; /u/me fallback otherwise. */
-  profileHref: string;
+  handle: string | null;
   signOut: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
@@ -76,12 +73,12 @@ export default function IdentityDropdown({
               ?.focus();
           }
         }}
-        className="flex min-h-11 items-center gap-1.5 rounded-full border border-gold/30 px-4 font-display text-lg uppercase tracking-[0.08em] text-text transition-colors duration-200 ease-out hover:border-gold hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+        className="flex min-h-9 items-center gap-1.5 rounded-full border border-gold/30 bg-surface/50 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-text transition-colors duration-200 ease-out hover:border-gold hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
       >
         <span aria-hidden="true" className="text-gold">
           ✦
         </span>
-        @{handle}
+        {handle ? `@${handle}` : "Account"}
         <svg
           aria-hidden="true"
           viewBox="0 0 12 12"
@@ -95,24 +92,27 @@ export default function IdentityDropdown({
       <div
         ref={panelRef}
         role="menu"
-        aria-label="Account"
+        aria-label="Account menu"
         onKeyDown={onKeyDown}
-        className={`absolute right-0 top-full z-50 mt-1 w-48 origin-top-right rounded bg-surface p-1 shadow-2xl ring-1 ring-gold/30 transition duration-200 ease-out motion-reduce:transition-none ${
+        className={`absolute right-0 top-full z-50 mt-1.5 w-52 origin-top-right rounded-xl bg-surface/95 p-1.5 shadow-2xl ring-1 ring-gold/40 border border-white/5 backdrop-blur-md transition duration-200 ease-out motion-reduce:transition-none ${
           open
             ? "visible scale-100 opacity-100"
             : "pointer-events-none invisible scale-95 opacity-0"
         }`}
       >
-        <Link role="menuitem" href={profileHref} className={itemCls} tabIndex={open ? 0 : -1}>
-          Profile
+        <Link role="menuitem" href="/u/profile" className={itemCls} tabIndex={open ? 0 : -1}>
+          <span aria-hidden="true" className="text-gold">✦</span>
+          My Profile &amp; Lists
         </Link>
-        <Link role="menuitem" href="/u/me" className={itemCls} tabIndex={open ? 0 : -1}>
-          My Lists
+        <Link role="menuitem" href="/settings" className={itemCls} tabIndex={open ? 0 : -1}>
+          <span aria-hidden="true">⚙</span>
+          Settings
         </Link>
         <div role="separator" className="my-1 h-px bg-white/10" />
         <form action={signOut}>
-          <button role="menuitem" type="submit" className={`${itemCls} w-full`} tabIndex={open ? 0 : -1}>
-            Sign out
+          <button role="menuitem" type="submit" className={`${itemCls} w-full text-left`} tabIndex={open ? 0 : -1}>
+            <span aria-hidden="true">↳</span>
+            Log out
           </button>
         </form>
       </div>

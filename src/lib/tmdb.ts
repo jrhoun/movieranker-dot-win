@@ -6,6 +6,8 @@ export interface TmdbPerson {
   id: number;
   name: string;
   popularity?: number;
+  known_for_department?: string;
+  known_for?: { id?: number; title?: string; name?: string }[];
 }
 
 export interface TmdbCompany {
@@ -23,6 +25,8 @@ export interface TmdbMovieCredit {
   releaseYear: number | null;
 }
 
+export type PersonCreditRole = "all" | "director" | "actor";
+
 interface TmdbRawCredit {
   id: number;
   media_type?: string;
@@ -30,6 +34,8 @@ interface TmdbRawCredit {
   title?: string;
   poster_path?: string | null;
   release_date?: string | null;
+  job?: string;
+  department?: string;
 }
 
 async function tmdbFetch<T>(
@@ -58,13 +64,27 @@ function toCredit(m: TmdbRawCredit): TmdbMovieCredit {
 }
 
 // Pure shaping of a combined_credits-style payload ({cast, crew}).
-export function shapeCredits(raw: {
-  cast?: TmdbRawCredit[];
-  crew?: TmdbRawCredit[];
-}): TmdbMovieCredit[] {
+export function shapeCredits(
+  raw: {
+    cast?: TmdbRawCredit[];
+    crew?: TmdbRawCredit[];
+  },
+  role: PersonCreditRole = "all",
+): TmdbMovieCredit[] {
   const seen = new Set<number>();
-  return [...(raw.cast ?? []), ...(raw.crew ?? [])]
-    .filter((m) => m.media_type === "movie")
+  let list: TmdbRawCredit[] = [];
+  if (role === "director") {
+    list = (raw.crew ?? []).filter(
+      (m) => m.job === "Director" || (m.department === "Directing" && m.job === "Director"),
+    );
+  } else if (role === "actor") {
+    list = raw.cast ?? [];
+  } else {
+    list = [...(raw.cast ?? []), ...(raw.crew ?? [])];
+  }
+
+  return list
+    .filter((m) => m.media_type === "movie" || (!m.media_type && m.title))
     .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
     .flatMap((m) => {
       if (seen.has(m.id)) return [];
@@ -73,15 +93,16 @@ export function shapeCredits(raw: {
     });
 }
 
-const NAME_CAP = 8;
+const NAME_CAP = 20;
 
 // Pure shaping for person/company suggestions: collapse duplicate names
 // (TMDB has many, e.g. two A24 entries) keeping the more popular id, float
 // exact case-insensitive matches first, then rank by popularity descending,
 // and cap so users see few confident choices instead of obscure duplicates.
-export function rankNameResults<T extends { name: string; popularity?: number }>(
+export function rankNameResults<T extends { name: string; popularity?: number; known_for_department?: string }>(
   results: T[],
   query: string,
+  department?: string,
 ): T[] {
   const q = query.trim().toLowerCase();
   const byName = new Map<string, T>();
@@ -95,23 +116,33 @@ export function rankNameResults<T extends { name: string; popularity?: number }>
       const aExact = Number(a.name.toLowerCase() === q);
       const bExact = Number(b.name.toLowerCase() === q);
       if (aExact !== bExact) return bExact - aExact;
+
+      if (department) {
+        const aDept = Number(a.known_for_department === department);
+        const bDept = Number(b.known_for_department === department);
+        if (aDept !== bDept) return bDept - aDept;
+      }
+
       return (b.popularity ?? 0) - (a.popularity ?? 0);
     })
     .slice(0, NAME_CAP);
 }
 
-export async function searchPerson(q: string): Promise<TmdbPerson[]> {
+export async function searchPerson(q: string, department?: "Directing" | "Acting"): Promise<TmdbPerson[]> {
   const data = await tmdbFetch<{ results: TmdbPerson[] }>("/search/person", { query: q }, 300);
-  return rankNameResults(data.results ?? [], q);
+  return rankNameResults(data.results ?? [], q, department);
 }
 
-export async function getPersonCredits(personId: number): Promise<TmdbMovieCredit[]> {
+export async function getPersonCredits(
+  personId: number,
+  role: PersonCreditRole = "all",
+): Promise<TmdbMovieCredit[]> {
   const data = await tmdbFetch<{ cast?: TmdbRawCredit[]; crew?: TmdbRawCredit[] }>(
     `/person/${personId}/combined_credits`,
     {},
     86400,
   );
-  return shapeCredits(data);
+  return shapeCredits(data, role);
 }
 
 /** Total movie count for a company via /discover/movie (cached an hour). */
@@ -243,4 +274,9 @@ export async function searchMovies(q: string): Promise<TmdbMovieCredit[]> {
   return shapeCredits({
     cast: (data.results ?? []).map((m) => ({ ...m, media_type: MOVIE_TYPE })),
   });
+}
+
+/** Canonical URL for a movie's public listing on TMDB. */
+export function tmdbMovieUrl(tmdbId: number): string {
+  return `https://www.themoviedb.org/movie/${tmdbId}`;
 }

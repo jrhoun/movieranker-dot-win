@@ -2,7 +2,7 @@
 
 import type { RankedMovie } from "@/lib/ranking";
 
-const POSTER_BASE = "https://image.tmdb.org/t/p/w92";
+const POSTER_BASE = "https://image.tmdb.org/t/p/w185";
 
 /** "Your movies" strip: every movie in the session. Tap toggles the parked flag
  * (parked = haven't seen, excluded from ranking). Collapsible everywhere. */
@@ -18,18 +18,18 @@ export default function ParkedStrip({
   return (
     <details
       open
-      className="border-t border-white/10 bg-surface/95 px-3 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur sm:px-6"
+      className="border-t border-white/10 bg-surface/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:px-6"
     >
-      <summary className="cursor-pointer list-none text-xs text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+      <summary className="cursor-pointer list-none py-2.5 sm:py-3 block text-xs sm:text-sm font-semibold uppercase tracking-wider text-muted transition-colors duration-200 ease-out hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold">
         Your movies ({movies.length})
         {parkedCount > 0 && ` · ${parkedCount} haven't seen`}
-        <span aria-hidden="true" className="ml-2 opacity-60">
-          ✕ = haven&apos;t seen
+        <span aria-hidden="true" className="ml-2 font-normal text-muted/70 lowercase tracking-normal">
+          (✕ = haven&apos;t seen)
         </span>
       </summary>
-      <ul className="flex gap-2 overflow-x-auto py-1.5">
+      <ul className="thin-scrollbar flex gap-3 overflow-x-auto py-2 snap-x snap-mandatory scroll-px-3">
         {movies.map((m) => (
-          <li key={m.tmdbId}>
+          <li key={m.tmdbId} className="snap-start shrink-0">
             <button
               type="button"
               onClick={() => onToggle(m.tmdbId, !m.parked)}
@@ -41,10 +41,10 @@ export default function ParkedStrip({
               }
               title={m.title}
               style={{ touchAction: "manipulation" }}
-              className="w-14 shrink-0 rounded transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-95"
+              className="w-16 sm:w-20 md:w-24 rounded transition-transform duration-200 ease-out hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-95"
             >
               <div
-                className={`relative aspect-[2/3] w-full overflow-hidden rounded bg-surface ring-1 ring-white/10 hover:ring-accent ${
+                className={`relative aspect-[2/3] w-full overflow-hidden rounded bg-surface ring-1 ring-white/10 hover:ring-gold ${
                   m.parked ? "opacity-40" : ""
                 }`}
               >
@@ -59,14 +59,14 @@ export default function ParkedStrip({
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center p-1 text-center text-[10px] text-muted">
+                  <div className="flex h-full w-full items-center justify-center p-1.5 text-center text-xs text-muted">
                     {m.title}
                   </div>
                 )}
                 {m.parked && (
                   <span
                     aria-hidden="true"
-                    className="absolute right-0.5 bottom-0.5 flex size-4 items-center justify-center rounded-full bg-black/80 text-[9px] leading-none font-bold text-text ring-1 ring-white/20"
+                    className="absolute right-1 bottom-1 flex size-5 sm:size-6 items-center justify-center rounded-full bg-black/85 text-xs font-bold text-white ring-1 ring-white/20 shadow"
                   >
                     ✕
                   </span>

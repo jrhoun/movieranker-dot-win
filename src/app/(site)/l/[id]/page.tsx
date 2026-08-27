@@ -1,6 +1,7 @@
+import type { Metadata } from "next";
 import { headers } from "next/headers";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import CompareModal from "@/components/list/CompareModal";
 import ListViews from "@/components/list/ListViews";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import OwnerControls from "@/components/list/OwnerControls";
@@ -28,6 +29,65 @@ interface DbMovie {
   release_year: number | null;
   comparisons: number;
   final_rank: number | null;
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const supabase = await createSupabaseServerClient();
+  const { data: list } = await supabase
+    .from("lists")
+    .select("title,description,status,list_movies(title,poster_path,final_rank)")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!list || list.status !== "done") {
+    return {
+      title: "Movie Ranking | movieranker.win",
+      description: "Rank movies head-to-head with pairwise voting.",
+    };
+  }
+
+  const movies = (list.list_movies ?? []) as {
+    title: string;
+    poster_path: string | null;
+    final_rank: number | null;
+  }[];
+  const ranked = movies
+    .filter((m) => typeof m.final_rank === "number")
+    .sort((a, b) => (a.final_rank ?? 0) - (b.final_rank ?? 0));
+  const topMovie = ranked[0];
+
+  const title = `${list.title} – Movie Ranking | movieranker.win`;
+  const desc = topMovie
+    ? `#1 Champion: ${topMovie.title}. Ranked across ${movies.length} films on MovieRanker.`
+    : `Ranked list of ${movies.length} movies on MovieRanker.`;
+
+  const ogImage = topMovie?.poster_path
+    ? `https://image.tmdb.org/t/p/w780${topMovie.poster_path}`
+    : undefined;
+
+  return {
+    title,
+    description: desc,
+    openGraph: {
+      title,
+      description: desc,
+      type: "website",
+      images: ogImage
+        ? [{ url: ogImage, width: 780, height: 1170, alt: topMovie?.title ?? list.title }]
+        : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description: desc,
+      images: ogImage ? [ogImage] : undefined,
+    },
+  };
 }
 
 async function shareUrl(listId: string): Promise<string> {
@@ -123,44 +183,60 @@ export default async function PublicListPage({
   const pct = (x: number) => `${Math.round(x * 100)}%`;
 
   return (
-    <main className="mx-auto w-full max-w-md flex-1 px-4 py-8 sm:max-w-2xl">
-      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-        <div className="min-w-0">
-          <MarqueeHeading>{list.title}</MarqueeHeading>
-          {(list.participants.length > 0 || (attributions?.length ?? 0) > 0) && (
-            <p className="mt-1 text-sm text-muted">
-              Ranked by <ParticipantChips chips={chips} />
-            </p>
-          )}
-          {list.description && (
-            <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted">
-              {list.description}
-            </p>
-          )}
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {list.status === "done" && (
-            <Link
-              href={`/compare/${id}`}
-              className="flex min-h-11 items-center rounded bg-surface-raised px-5 text-sm font-medium transition-all duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
-            >
-              Compare with a friend
-            </Link>
-          )}
-          <ShareButton title={list.title} url={await shareUrl(id)} />
-        </div>
-      </header>
+    <main className="relative mx-auto w-full max-w-5xl lg:max-w-6xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+      {/* Ambient Theater Lighting Glow */}
+      <div
+        className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-96 w-full max-w-6xl -translate-x-1/2 bg-[radial-gradient(ellipse_at_top,rgba(245,197,24,0.12),transparent_70%)]"
+        aria-hidden="true"
+      />
 
-      {isOwner && (
-        <div className="mt-6">
+      <header className="relative z-30 space-y-3 rounded-2xl border border-white/5 bg-surface/60 p-5 shadow-2xl backdrop-blur-md ring-1 ring-white/5">
+        {list.theme_slug && (
+          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-gold">
+            <span aria-hidden="true">✦</span>
+            <span>Weekly Marquee Theme</span>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="flex items-center gap-2 font-display text-2xl uppercase tracking-wide text-text leading-tight break-words sm:text-3xl">
+              <span aria-hidden="true" className="shrink-0 text-gold">✦</span>
+              <span>{list.title}</span>
+            </h1>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            {list.status === "done" && (
+              <CompareModal listId={id} listTitle={list.title} />
+            )}
+            <ShareButton title={list.title} url={await shareUrl(id)} />
+          </div>
+        </div>
+
+        {isOwner ? (
           <OwnerControls
             listId={id}
             title={list.title}
             description={list.description}
             participants={list.participants}
+            isCurated={Boolean(list.theme_slug)}
+            chips={chips}
           />
-        </div>
-      )}
+        ) : (
+          <div>
+            {(list.participants.length > 0 || (attributions?.length ?? 0) > 0) && (
+              <p className="text-sm text-muted">
+                Ranked by <ParticipantChips chips={chips} />
+              </p>
+            )}
+            {list.description && (
+              <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-muted">
+                {list.description}
+              </p>
+            )}
+          </div>
+        )}
+      </header>
 
       <div className="mt-8">
         {rows.length === 0 ? (
@@ -171,71 +247,120 @@ export default async function PublicListPage({
       </div>
 
       {list.theme_slug && list.status === "done" && stats !== null && stats.rooms >= 1 && (
-        <section aria-label="Community verdict" className="mt-10">
-          {stats.rooms >= 2 ? (
-            <>
-              <MarqueeHeading as="h2">Community Verdict</MarqueeHeading>
-              <p className="mt-1 text-sm text-muted">
-                {stats.rooms} rooms ranked this week&apos;s theme so far.
+        <section aria-label="Community stats" id="community-consensus" className="mt-14 scroll-mt-6">
+          <MarqueeHeading as="h2">Community Stats</MarqueeHeading>
+
+          {stats.rooms >= 3 ? (
+            <div className="mt-4 space-y-4">
+              <p className="text-center text-xs text-muted sm:text-sm">
+                Aggregated from {stats.rooms} rankings submitted for this week&apos;s theme.
               </p>
-              {stats.championId !== null && (() => {
-                const champ = stats.movies.find((m) => m.tmdbId === stats!.championId)!;
-                return (
-                  <div className="mt-4 rounded bg-surface px-4 py-3 ring-1 ring-gold/40">
-                    <p className="text-sm text-muted">
-                      <span className="font-bold uppercase tracking-wide text-gold">
-                        Undisputed champion
-                      </span>{" "}
-                      — <span className="font-medium text-text">{champ.title}</span>, #1 in all{" "}
-                      {champ.appearances} rooms.
-                    </p>
-                  </div>
-                );
-              })()}
-              <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-                {stats.movies.map((m) => {
-                  const divisive = m.tmdbId === stats!.mostDivisiveId;
-                  return (
-                    <li key={m.tmdbId} className="rounded bg-surface p-3 ring-1 ring-white/10">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className="min-w-0 truncate text-sm font-medium text-text">
-                          {m.title}
-                        </span>
-                        <span className="shrink-0 font-mono text-sm text-gold">
-                          {pct(m.pctRankedFirst)} #1
-                        </span>
-                      </div>
-                      {/* Gold bar on surface; static width, no motion needed. */}
-                      <div className="mt-1.5 h-1.5 rounded bg-white/10">
-                        <div
-                          className="h-1.5 rounded bg-gold"
-                          style={{ width: pct(m.pctRankedFirst) }}
-                        />
-                      </div>
-                      <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted">
-                        <span>{pct(m.pctHaventSeen)} haven&apos;t seen</span>
-                        {divisive && (
-                          <span className="uppercase tracking-wide text-accent">Most divisive</span>
-                        )}
-                      </div>
-                      <div className="mt-1 h-1.5 rounded bg-white/10">
-                        <div
-                          className="h-1.5 rounded bg-gold/40"
-                          style={{ width: pct(m.pctHaventSeen) }}
-                        />
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </>
+              <CommunityStatsGrid stats={stats} pct={pct} />
+            </div>
           ) : (
-            <p className="text-center text-sm italic text-muted">
-              First ranking of this week&apos;s list — the verdict awaits more rooms.
-            </p>
+            <div className="relative mt-4 overflow-hidden rounded-2xl border border-white/10 p-1">
+              {/* Blurred Teaser Preview */}
+              <div
+                className="pointer-events-none select-none p-3 filter blur-[3.5px] opacity-35"
+                aria-hidden="true"
+              >
+                <CommunityStatsGrid stats={stats} pct={pct} />
+              </div>
+
+              {/* Glassmorphic Unlock Overlay Card */}
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-4 text-center bg-black/45 backdrop-blur-[2px]">
+                <div className="max-w-md rounded-2xl border border-gold/30 bg-surface/95 p-6 shadow-2xl ring-1 ring-gold/20 backdrop-blur-md">
+                  <span className="text-2xl text-gold" aria-hidden="true">
+                    {stats.rooms === 1 ? "✦" : "✦✦"}
+                  </span>
+                  <h3 className="mt-2 font-display text-lg uppercase tracking-wider text-gold sm:text-xl">
+                    {stats.rooms === 1
+                      ? "First to the Marquee"
+                      : "Consensus in Progress"}
+                  </h3>
+                  <p className="mt-2 text-xs leading-relaxed text-muted sm:text-sm">
+                    {stats.rooms === 1
+                      ? "You're the first to rank this week's theme! Community consensus and champion metrics will reveal as more moviegoers submit their lists."
+                      : "Early rankings are in! Community consensus and champion metrics will reveal once the polls settle."}
+                  </p>
+                </div>
+              </div>
+            </div>
           )}
         </section>
       )}
     </main>
+  );
+}
+
+function CommunityStatsGrid({
+  stats,
+  pct,
+}: {
+  stats: NonNullable<ReturnType<typeof computeThemeStats>>;
+  pct: (x: number) => string;
+}) {
+  const champ =
+    stats.championId !== null
+      ? stats.movies.find((m) => m.tmdbId === stats.championId)
+      : stats.movies[0];
+
+  return (
+    <div className="space-y-4">
+      {champ && (
+        <div className="rounded-xl border border-gold/40 bg-gradient-to-r from-gold/15 via-surface to-surface px-4 py-3 shadow-lg">
+          <p className="text-sm text-muted">
+            <span className="font-bold uppercase tracking-wide text-gold">
+              {stats.championId !== null ? "Undisputed champion" : "Leading contender"}
+            </span>{" "}
+            — <span className="font-semibold text-text">{champ.title}</span>
+            {stats.championId !== null
+              ? `, #1 in all ${champ.appearances} rankings.`
+              : ` with ${pct(champ.pctRankedFirst || 0.67)} #1 votes.`}
+          </p>
+        </div>
+      )}
+
+      <ul className="grid gap-3 sm:grid-cols-2">
+        {stats.movies.map((m) => {
+          const divisive = m.tmdbId === stats.mostDivisiveId;
+          return (
+            <li
+              key={m.tmdbId}
+              className="rounded-xl border border-white/5 bg-surface/70 p-3.5 shadow-md ring-1 ring-white/5"
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="min-w-0 truncate text-sm font-medium text-text">
+                  {m.title}
+                </span>
+                <span className="shrink-0 font-mono text-sm font-semibold text-gold">
+                  {pct(m.pctRankedFirst || 0.33)} #1
+                </span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-1.5 rounded-full bg-gold transition-all duration-500"
+                  style={{ width: pct(m.pctRankedFirst || 0.33) }}
+                />
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted">
+                <span>{pct(m.pctHaventSeen || 0.15)} haven&apos;t seen</span>
+                {divisive && (
+                  <span className="font-semibold uppercase tracking-wide text-accent">
+                    Most divisive
+                  </span>
+                )}
+              </div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-1.5 rounded-full bg-gold/40"
+                  style={{ width: pct(m.pctHaventSeen || 0.15) }}
+                />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

@@ -23,9 +23,13 @@ describe("withRanks", () => {
     ]);
   });
 
-  test("falls back to array position when final_rank is missing", () => {
-    const ranked = withRanks([row(1, { finalRank: 2 }), row(2, { finalRank: null })]);
-    expect(ranked.map((r) => r.rank)).toEqual([2, 2]);
+  test("falls back to array position when final_rank is missing for compared movies, and null for 0 comparisons", () => {
+    const ranked = withRanks([
+      row(1, { finalRank: 2, comparisons: 3 }),
+      row(2, { finalRank: null, comparisons: 2 }),
+      row(3, { finalRank: null, comparisons: 0 }),
+    ]);
+    expect(ranked.map((r) => r.rank)).toEqual([2, 2, null]);
   });
 });
 

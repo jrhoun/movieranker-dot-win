@@ -28,6 +28,7 @@ describe("parseShowcase / mergeShowcase", () => {
     expect(parseShowcase(42)).toBeNull();
     expect(parseShowcase({ achievementKeys: ["nope"] })).toBeNull();
     expect(parseShowcase({ achievementKeys: ["first_premiere"], favoriteListId: 7 })).toBeNull();
+    expect(parseShowcase({ lifetimeXp: -5 })).toBeNull();
   });
 
   it("enforces max-3 and catalog membership on merge", () => {
@@ -40,15 +41,24 @@ describe("parseShowcase / mergeShowcase", () => {
     expect(mergeShowcase({}, { achievementKeys: ["made_up"] })).toBeNull();
   });
 
-  it("preserves the untouched field on a partial patch", () => {
-    const current = { achievementKeys: ["first_premiere"], favoriteListId: "l1" };
+  it("preserves untouched fields and ratchets lifetimeXp", () => {
+    const current = { achievementKeys: ["first_premiere"], favoriteListId: "l1", lifetimeXp: 50 };
     expect(mergeShowcase(current, { favoriteListId: null })).toEqual({
       achievementKeys: ["first_premiere"],
       favoriteListId: null,
+      lifetimeXp: 50,
     });
-    expect(mergeShowcase(current, { achievementKeys: [] })).toEqual({
-      achievementKeys: [],
+    // Ratchets up
+    expect(mergeShowcase(current, { lifetimeXp: 75 })).toEqual({
+      achievementKeys: ["first_premiere"],
       favoriteListId: "l1",
+      lifetimeXp: 75,
+    });
+    // Never ratchets down
+    expect(mergeShowcase(current, { lifetimeXp: 20 })).toEqual({
+      achievementKeys: ["first_premiere"],
+      favoriteListId: "l1",
+      lifetimeXp: 50,
     });
   });
 });
@@ -70,11 +80,22 @@ describe("shapePublicProfile", () => {
   it("counts movies across public done lists only and derives the level", () => {
     const rows = [
       list({ list_movies: Array.from({ length: 20 }, (_, i) => ({ title: `m${i}`, poster_path: null })) }),
-      list({ id: "l2", list_movies: Array.from({ length: 5 }, (_, i) => ({ title: `n${i}`, poster_path: null })) }),
+      list({ id: "l2", list_movies: Array.from({ length: 10 }, (_, i) => ({ title: `n${i}`, poster_path: null })) }),
     ];
     const shaped = shapePublicProfile(rows);
-    expect(shaped.moviesRanked).toBe(25);
-    expect(shaped.level.level).toBe(2); // Film Buff at 25 XP
+    expect(shaped.moviesRanked).toBe(30);
+    expect(shaped.level.level).toBe(7); // Level 7 (30 XP)
+    expect(shaped.level.title).toBe("Theater Usher");
+  });
+
+  it("uses lifetimeXp ratchet when stored XP is higher than active public lists", () => {
+    // User had 50 XP lifetime but deleted public lists, leaving only 10 XP active
+    const rows = [
+      list({ list_movies: Array.from({ length: 10 }, (_, i) => ({ title: `m${i}`, poster_path: null })) }),
+    ];
+    const shaped = shapePublicProfile(rows, { achievementKeys: [], favoriteListId: null, lifetimeXp: 50 });
+    expect(shaped.moviesRanked).toBe(50); // Ratchet locks in 50 XP
+    expect(shaped.level.level).toBe(11); // Level 11 · Film Buff
     expect(shaped.level.title).toBe("Film Buff");
   });
 

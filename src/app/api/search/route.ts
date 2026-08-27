@@ -8,7 +8,7 @@ import {
   searchPerson,
 } from "@/lib/tmdb";
 
-const Q_MODES = ["person", "company", "keyword", "title"];
+const Q_MODES = ["person", "director", "actor", "company", "keyword", "title"];
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q") ?? "";
@@ -21,7 +21,11 @@ export async function GET(req: NextRequest) {
 
   try {
     let results: unknown;
-    if (mode === "person") {
+    if (mode === "director") {
+      results = await searchPerson(q, "Directing");
+    } else if (mode === "actor") {
+      results = await searchPerson(q, "Acting");
+    } else if (mode === "person") {
       results = await searchPerson(q);
     } else if (mode === "company") {
       results = await searchCompany(q);
@@ -34,7 +38,8 @@ export async function GET(req: NextRequest) {
       if (!ref || !Number.isInteger(id)) {
         return NextResponse.json({ error: "numeric ref required for person-credits" }, { status: 400 });
       }
-      results = await getPersonCredits(id);
+      const role = (req.nextUrl.searchParams.get("role") ?? "all") as "all" | "director" | "actor";
+      results = await getPersonCredits(id, role);
     } else if (mode === "company-discover") {
       const id = Number(ref);
       if (!ref || !Number.isInteger(id)) {

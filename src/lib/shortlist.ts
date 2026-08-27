@@ -34,6 +34,13 @@ export function weeksSinceUtcEpoch(date: Date = new Date()): number {
   return Math.floor((daysSinceUtcEpoch(date) + 3) / 7);
 }
 
+/** Date of the next UTC Monday midnight rotation (exact millisecond). */
+export function getNextWeeklyMarqueeRotation(date: Date = new Date()): Date {
+  const currentWeek = weeksSinceUtcEpoch(date);
+  const nextWeekDays = (currentWeek + 1) * 7 - 3;
+  return new Date(nextWeekDays * 86_400_000);
+}
+
 /** Deterministic pick: pool[weekIndex % pool.length] (undefined for empty pool). */
 export function pickTonightsEntry<T>(pool: T[], weekIndex: number): T | undefined {
   if (pool.length === 0) return undefined;

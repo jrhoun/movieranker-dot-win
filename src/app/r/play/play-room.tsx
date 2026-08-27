@@ -38,21 +38,44 @@ const ESTIMATE_HINT_THRESHOLD = 12;
 
 function RankedList({ movies }: { movies: RankedMovie[] }) {
   const byId = new Map(movies.map((m) => [m.tmdbId, m]));
+  const final = finalizeRanks(movies);
+  const ranked = final.filter((r): r is { tmdbId: number; rank: number } => r.rank !== null);
+  const unranked = final.filter((r) => r.rank === null);
+
   return (
-    <ol className="mt-4 space-y-2 text-left">
-      {finalizeRanks(movies).map((r) => {
-        const m = byId.get(r.tmdbId)!;
-        return (
-          <li key={r.tmdbId} className="flex items-baseline gap-3">
-            <span className="w-6 shrink-0 text-right font-display text-sm text-gold">
-              {r.rank}.
-            </span>
-            <span className="min-w-0 truncate">{m.title}</span>
-            <span className="shrink-0 text-xs text-muted">{m.releaseYear ?? ""}</span>
-          </li>
-        );
-      })}
-    </ol>
+    <div className="mt-4 space-y-4 text-left">
+      <ol className="space-y-2">
+        {ranked.map((r) => {
+          const m = byId.get(r.tmdbId)!;
+          return (
+            <li key={r.tmdbId} className="flex items-baseline gap-3">
+              <span className="w-6 shrink-0 text-right font-display text-sm text-gold">
+                {r.rank}.
+              </span>
+              <span className="min-w-0 truncate">{m.title}</span>
+              <span className="shrink-0 text-xs text-muted">{m.releaseYear ?? ""}</span>
+            </li>
+          );
+        })}
+      </ol>
+      {unranked.length > 0 && (
+        <div className="border-t border-white/10 pt-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">
+            Haven&apos;t seen ({unranked.length})
+          </p>
+          <ul className="space-y-1 text-xs text-muted">
+            {unranked.map((r) => {
+              const m = byId.get(r.tmdbId)!;
+              return (
+                <li key={r.tmdbId} className="truncate">
+                  • {m.title} {m.releaseYear ? `(${m.releaseYear})` : ""}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -61,7 +84,7 @@ const MEDAL_CLS = ["text-gold", "text-[#c9ced6]", "text-[#cd7f32]"];
 
 function Podium({ movies }: { movies: RankedMovie[] }) {
   const byId = new Map(movies.map((m) => [m.tmdbId, m]));
-  const top3 = finalizeRanks(movies).slice(0, 3);
+  const top3 = finalizeRanks(movies).filter((r): r is { tmdbId: number; rank: number } => r.rank !== null).slice(0, 3);
   // classic podium: 2nd left, 1st center (larger), 3rd right
   const layout = [
     { i: 1, w: "w-1/4" },
@@ -84,9 +107,9 @@ function Podium({ movies }: { movies: RankedMovie[] }) {
                 {r.rank}
               </span>
             </div>
-            <p className="mt-1.5 truncate text-xs font-medium">{m.title}</p>
+            <p className="mt-1.5 truncate text-xs sm:text-sm font-semibold text-text">{m.title}</p>
             {m.releaseYear != null && (
-              <p className="truncate text-[11px] text-muted">{m.releaseYear}</p>
+              <p className="truncate font-mono text-xs text-muted">{m.releaseYear}</p>
             )}
           </div>
         );
@@ -165,12 +188,16 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           setAuthNotice(true);
           window.history.replaceState(null, "", "/r/play");
         }
-        // OAuth conversion: signing in mid-game lands back here without an id —
-        // auto-open the save gate so the local session persists immediately
-        // (SaveGateSheet performs the save once it sees the signed-in user).
-        if (signed && !initial) {
+        // OAuth conversion: only auto-save if returning from an explicit OAuth sign-in redirect
+        let pendingSave: "done" | "draft" | null = null;
+        try {
+          pendingSave = sessionStorage.getItem("mr_pending_auth_save") as "done" | "draft" | null;
+          if (pendingSave) sessionStorage.removeItem("mr_pending_auth_save");
+        } catch {}
+
+        if (signed && !initial && pendingSave) {
           const s = loadSession();
-          if (s && s.movies.length > 0) setSheetStatus((prev) => prev ?? "draft");
+          if (s && s.movies.length > 0) setSheetStatus(pendingSave);
         }
       });
     return () => {
@@ -308,18 +335,33 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
 
   function handleVote(winnerId: number, loserId: number) {
     if (!session || settlingLoserId !== null) return;
+    if (typeof window !== "undefined" && "vibrate" in navigator) {
+      try {
+        navigator.vibrate(10);
+      } catch {
+        // ignore browsers blocking vibration
+      }
+    }
     setFieldSplit((f) => f || recordMatchupResult(session.movies, winnerId, loserId).orderChanged);
     const next = applyVote(session, winnerId, loserId);
     setSession(next);
     saveSession(next);
     setSettlingLoserId(loserId);
-    // loser-bop (180ms) + loser-dim (200ms) run before the next matchup swaps in
+    // directional hit & recoil physical animation (380ms) runs before next matchup swaps in
     settleTimer.current = setTimeout(() => {
-      setSettlingLoserId(null);
-      const p = selectNextPair(next, sharpening, pair);
-      if (sharpening && !p) setSharpening(false);
-      setPair(p);
-    }, 400);
+      const updatePair = () => {
+        setSettlingLoserId(null);
+        const p = selectNextPair(next, sharpening, pair);
+        if (sharpening && !p) setSharpening(false);
+        setPair(p);
+      };
+
+      if (typeof document !== "undefined" && "startViewTransition" in document) {
+        (document as unknown as { startViewTransition: (cb: () => void) => void }).startViewTransition(updatePair);
+      } else {
+        updatePair();
+      }
+    }, 390);
   }
 
   function handleParkToggle(tmdbId: number, toParked: boolean) {
@@ -330,6 +372,62 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     const p = selectNextPair(next, sharpening, pair);
     if (sharpening && !p) setSharpening(false);
     setPair(p);
+  }
+
+  const [savingDirectly, setSavingDirectly] = useState(false);
+
+  async function handleDirectSave(status: "done" | "draft") {
+    if (!session || savingDirectly) return;
+    if (!signedIn) {
+      setSheetStatus(status);
+      return;
+    }
+
+    setSavingDirectly(true);
+    const ranks = new Map(finalizeRanks(session.movies).map((r) => [r.tmdbId, r.rank]));
+    const payload = {
+      status,
+      movies: session.movies.map((m) => ({
+        ...m,
+        finalRank: status === "done" ? (ranks.get(m.tmdbId) ?? null) : null,
+      })),
+    };
+
+    try {
+      const res = await fetch(initial?.id ? `/api/lists/${initial.id}` : "/api/lists", {
+        method: initial?.id ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          initial?.id
+            ? payload
+            : {
+                ...payload,
+                title: session.title,
+                participants: session.participants,
+                ...(session.themeSlug
+                  ? {
+                      themeSlug: session.themeSlug,
+                      curated: !!session.curated,
+                      visibility: "public",
+                    }
+                  : {}),
+              },
+        ),
+      });
+
+      if (!res.ok) {
+        setSavingDirectly(false);
+        setSheetStatus(status);
+        return;
+      }
+
+      const id = initial?.id ?? ((await res.json()) as { id: string }).id;
+      clearSession();
+      router.push(status === "done" ? `/l/${id}` : "/u/profile");
+    } catch {
+      setSavingDirectly(false);
+      setSheetStatus(status);
+    }
   }
 
   function handleUndo() {
@@ -343,12 +441,11 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     setPair(selectNextPair(prev, stillSharpen));
   }
 
-  // Resume later: logged-in draft owners go through the existing save-as-draft PATCH;
-  // anonymous users keep the localStorage session and just leave (home shows a banner).
+  // Resume later: logged-in draft owners save directly; anonymous users keep localStorage.
   function handleResumeLater() {
     setExitOpen(false);
-    if (initial) {
-      setSheetStatus("draft");
+    if (signedIn) {
+      void handleDirectSave("draft");
       return;
     }
     router.push("/");
@@ -457,42 +554,32 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
       {/* Slim control strip (user feedback): compact bar, not a banner. The
           wordmark gives a permanent way back to home; Exit stays the
           confirm-flow path out. */}
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-gold/15 bg-bg/80 px-4 py-2 backdrop-blur sm:px-6">
+      <header className="sticky top-0 z-20 flex items-center gap-2 sm:gap-3 border-b border-gold/15 bg-bg/85 px-3 py-2 sm:px-6 sm:py-2.5 backdrop-blur-md">
         <Link
           href="/"
-          className="flex shrink-0 items-center gap-1.5 font-display text-lg uppercase tracking-widest text-text transition-colors duration-200 ease-out hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+          className="flex shrink-0 items-center gap-1 font-display text-base sm:text-lg uppercase tracking-widest text-text transition-colors duration-200 ease-out hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
         >
           <span aria-hidden="true" className="text-gold">✦</span>
           movieranker
         </Link>
-        <div aria-hidden="true" className="h-6 w-px shrink-0 bg-white/10" />
+        <div aria-hidden="true" className="h-5 w-px shrink-0 bg-white/10" />
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-lg font-bold leading-tight sm:text-xl">{session.title}</h1>
-          {session.themeSlug && (
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2">
+            <h1 className="truncate text-sm sm:text-base font-bold leading-tight">{session.title}</h1>
+            {session.themeSlug && (
               <span
-                className={
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
                   session.curated
-                    ? "rounded-full bg-gold/15 px-2.5 py-0.5 text-xs font-bold text-gold ring-1 ring-gold/40"
-                    : "rounded-full bg-surface-raised px-2.5 py-0.5 text-xs font-medium text-muted ring-1 ring-white/10"
-                }
+                    ? "bg-gold/15 text-gold ring-1 ring-gold/40"
+                    : "bg-surface-raised text-muted ring-1 ring-white/10"
+                }`}
               >
-                {session.curated ? "🔒 This Week's Marquee" : "🔓 This Week's Marquee"}
+                {session.curated ? "🔒 Marquee" : "🔓 Marquee"}
               </span>
-              {session.curated && !finished && (
-                <button
-                  type="button"
-                  onClick={() => setUnlockOpen((v) => !v)}
-                  aria-expanded={unlockOpen}
-                  className="min-h-11 rounded bg-surface px-3 text-sm font-medium text-muted ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised"
-                >
-                  Unlock
-                </button>
-              )}
-            </div>
-          )}
+            )}
+          </div>
           {session.participants.length > 0 && (
-            <p className="truncate text-xs text-muted sm:text-sm">
+            <p className="truncate text-xs text-muted">
               {session.participants.map((p, i) => (
                 <span key={p}>
                   {i > 0 && " · "}
@@ -504,13 +591,23 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           )}
         </div>
         {!finished && (
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            {session.curated && (
+              <button
+                type="button"
+                onClick={() => setUnlockOpen((v) => !v)}
+                aria-expanded={unlockOpen}
+                className="hidden sm:inline-flex min-h-8 rounded bg-surface px-2.5 py-0.5 text-xs font-medium text-muted ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised"
+              >
+                Unlock
+              </button>
+            )}
             <button
               ref={exitTriggerRef}
               type="button"
               onClick={() => setExitOpen((v) => !v)}
               aria-expanded={exitOpen}
-              className="min-h-9 rounded px-2 py-1 text-sm text-muted underline-offset-4 transition-colors duration-200 ease-out hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:text-text"
+              className="min-h-8 rounded px-2 py-0.5 text-xs sm:text-sm text-muted underline-offset-4 transition-colors duration-200 ease-out hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:text-text"
             >
               Exit
             </button>
@@ -518,7 +615,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               type="button"
               onClick={handleUndo}
               disabled={!canUndo}
-              className="flex min-h-9 items-center gap-1.5 rounded bg-surface px-3 py-1 text-sm font-medium ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised disabled:pointer-events-none disabled:opacity-40"
+              className="flex min-h-8 items-center gap-1 rounded bg-surface px-2.5 py-0.5 text-xs sm:text-sm font-medium ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised disabled:pointer-events-none disabled:opacity-40"
             >
               <span aria-hidden="true">↩</span> Undo
             </button>
@@ -682,10 +779,11 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               </p>
               <button
                 type="button"
-                onClick={() => setSheetStatus("draft")}
-                className="min-h-11 rounded bg-surface-raised px-4 text-sm font-medium transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+                onClick={() => void handleDirectSave("draft")}
+                disabled={savingDirectly}
+                className="min-h-11 rounded bg-surface-raised px-4 text-sm font-medium transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:opacity-50"
               >
-                Save as draft
+                {savingDirectly ? "Saving…" : "Save as draft"}
               </button>
               <button
                 type="button"
@@ -708,20 +806,26 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           <div className="flex flex-col items-center gap-2">
             <button
               type="button"
-              onClick={() => setSheetStatus("done")}
-              className="min-h-11 rounded bg-accent px-6 font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+              onClick={() => void handleDirectSave("done")}
+              disabled={savingDirectly}
+              className="min-h-11 rounded bg-accent px-6 font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:opacity-50"
             >
-              Save &amp; finish
+              {savingDirectly ? "Saving ranking…" : "Save & finish"}
             </button>
             <button
               type="button"
-              onClick={() => setSheetStatus("draft")}
-              className="min-h-11 rounded bg-surface-raised px-5 text-sm font-medium transition-colors duration-200 ease-out hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+              onClick={() => void handleDirectSave("draft")}
+              disabled={savingDirectly}
+              className="min-h-11 rounded bg-surface-raised px-5 text-sm font-medium transition-colors duration-200 ease-out hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:opacity-50"
             >
-              Save &amp; quit as draft
+              {savingDirectly ? "Saving draft…" : "Save & quit as draft"}
             </button>
-            <p className="mt-1 max-w-xs text-xs text-muted">
-              Your ranking lives in this browser until you save it.
+            <p className="mt-1 max-w-xs text-center text-xs text-muted">
+              {session.themeSlug
+                ? "✦ Weekly Marquee rankings are public by default to power community stats."
+                : signedIn
+                  ? "Saves directly to your profile & lists."
+                  : "Your ranking lives in this browser until you save it."}
             </p>
           </div>
           <button
@@ -801,7 +905,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         <section className="bg-curtain-soft relative flex flex-1 flex-col px-3 pb-2 pt-1 sm:px-6">
           {/* Mini marquee board: one trusted "X of ~Y votes" number in Bebas
               gold between thin gold rules; close calls demoted to a chip. */}
-          <div className="my-3 rounded bg-surface/80 px-4 py-3 ring-1 ring-white/10">
+          <div className="mt-3 mb-6 sm:mb-8 w-full max-w-5xl mx-auto rounded-xl bg-surface/85 px-4 py-3.5 ring-1 ring-white/10 shadow-lg backdrop-blur-sm">
             <div
               role="progressbar"
               aria-label="Ranking progress"
@@ -845,13 +949,13 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               <button
                 type="button"
                 onClick={() => setFinished(true)}
-                className="inline-flex min-h-11 shrink-0 items-center rounded bg-surface px-4 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised"
+                className="inline-flex min-h-11 shrink-0 items-center rounded-full bg-surface px-4 text-xs sm:text-sm font-semibold uppercase tracking-wider text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:bg-surface-raised"
               >
-                Finish now →
+                Wrap up list →
               </button>
             </div>
           </div>
-          <div className="relative flex-1">
+          <div className="relative flex flex-1 flex-col justify-center py-2">
             {/* Premiere Night stage lighting: static low-intensity curtain
                 vocabulary (spotlight + vignette) behind the matchup pair. */}
             <div aria-hidden="true" className="stage-spotlight pointer-events-none absolute -inset-x-6 inset-y-0" />
@@ -886,7 +990,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
       )}
 
       {!initial && (
-        <p className="pointer-events-none fixed bottom-2 right-3 z-10 rounded-full bg-surface/90 px-3 py-1 text-[11px] text-muted ring-1 ring-white/10">
+        <p className="pointer-events-none fixed bottom-[max(0.75rem,calc(env(safe-area-inset-bottom)+0.5rem))] right-3 z-10 rounded-full bg-surface/90 px-3 py-1 text-xs text-muted ring-1 ring-white/10 shadow backdrop-blur-sm">
           Unsaved — lives in this browser
         </p>
       )}

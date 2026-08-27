@@ -14,9 +14,13 @@ export const MAX_PINNED_ACHIEVEMENTS = 3;
 export interface ProfileShowcase {
   achievementKeys: string[];
   favoriteListId: string | null;
+  lifetimeXp?: number;
 }
 
-export const EMPTY_SHOWCASE: ProfileShowcase = { achievementKeys: [], favoriteListId: null };
+export const EMPTY_SHOWCASE: ProfileShowcase = {
+  achievementKeys: [],
+  favoriteListId: null,
+};
 
 function validAchievementKeys(keys: unknown): string[] | null {
   if (!Array.isArray(keys)) return null;
@@ -38,7 +42,22 @@ export function parseShowcase(input: unknown): ProfileShowcase | null {
   if (!keys || keys.length > MAX_PINNED_ACHIEVEMENTS) return null;
   const fav = o.favoriteListId ?? null;
   if (fav !== null && typeof fav !== "string") return null;
-  return { achievementKeys: keys, favoriteListId: fav };
+  let lifetimeXp: number | undefined = undefined;
+  if (o.lifetimeXp !== undefined) {
+    if (
+      typeof o.lifetimeXp !== "number" ||
+      !Number.isFinite(o.lifetimeXp) ||
+      o.lifetimeXp < 0
+    ) {
+      return null;
+    }
+    lifetimeXp = Math.floor(o.lifetimeXp);
+  }
+  return {
+    achievementKeys: keys,
+    favoriteListId: fav,
+    ...(lifetimeXp !== undefined ? { lifetimeXp } : {}),
+  };
 }
 
 /**
@@ -48,11 +67,11 @@ export function parseShowcase(input: unknown): ProfileShowcase | null {
  */
 export function mergeShowcase(
   current: unknown,
-  patch: { achievementKeys?: unknown; favoriteListId?: unknown },
+  patch: { achievementKeys?: unknown; favoriteListId?: unknown; lifetimeXp?: unknown },
 ): ProfileShowcase | null {
   if (typeof patch !== "object" || patch === null || Array.isArray(patch)) return null;
   const base = parseShowcase(current) ?? EMPTY_SHOWCASE;
-  let { achievementKeys, favoriteListId } = base;
+  let { achievementKeys, favoriteListId, lifetimeXp } = base;
   if (patch.achievementKeys !== undefined) {
     const keys = validAchievementKeys(patch.achievementKeys);
     if (!keys || keys.length > MAX_PINNED_ACHIEVEMENTS) return null;
@@ -63,7 +82,22 @@ export function mergeShowcase(
     if (fav !== null && typeof fav !== "string") return null;
     favoriteListId = fav || null;
   }
-  return { achievementKeys, favoriteListId };
+  if (patch.lifetimeXp !== undefined) {
+    if (
+      typeof patch.lifetimeXp !== "number" ||
+      !Number.isFinite(patch.lifetimeXp) ||
+      patch.lifetimeXp < 0
+    ) {
+      return null;
+    }
+    // Monotonic ratchet: lifetime XP never decreases
+    lifetimeXp = Math.max(lifetimeXp ?? 0, Math.floor(patch.lifetimeXp));
+  }
+  return {
+    achievementKeys,
+    favoriteListId,
+    ...(lifetimeXp !== undefined ? { lifetimeXp } : {}),
+  };
 }
 
 /** Owner-UI helper: persist one showcase field via PATCH /api/profile. */
@@ -103,7 +137,10 @@ export interface PublicListCardData {
 }
 
 /** Everything the /u/[handle] page renders, derived only from public done lists. */
-export function shapePublicProfile(rows: DbPublicList[]): {
+export function shapePublicProfile(
+  rows: DbPublicList[],
+  showcase?: ProfileShowcase | null,
+): {
   cards: PublicListCardData[];
   moviesRanked: number;
   level: Level;
@@ -112,7 +149,8 @@ export function shapePublicProfile(rows: DbPublicList[]): {
   // (RLS on lists is broader); this JS filter is the actual guarantee — keep it.
   // Defense-in-depth at the trust boundary so stats can't leak via query drift.
   const pub = rows.filter((l) => l.status === "done" && l.visibility === "public");
-  const moviesRanked = pub.reduce((n, l) => n + (l.list_movies?.length ?? 0), 0);
+  const currentRanked = pub.reduce((n, l) => n + Math.min(l.list_movies?.length ?? 0, 20), 0);
+  const moviesRanked = Math.max(currentRanked, showcase?.lifetimeXp ?? 0);
   return {
     cards: pub.map((l) => ({
       id: l.id,

@@ -5,6 +5,7 @@ import MarqueeHeading from "@/components/MarqueeHeading";
 import MoviePoster from "@/components/list/MoviePoster";
 import ShareButton from "@/components/ShareButton";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { tmdbMovieUrl } from "@/lib/tmdb";
 import {
   canCompare,
   compatibilityTier,
@@ -64,11 +65,25 @@ function VersusRow({ movie }: { movie: SharedMovie }) {
   return (
     <li className="flex items-center gap-3 rounded bg-surface p-3 ring-1 ring-white/10">
       <span className="w-8 shrink-0 text-center font-display text-2xl text-gold">{movie.rankA}</span>
-      <div className="w-16 shrink-0 sm:w-20">
+      <a
+        href={tmdbMovieUrl(movie.tmdbId)}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={`View ${movie.title} on TMDB (opens in new tab)`}
+        className="block w-16 shrink-0 transition-opacity hover:opacity-90 sm:w-20 focus-visible:outline-2 focus-visible:outline-gold rounded"
+      >
         <MoviePoster title={movie.title} posterPath={movie.posterPath} />
-      </div>
+      </a>
       <p className="min-w-0 flex-1 truncate text-sm" title={movie.title}>
-        {movie.title}
+        <a
+          href={tmdbMovieUrl(movie.tmdbId)}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`View ${movie.title} on TMDB (opens in new tab)`}
+          className="transition-colors hover:text-gold hover:underline focus-visible:outline-1 focus-visible:outline-gold"
+        >
+          {movie.title}
+        </a>
       </p>
       <DeltaBadge delta={movie.delta} />
       <span className="w-8 shrink-0 text-center font-display text-2xl text-gold">{movie.rankB}</span>
@@ -93,11 +108,25 @@ function ExclusiveColumn({
           {entries.map((e) => (
             <li key={e.tmdbId} className="flex items-center gap-3">
               <span className="w-6 shrink-0 text-center font-display text-lg text-gold">{e.rank}</span>
-              <div className="w-12 shrink-0 sm:w-14">
+              <a
+                href={tmdbMovieUrl(e.tmdbId)}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`View ${e.title} on TMDB (opens in new tab)`}
+                className="block w-12 shrink-0 transition-opacity hover:opacity-90 sm:w-14 focus-visible:outline-2 focus-visible:outline-gold rounded"
+              >
                 <MoviePoster title={e.title} posterPath={e.posterPath} />
-              </div>
+              </a>
               <p className="min-w-0 flex-1 truncate text-sm" title={e.title}>
-                {e.title}
+                <a
+                  href={tmdbMovieUrl(e.tmdbId)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={`View ${e.title} on TMDB (opens in new tab)`}
+                  className="transition-colors hover:text-gold hover:underline focus-visible:outline-1 focus-visible:outline-gold"
+                >
+                  {e.title}
+                </a>
               </p>
             </li>
           ))}

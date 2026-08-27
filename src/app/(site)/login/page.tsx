@@ -17,11 +17,11 @@ function callbackUrl() {
 }
 
 const inputCls =
-  "h-11 w-full rounded bg-surface-raised px-3 text-sm text-text placeholder:text-muted ring-1 ring-white/10 transition-shadow duration-150 ease-out hover:ring-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+  "h-11 w-full rounded-lg bg-surface-raised px-3.5 text-sm text-text placeholder:text-muted ring-1 ring-white/10 transition-shadow duration-150 ease-out hover:ring-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold";
 const btnPrimary =
-  "min-h-11 w-full rounded bg-accent px-5 font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50";
+  "min-h-11 w-full rounded-full bg-gold px-5 text-sm font-bold uppercase tracking-wider text-bg shadow-lg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50";
 const btnAlt =
-  "flex min-h-11 w-full items-center justify-center gap-2 rounded bg-surface-raised px-5 text-sm font-medium transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50";
+  "flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-surface-raised px-5 text-xs font-semibold uppercase tracking-wider ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:ring-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,11 +31,11 @@ export default function LoginPage() {
   const [note, setNote] = useState<string | null>(null);
 
   useEffect(() => {
-    // already signed in? straight to your lists
+    // already signed in? straight to your profile & lists
     createSupabaseBrowserClient()
       .auth.getUser()
       .then(({ data }) => {
-        if (data.user) router.replace("/u/me");
+        if (data.user) router.replace("/u/profile");
       });
   }, [router]);
 
@@ -105,9 +105,9 @@ export default function LoginPage() {
 
   return (
     <main className="bg-curtain flex flex-1 flex-col items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md rounded bg-surface p-6 ring-1 ring-white/10">
-        <h1 className="text-xl font-bold">Welcome back</h1>
-        <p className="mt-1 text-sm text-muted">Sign in to see your lists.</p>
+      <div className="w-full max-w-md rounded-xl bg-surface/95 p-6 sm:p-8 ring-1 ring-white/10 shadow-2xl backdrop-blur-md">
+        <h1 className="font-display text-3xl uppercase tracking-wide text-text">Welcome Back</h1>
+        <p className="mt-1 text-sm text-muted">Sign in to manage and share your movie lists.</p>
 
         <form onSubmit={handlePassword} className="mt-5 space-y-3">
           <input

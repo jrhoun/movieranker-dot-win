@@ -2,77 +2,70 @@ import type { Metadata } from "next";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import { CONTACT_EMAIL } from "@/lib/site";
 
-export const metadata: Metadata = { title: "Privacy · movieranker.win" };
+export const metadata: Metadata = { title: "Privacy Policy · movieranker.win" };
 
 function H2({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="pt-2 font-display text-xl uppercase tracking-[0.12em] text-gold">
+    <h2 className="pt-3 font-display text-xl uppercase tracking-[0.12em] text-gold">
       {children}
     </h2>
   );
 }
 
-// Plain-language policy describing what this app actually stores. Template
-// quality, not legal advice — have it reviewed before treating it as binding.
 export default function PrivacyPage() {
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-4 py-10 sm:max-w-2xl">
-      <MarqueeHeading>Privacy</MarqueeHeading>
-      <div className="mt-6 rounded bg-surface p-6 ring-1 ring-white/10 sm:p-8">
+      <MarqueeHeading>Privacy Policy</MarqueeHeading>
+      <div className="mt-6 rounded-xl bg-surface p-6 ring-1 ring-white/10 sm:p-8">
         <div className="space-y-4 text-sm leading-relaxed text-text">
-          <p>
-            Short version: we store what you need for the game to work, we don’t
-            track you, and you can delete everything at any time.
+          <p className="text-xs uppercase tracking-wider text-muted">
+            Last updated: August 2026
           </p>
 
-          <H2>What we store</H2>
           <p>
-            Your account email, plus whatever you type into the app: list titles
-            and descriptions, participant names, the movies you pick, and your
-            ranking votes. Votes are aggregated into Elo-style scores that make
-            up your ranked list. We store nothing else.
+            At movieranker.win (&ldquo;we&rdquo;, &ldquo;our&rdquo;, or &ldquo;us&rdquo;), we respect your privacy. This Privacy Policy explains what information we collect when you use our service, why we collect it, and how you can manage or delete your data.
           </p>
 
-          <H2>Who can use the site</H2>
+          <H2>1. Information We Collect</H2>
           <p>
-            You must be at least 13 to use movieranker.win. Some countries
-            require you to be 16 — if that’s where you live, please wait until
-            then.
+            We collect only the minimum data necessary to provide and operate the service:
+          </p>
+          <ul className="list-disc space-y-1 pl-5 text-muted">
+            <li><strong>Account Information:</strong> When you sign in, we receive and store your email address and optional public username/handle.</li>
+            <li><strong>User Content:</strong> List titles, descriptions, participant names, selected movie IDs, and head-to-head vote results you submit.</li>
+            <li><strong>Session State:</strong> While playing locally, in-progress ranking sessions are stored in your browser&apos;s local storage to prevent data loss on page refresh.</li>
+          </ul>
+
+          <H2>2. Cookies & Local Storage</H2>
+          <p>
+            We use strictly necessary authentication cookies to maintain your login session. We do not use advertising, marketing, or tracking cookies.
           </p>
 
-          <H2>How long we keep it</H2>
+          <H2>3. Third-Party Service Providers</H2>
           <p>
-            Your account data is kept until you delete your account. Deletion
-            is immediate and permanent — there’s no archive and no grace
-            period.
+            We rely on trusted third-party providers to operate the service:
+          </p>
+          <ul className="list-disc space-y-1 pl-5 text-muted">
+            <li><strong>Supabase:</strong> Provides managed database hosting, user authentication, and API infrastructure.</li>
+            <li><strong>The Movie Database (TMDB):</strong> Provides movie metadata, descriptions, release years, and poster images.</li>
+          </ul>
+          <p>
+            We do not sell, rent, or monetize your personal data with third parties.
           </p>
 
-          <H2>Cookies and local storage</H2>
+          <H2>4. Data Retention & Deletion</H2>
           <p>
-            The site sets exactly one cookie: your Supabase sign-in session.
-            It’s strictly necessary — without it you couldn’t stay logged in.
-            There are no tracking, analytics, or advertising cookies of any
-            kind. While you’re mid-game, your in-progress rankings live in your
-            browser’s local storage so a refresh doesn’t lose them.
+            Your account data and saved lists are stored until you choose to delete them. You may export all your rankings as JSON at any time from your account settings. You can also delete your account permanently with immediate effect, erasing all associated lists and personal data.
           </p>
 
-          <H2>Third parties</H2>
+          <H2>5. Children&apos;s Privacy</H2>
           <p>
-            Two services process your data to make the site work: Supabase
-            (hosts the database and your sign-in on servers in the EU/US, and
-            handles authentication) and TMDB (supplies movie metadata and
-            poster images). We don’t share your data with anyone else, and we
-            never sell it.
+            The service is not intended for children under 13 years of age. We do not knowingly collect personal information from children under 13.
           </p>
 
-          <H2>Your rights</H2>
+          <H2>6. Contact & Data Requests</H2>
           <p>
-            You can export all of your lists as JSON any time from My Lists.
-            You can also delete your account there — this permanently erases
-            your account and every list you’ve made, immediately. Questions?
-            Email{" "}
-            {/* TODO: replace [CONTACT] placeholder before launch */}
-            <span className="text-muted">{CONTACT_EMAIL}</span>.
+            If you have questions about this Privacy Policy or wish to exercise your data rights, please contact us by email at <span className="font-mono text-gold">{CONTACT_EMAIL}</span>.
           </p>
         </div>
       </div>

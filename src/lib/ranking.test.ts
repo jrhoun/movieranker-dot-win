@@ -379,6 +379,19 @@ describe("finalizeRanks", () => {
       { tmdbId: 4, rank: 4 },
     ]);
   });
+
+  test("assigns null rank to parked movies without disrupting active rankings", () => {
+    const movies = [
+      movie({ tmdbId: 1, elo: 1300 }),
+      movie({ tmdbId: 2, elo: 1200, parked: true }),
+      movie({ tmdbId: 3, elo: 1100 }),
+    ];
+    expect(finalizeRanks(movies)).toEqual([
+      { tmdbId: 1, rank: 1 },
+      { tmdbId: 3, rank: 2 },
+      { tmdbId: 2, rank: null },
+    ]);
+  });
 });
 
 describe("property: planted-order recovery", () => {

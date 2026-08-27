@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vitest";
 import {
-  ACHIEVEMENTS,
+  calculateTotalXp,
   LEVELS,
+  MAX_XP_PER_LIST,
   UNLOCKS,
   evaluateAchievements,
   levelFor,
@@ -11,24 +12,38 @@ import {
 } from "./gamification";
 
 describe("levelFor", () => {
-  test("threshold boundaries", () => {
-    expect(levelFor(0).title).toBe("Usher");
-    expect(levelFor(24).title).toBe("Usher");
-    expect(levelFor(25).title).toBe("Film Buff");
-    expect(levelFor(75).title).toBe("Critic");
-    expect(levelFor(200).title).toBe("Projectionist");
-    expect(levelFor(500).title).toBe("Commissioner");
+  test("threshold boundaries across career ranks and sub-levels", () => {
+    expect(levelFor(0)).toMatchObject({ level: 1, title: "Theater Usher" });
+    expect(levelFor(4).level).toBe(1);
+    expect(levelFor(5).level).toBe(2);
+    expect(levelFor(40)).toMatchObject({ level: 9, title: "Theater Usher" });
+    expect(levelFor(45)).toMatchObject({ level: 10, title: "Theater Usher" });
+    expect(levelFor(50)).toMatchObject({ level: 11, title: "Film Buff" });
+    expect(levelFor(100)).toMatchObject({ level: 21, title: "Cinephile" });
+    expect(levelFor(150)).toMatchObject({ level: 31, title: "Projectionist" });
+    expect(levelFor(200)).toMatchObject({ level: 41, title: "Film Critic" });
+    expect(levelFor(250)).toMatchObject({ level: 51, title: "Festival Programmer" });
+    expect(levelFor(300)).toMatchObject({ level: 61, title: "Screenwriter" });
+    expect(levelFor(350)).toMatchObject({ level: 71, title: "Director" });
+    expect(levelFor(400)).toMatchObject({ level: 81, title: "Executive Producer" });
+    expect(levelFor(450)).toMatchObject({ level: 91, title: "Cinema Legend" });
+    expect(levelFor(495)).toMatchObject({ level: 100, title: "Cinema Legend" });
   });
 
-  test("beyond max stays at top level", () => {
-    expect(levelFor(99999)).toEqual({ level: 5, title: "Commissioner", xp: 500 });
+  test("prestige beyond max level 100", () => {
+    expect(levelFor(495)).toMatchObject({ level: 100, title: "Cinema Legend", prestige: 0 });
+    // 495 + 100 = 595 is Level 100, Prestige 1
+    expect(levelFor(595)).toMatchObject({ level: 100, title: "Cinema Legend", prestige: 1 });
+    // 495 + 200 = 695 is Level 100, Prestige 2
+    expect(levelFor(695)).toMatchObject({ level: 100, title: "Cinema Legend", prestige: 2 });
   });
 
   test("negative XP clamps to level 1", () => {
     expect(levelFor(-10).level).toBe(1);
   });
 
-  test("catalog is ascending with no duplicate thresholds", () => {
+  test("catalog has 100 ascending levels with no duplicate thresholds", () => {
+    expect(LEVELS).toHaveLength(100);
     const xps = LEVELS.map((l) => l.xp);
     expect([...xps].sort((a, b) => a - b)).toEqual(xps);
     expect(new Set(xps).size).toBe(xps.length);
@@ -36,26 +51,28 @@ describe("levelFor", () => {
 });
 
 describe("xpProgress", () => {
-  test("mid-level progress fraction", () => {
-    // Film Buff (25) -> Critic (75): 50 XP span.
-    expect(xpProgress(50)).toEqual({
-      level: 2,
-      title: "Film Buff",
-      current: 50,
-      next: { level: 3, xp: 75 },
-      progress01: 0.5,
+  test("mid-level progress fraction within sub-level", () => {
+    // Level 3 (10 XP) -> Level 4 (15 XP). At 12 XP = 2/5 = 40%
+    expect(xpProgress(12)).toEqual({
+      level: 3,
+      title: "Theater Usher",
+      prestige: 0,
+      current: 12,
+      next: { level: 4, xp: 15 },
+      progress01: 0.4,
     });
   });
 
-  test("max level: no next, full bar", () => {
-    const p = xpProgress(1000);
-    expect(p.next).toBeNull();
-    expect(p.progress01).toBe(1);
+  test("prestige progress tracking past max level 100", () => {
+    const p = xpProgress(545); // 495 base + 50 (halfway to 595)
+    expect(p.level).toBe(100);
+    expect(p.prestige).toBe(0);
+    expect(p.next).toEqual({ level: 100, xp: 595 });
+    expect(p.progress01).toBeCloseTo(0.5);
   });
 
   test("progress clamps into [0,1]", () => {
     expect(xpProgress(-5).progress01).toBe(0);
-    expect(xpProgress(60).progress01).toBeCloseTo(0.7);
   });
 });
 
@@ -66,14 +83,14 @@ describe("unlockedAt", () => {
     expect(locked.map((u) => u.name)).toHaveLength(UNLOCKS.length);
   });
 
-  test("level 4 unlocks through Projectionist tier only", () => {
-    const { unlocked, locked } = unlockedAt(4);
-    expect(unlocked.map((u) => u.atLevel)).toEqual([2, 3, 4]);
-    expect(locked).toEqual([UNLOCKS[3]]);
+  test("level 25 unlocks early tiers", () => {
+    const { unlocked, locked } = unlockedAt(25);
+    expect(unlocked.map((u) => u.atLevel)).toEqual([10, 20, 25]);
+    expect(locked.map((u) => u.atLevel)).toEqual([50, 75, 90, 100]);
   });
 
-  test("max level unlocks everything", () => {
-    const { locked } = unlockedAt(5);
+  test("max level 100 unlocks everything", () => {
+    const { locked } = unlockedAt(100);
     expect(locked).toEqual([]);
   });
 });
@@ -84,6 +101,10 @@ describe("evaluateAchievements", () => {
       { doneLists: 1, moviesRanked: 0 }, // first_premiere boundary
       { doneLists: 10, moviesRanked: 0 }, // marathoner boundary
       { doneLists: 0, moviesRanked: 100 }, // centurion boundary
+      { doneLists: 50, moviesRanked: 0 }, // master_curator boundary
+      { doneLists: 1, moviesRanked: 5, firstToMarquee: true }, // marquee_pioneer
+      { doneLists: 1, moviesRanked: 5, top10Marquee: true }, // front_row_10
+      { doneLists: 1, moviesRanked: 5, top100Marquee: true }, // century_marquee
     ]) {
       const result = Object.fromEntries(
         evaluateAchievements(stats).map((a) => [a.key, a.unlocked]),
@@ -93,6 +114,10 @@ describe("evaluateAchievements", () => {
         first_premiere: stats.doneLists >= 1,
         marathoner: stats.doneLists >= 10,
         centurion: stats.moviesRanked >= 100,
+        master_curator: stats.doneLists >= 50,
+        marquee_pioneer: !!stats.firstToMarquee,
+        front_row_10: !!stats.top10Marquee,
+        century_marquee: !!stats.top100Marquee,
       });
     }
   });
@@ -101,31 +126,25 @@ describe("evaluateAchievements", () => {
     const result = evaluateAchievements({ doneLists: 0, moviesRanked: 99 });
     expect(result.every((a) => !a.unlocked)).toBe(true);
   });
-
-  test("all locked on empty stats", () => {
-    const result = evaluateAchievements({ doneLists: 0, moviesRanked: 0 });
-    expect(result.every((a) => !a.unlocked)).toBe(true);
-    expect(result.map((a) => a.key)).toEqual(ACHIEVEMENTS.map((a) => a.key));
-  });
-
-  test("everything unlocks past all thresholds", () => {
-    const result = evaluateAchievements({ doneLists: 10, moviesRanked: 100 });
-    expect(result.every((a) => a.unlocked)).toBe(true);
-    expect(result[0]).toEqual({
-      key: "first_premiere",
-      name: "First Premiere",
-      description: "Finished your first ranking",
-      unlocked: true,
-    });
-  });
 });
 
-describe("totalMoviesRanked", () => {
-  test("sums movie counts across lists", () => {
+describe("totalMoviesRanked & anti-gaming caps", () => {
+  test("sums movie counts across lists within per-list limit", () => {
     expect(totalMoviesRanked([{ movieCount: 8 }, { movieCount: 6 }, { movieCount: 0 }])).toBe(14);
+  });
+
+  test("caps individual lists exceeding MAX_XP_PER_LIST", () => {
+    // 500-movie spam list should only give MAX_XP_PER_LIST (20)
+    expect(totalMoviesRanked([{ movieCount: 500 }, { movieCount: 10 }])).toBe(MAX_XP_PER_LIST + 10);
   });
 
   test("empty shelf is zero XP", () => {
     expect(totalMoviesRanked([])).toBe(0);
+  });
+});
+
+describe("calculateTotalXp", () => {
+  test("combines movie XP and referral bonuses", () => {
+    expect(calculateTotalXp({ lists: [{ movieCount: 10 }], referralCount: 2 })).toBe(10 + 2 * 15);
   });
 });

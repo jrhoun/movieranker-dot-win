@@ -47,10 +47,14 @@ export async function POST(request: Request) {
   const description = parsed.value;
   if (status !== "draft" && status !== "done")
     return invalid("status must be 'draft' or 'done'");
-  const visibility = parseVisibility(body.visibility);
-  if (!visibility.ok) return invalid(visibility.error);
   const meta = parseThemeMeta(body);
   if (!meta.ok) return invalid(meta.error);
+  const defaultVis = meta.value.themeSlug ? "public" : "unlisted";
+  const visibility =
+    body.visibility !== undefined
+      ? parseVisibility(body.visibility)
+      : { ok: true as const, value: defaultVis };
+  if (!visibility.ok) return invalid(visibility.error);
   if (!Array.isArray(participants) || participants.some((p) => typeof p !== "string"))
     return invalid("participants must be an array of strings");
   // Reject malformed numeric/string fields before they reach the DB insert.
@@ -86,22 +90,20 @@ export async function POST(request: Request) {
 
   // Visibility and curated-theme metadata are follow-up owner updates so live
   // DBs only need the ALTER — no save_list signature change to re-run.
+  const followUp: Record<string, unknown> = {};
   if (visibility.value !== "unlisted") {
-    const { error: visError } = await supabase
-      .from("lists")
-      .update({ visibility: visibility.value })
-      .eq("id", id);
-    if (visError) return dbErrorResponse(visError);
+    followUp.visibility = visibility.value;
   }
   if (meta.value.themeSlug) {
-    const { error: themeError } = await supabase
+    followUp.theme_slug = meta.value.themeSlug;
+    followUp.curated = meta.value.curated;
+  }
+  if (Object.keys(followUp).length > 0) {
+    const { error: updateError } = await supabase
       .from("lists")
-      .update({
-        theme_slug: meta.value.themeSlug,
-        curated: meta.value.curated,
-      })
+      .update(followUp)
       .eq("id", id);
-    if (themeError) return dbErrorResponse(themeError);
+    if (updateError) return dbErrorResponse(updateError);
   }
 
   return NextResponse.json({ id }, { status: 201 });

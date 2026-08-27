@@ -33,20 +33,18 @@ export default function ListViews({ movies }: { movies: RankedRow[] }) {
 
   return (
     <section aria-label="Ranked list">
-      <div className="flex justify-center">
+      <div className="flex items-center justify-end pb-2">
         <ViewToggle mode={mode} onChange={change} />
       </div>
-      {/* both views stay mounted; the hidden one is absolute so it never affects layout height */}
-      <div className="relative mt-8">
+      {/* inactive tabpanel is hidden (display: none) so it never occupies space or affects document scrollHeight */}
+      <div className="mt-2">
         <div
           role="tabpanel"
           id="view-toggle-panel-stacked"
           aria-labelledby="view-toggle-tab-stacked"
           tabIndex={mode === "stacked" ? 0 : -1}
           aria-hidden={mode !== "stacked"}
-          className={`transition-opacity duration-200 ease-out ${
-            mode === "stacked" ? "opacity-100" : "pointer-events-none absolute inset-0 opacity-0"
-          }`}
+          className={mode === "stacked" ? "block" : "hidden"}
         >
           <StackedView movies={movies} />
         </div>
@@ -56,9 +54,7 @@ export default function ListViews({ movies }: { movies: RankedRow[] }) {
           aria-labelledby="view-toggle-tab-rows"
           tabIndex={mode === "rows" ? 0 : -1}
           aria-hidden={mode !== "rows"}
-          className={`transition-opacity duration-200 ease-out ${
-            mode === "rows" ? "opacity-100" : "pointer-events-none absolute inset-0 opacity-0"
-          }`}
+          className={mode === "rows" ? "block" : "hidden"}
         >
           <RowsView movies={movies} />
         </div>

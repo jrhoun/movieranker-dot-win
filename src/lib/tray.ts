@@ -44,3 +44,47 @@ export function parseParticipantNames(draft: string): string[] {
   }
   return names;
 }
+
+export interface StagedDraft {
+  title: string;
+  participants: string[];
+  candidates: TmdbMovieCredit[];
+}
+
+export const STAGED_STORAGE_KEY = "mr-staged-draft";
+
+export function loadStagedDraft(): StagedDraft | null {
+  try {
+    const raw = localStorage.getItem(STAGED_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && Array.isArray(parsed.candidates)) {
+      return {
+        title: typeof parsed.title === "string" ? parsed.title : "",
+        participants: Array.isArray(parsed.participants) ? parsed.participants : [],
+        candidates: parsed.candidates,
+      };
+    }
+  } catch {
+    // Storage blocked or invalid JSON
+  }
+  return null;
+}
+
+export function saveStagedDraft(draft: StagedDraft): void {
+  try {
+    if (draft.candidates.length === 0 && !draft.title && draft.participants.length === 0) {
+      localStorage.removeItem(STAGED_STORAGE_KEY);
+    } else {
+      localStorage.setItem(STAGED_STORAGE_KEY, JSON.stringify(draft));
+    }
+  } catch {
+    // Storage quota exceeded or disabled
+  }
+}
+
+export function clearStagedDraft(): void {
+  try {
+    localStorage.removeItem(STAGED_STORAGE_KEY);
+  } catch {}
+}

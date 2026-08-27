@@ -19,6 +19,7 @@ vi.mock("@/components/MarqueeHeading", () => ({ default: () => null }));
 vi.mock("@/components/list/OwnerControls", () => ({ default: () => null }));
 vi.mock("@/components/ParticipantChips", () => ({ default: () => null }));
 vi.mock("@/components/ShareButton", () => ({ default: () => null }));
+vi.mock("@/components/list/CompareModal", () => ({ default: () => null }));
 
 process.env.NEXT_PUBLIC_SITE_URL ??= "https://movieranker.win";
 

@@ -9,9 +9,11 @@ import { patchShowcase } from "@/lib/public-profile";
 export default function ShowcaseLists({
   cards,
   initialFavoriteId,
+  userLevel = 1,
 }: {
   cards: ListRowData[];
   initialFavoriteId: string | null;
+  userLevel?: number;
 }) {
   const [favoriteId, setFavoriteId] = useState<string | null>(initialFavoriteId);
 
@@ -30,6 +32,7 @@ export default function ShowcaseLists({
             list={list}
             featured={list.id === favoriteId}
             onToggleFeature={() => void toggle(list.id)}
+            userLevel={userLevel}
           />
         </li>
       ))}

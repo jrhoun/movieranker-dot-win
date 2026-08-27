@@ -7,6 +7,7 @@ import {
   searchByKeyword,
   searchCompany,
   shapeCredits,
+  tmdbMovieUrl,
 } from "./tmdb";
 import fixture from "./fixtures/combined-credits.json";
 
@@ -51,6 +52,29 @@ describe("shapeCredits", () => {
     const shaped = credits.find((c) => c.tmdbId === sample!.id);
     const year = shaped?.releaseYear;
     expect(year).toBe(Number((sample!.release_date ?? "").slice(0, 4)));
+  });
+
+  it("filters strictly by Director role when role=director", () => {
+    const custom = {
+      cast: [{ id: 101, title: "Acting Gig", media_type: "movie" }],
+      crew: [
+        { id: 102, title: "Directed Film", media_type: "movie", job: "Director", department: "Directing" },
+        { id: 103, title: "Produced Film", media_type: "movie", job: "Executive Producer", department: "Production" },
+      ],
+    };
+    const directorCredits = shapeCredits(custom, "director");
+    expect(directorCredits.map((c) => c.tmdbId)).toEqual([102]);
+  });
+
+  it("filters strictly by Actor role when role=actor", () => {
+    const custom = {
+      cast: [{ id: 101, title: "Acting Gig", media_type: "movie" }],
+      crew: [
+        { id: 102, title: "Directed Film", media_type: "movie", job: "Director", department: "Directing" },
+      ],
+    };
+    const actorCredits = shapeCredits(custom, "actor");
+    expect(actorCredits.map((c) => c.tmdbId)).toEqual([101]);
   });
 });
 
@@ -181,15 +205,15 @@ describe("rankNameResults (person + company suggestions)", () => {
     expect(ranked.map((r) => r.id)).toEqual([2, 3]); // dedup survivor keeps its rank
   });
 
-  it("caps results at 8 and treats missing popularity as 0", () => {
-    const many = Array.from({ length: 12 }, (_, i) => ({
+  it("caps results at 20 and treats missing popularity as 0", () => {
+    const many = Array.from({ length: 30 }, (_, i) => ({
       id: i + 1,
       name: `Studio ${i + 1}`,
-      popularity: 12 - i,
+      popularity: 30 - i,
     }));
     const ranked = rankNameResults(many, "zzz-no-match");
-    expect(ranked).toHaveLength(8);
-    expect(ranked[0]).toEqual({ id: 1, name: "Studio 1", popularity: 12 });
+    expect(ranked).toHaveLength(20);
+    expect(ranked[0]).toEqual({ id: 1, name: "Studio 1", popularity: 30 });
   });
 });
 
@@ -344,5 +368,12 @@ describe("searchByKeyword", () => {
     expect(urls.some((u) => u.includes("with_keywords=207317"))).toBe(true);
     expect(urls.some((u) => u.includes("sort_by=popularity.desc"))).toBe(true);
     expect(urls.every((u) => !u.includes("with_companies"))).toBe(true);
+  });
+});
+
+describe("tmdbMovieUrl", () => {
+  it("formats canonical movie listing url", () => {
+    expect(tmdbMovieUrl(550)).toBe("https://www.themoviedb.org/movie/550");
+    expect(tmdbMovieUrl(157336)).toBe("https://www.themoviedb.org/movie/157336");
   });
 });

@@ -68,7 +68,11 @@ export default function SaveGateSheet({
                 title: session.title,
                 participants: session.participants,
                 ...(session.themeSlug
-                  ? { themeSlug: session.themeSlug, curated: !!session.curated }
+                  ? {
+                      themeSlug: session.themeSlug,
+                      curated: !!session.curated,
+                      visibility: "public",
+                    }
                   : {}),
               },
         ),
@@ -81,15 +85,22 @@ export default function SaveGateSheet({
       return;
     }
     if (!res.ok) {
+      const errJson = (await res.json().catch(() => null)) as { error?: string } | null;
       savingRef.current = false;
       setBusy(false);
-      setNote("Saving failed — check your connection and try again.");
+      setNote(
+        errJson?.error
+          ? `Saving failed: ${errJson.error}`
+          : `Saving failed (${res.status}) — check your connection and try again.`
+      );
       return;
     }
     const id = existingId ?? ((await res.json()) as { id: string }).id;
     clearSession();
-    router.push(status === "done" ? `/l/${id}` : "/u/me");
+    router.push(status === "done" ? `/l/${id}` : "/u/profile");
   }
+
+  const [signedInUser, setSignedInUser] = useState(false);
 
   // Returning from OAuth / magic link: the session cookie is already set.
   useEffect(() => {
@@ -97,7 +108,10 @@ export default function SaveGateSheet({
     createSupabaseBrowserClient()
       .auth.getUser()
       .then(({ data }) => {
-        if (!cancelled && data.user && !savingRef.current) void performSave();
+        if (!cancelled && data.user) {
+          setSignedInUser(true);
+          if (!savingRef.current) void performSave();
+        }
       });
     return () => {
       cancelled = true;
@@ -156,11 +170,14 @@ export default function SaveGateSheet({
     // email confirmation off -> immediate session; on -> user must confirm first
     const { data } = await supabase.auth.getUser();
     setBusy(false);
-    if (data.user) void performSave();
-    else
+    if (data.user) {
+      setSignedInUser(true);
+      void performSave();
+    } else {
       setNote(
         "Check your inbox to confirm your account — your ranking stays in this browser until then.",
       );
+    }
   }
 
   async function handleMagicLink() {
@@ -183,6 +200,9 @@ export default function SaveGateSheet({
   async function handleOAuth(provider: "google" | "azure") {
     setBusy(true);
     setNote(null);
+    try {
+      sessionStorage.setItem("mr_pending_auth_save", status);
+    } catch {}
     // page is about to navigate away — host must disarm its leave-warning
     onAuthRedirect?.();
     try {
@@ -195,11 +215,17 @@ export default function SaveGateSheet({
       if (error) throw error;
       // Resolved without navigating away: usually a blocked/closed popup.
       console.warn(`[auth] ${provider} sign-in returned without redirecting`);
+      try {
+        sessionStorage.removeItem("mr_pending_auth_save");
+      } catch {}
       setBusy(false);
       setNote(
         "Couldn't open Google sign-in — allow popups for this site and try again.",
       );
     } catch (err) {
+      try {
+        sessionStorage.removeItem("mr_pending_auth_save");
+      } catch {}
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[auth] ${provider} sign-in failed: ${msg}`);
       setBusy(false);
@@ -231,112 +257,138 @@ export default function SaveGateSheet({
           <div>
             <h2 className="text-lg font-bold">Save your ranking</h2>
             <p className="mt-0.5 text-xs text-muted">
-              {status === "done"
-                ? "Create an account to keep this ranking forever."
-                : "Park it as a draft — finish voting any time."}
+              {signedInUser
+                ? "Saving directly to your account…"
+                : status === "done"
+                  ? "Create an account to keep this ranking forever."
+                  : "Park it as a draft — finish voting any time."}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={requestClose}
-            aria-label="Close"
-            className="-mr-1 -mt-1 flex size-11 shrink-0 items-center justify-center rounded text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-accent active:text-text"
-          >
-            ✕
-          </button>
-        </div>
-
-        <form onSubmit={handleSignup} className="space-y-3">
-          <input
-            type="email"
-            required
-            autoComplete="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={inputCls}
-            aria-label="Email"
-          />
-          <input
-            type="password"
-            required
-            minLength={6}
-            autoComplete="new-password"
-            placeholder="Password (6+ characters)"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={inputCls}
-            aria-label="Password"
-          />
-          <button type="submit" disabled={busy} className={btnPrimary}>
-            Sign up &amp; save
-          </button>
-        </form>
-
-        <div className="mt-3">
-          {!showDesc ? (
+          {!signedInUser && (
             <button
               type="button"
-              onClick={() => setShowDesc(true)}
-              className="min-h-11 w-full rounded px-2 text-sm text-muted underline-offset-4 transition-colors duration-200 ease-out hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              onClick={requestClose}
+              aria-label="Close"
+              className="-mr-1 -mt-1 flex size-11 shrink-0 items-center justify-center rounded text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-accent active:text-text"
             >
-              + Add the story behind this ranking (optional)
+              ✕
             </button>
-          ) : (
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              maxLength={1000}
-              rows={3}
-              placeholder="What's the story behind this ranking?"
-              aria-label="What's the story behind this ranking?"
-              className={`${inputCls} h-auto py-2 leading-relaxed`}
-            />
           )}
         </div>
 
-        <div className="my-4 flex items-center gap-3 text-xs text-muted" role="separator">
-          <span className="h-px flex-1 bg-white/10" />
-          or
-          <span className="h-px flex-1 bg-white/10" />
-        </div>
+        {signedInUser ? (
+          <div className="flex flex-col items-center justify-center py-6 text-center gap-3">
+            <span className="text-2xl text-gold animate-spin">✦</span>
+            <p className="text-sm font-semibold text-text">Saving your ranking…</p>
+          </div>
+        ) : (
+          <>
+            {session.themeSlug && (
+              <div className="mb-3.5 flex items-start gap-2.5 rounded-xl bg-gold/10 p-3 text-xs text-gold ring-1 ring-gold/30">
+                <span className="text-sm shrink-0" aria-hidden="true">✦</span>
+                <p className="leading-snug text-gold">
+                  <strong>Weekly Marquee:</strong> Rankings for weekly themes are public by default to power collective community stats and consensus.
+                </p>
+              </div>
+            )}
+            <div className="space-y-2.5">
+              <button
+                type="button"
+                onClick={() => handleOAuth("google")}
+                disabled={busy}
+                className={btnAlt}
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path
+                    fill="#4285F4"
+                    d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09C6.22 6.86 8.87 4.75 12 4.75z"
+                  />
+                </svg>
+                Continue with Google
+              </button>
+              <button type="button" onClick={handleMagicLink} disabled={busy} className={btnAlt}>
+                ✉ Email me a magic link
+              </button>
+            </div>
 
-        <div className="space-y-2.5">
-          <button type="button" onClick={handleMagicLink} disabled={busy} className={btnAlt}>
-            ✉ Email me a magic link
-          </button>
-          <button
-            type="button"
-            onClick={() => handleOAuth("google")}
-            disabled={busy}
-            className={btnAlt}
-          >
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path
-                fill="#4285F4"
-                d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09C6.22 6.86 8.87 4.75 12 4.75z"
-              />
-            </svg>
-            Continue with Google
-          </button>
-        </div>
+            <div className="my-4 flex items-center gap-3 text-xs text-muted" role="separator">
+              <span className="h-px flex-1 bg-white/10" />
+              or with email &amp; password
+              <span className="h-px flex-1 bg-white/10" />
+            </div>
 
-        {note && (
-          <p role="status" className="mt-4 text-xs leading-relaxed text-accent">
-            {note}
-          </p>
+            <form onSubmit={handleSignup} className="space-y-3">
+              <input
+                type="email"
+                required
+                autoComplete="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={inputCls}
+                aria-label="Email"
+              />
+              <input
+                type="password"
+                required
+                minLength={6}
+                autoComplete="new-password"
+                placeholder="Password (6+ characters)"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={inputCls}
+                aria-label="Password"
+              />
+              <button type="submit" disabled={busy} className={btnPrimary}>
+                Sign up &amp; save
+              </button>
+            </form>
+
+            <div className="mt-4 border-t border-white/10 pt-3">
+              {!showDesc ? (
+                <button
+                  type="button"
+                  onClick={() => setShowDesc(true)}
+                  className="min-h-10 w-full rounded px-2 text-xs sm:text-sm text-muted underline-offset-4 transition-colors duration-200 ease-out hover:text-gold hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                >
+                  + Add the story behind this ranking (optional)
+                </button>
+              ) : (
+                <div className="space-y-1.5">
+                  <label htmlFor="save-ranking-desc" className="text-xs font-semibold text-muted uppercase tracking-wider">
+                    Story behind this ranking (optional)
+                  </label>
+                  <textarea
+                    id="save-ranking-desc"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    maxLength={1000}
+                    rows={3}
+                    placeholder="What inspired this list or debate?"
+                    className={`${inputCls} h-auto py-2.5 leading-relaxed`}
+                  />
+                </div>
+              )}
+            </div>
+
+            {note && (
+              <p role="status" className="mt-3 text-xs leading-relaxed text-accent">
+                {note}
+              </p>
+            )}
+          </>
         )}
       </div>
     </div>

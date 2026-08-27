@@ -4,19 +4,24 @@ import { useEffect, useRef, useState } from "react";
 import Tabs from "./Tabs";
 import type { TmdbCompany, TmdbMovieCredit, TmdbPerson } from "@/lib/tmdb";
 import { rangeIndices } from "@/lib/tray";
-import { filterByTitle } from "@/lib/search-filter";
+import { filterByTitle, sortMovies, type BrowseSortOption } from "@/lib/search-filter";
 import MoviePosterCard from "./MoviePosterCard";
 
-type Mode = "person" | "company" | "keyword" | "title";
+type Mode = "title" | "director" | "actor" | "company" | "keyword";
 
 const MODES: { id: Mode; label: string; placeholder: string }[] = [
   { id: "title", label: "Title", placeholder: "Search movies by title…" },
-  { id: "person", label: "Person", placeholder: "Search a director or actor…" },
-  { id: "company", label: "Studio", placeholder: "Search a studio… e.g. A24" },
+  { id: "director", label: "Director", placeholder: "Search a director… e.g. Spielberg, Nolan, Gerwig" },
+  { id: "actor", label: "Actor / Actress", placeholder: "Search an actor… e.g. Tom Hanks, Zendaya, DiCaprio" },
+  { id: "company", label: "Studio", placeholder: "Search a studio… e.g. A24, Marvel, Pixar" },
   { id: "keyword", label: "Keyword", placeholder: "Search movies by title or theme…" },
 ];
 
-const TWO_STEP: Partial<Record<Mode, string>> = { person: "people", company: "studios" };
+const TWO_STEP: Partial<Record<Mode, string>> = {
+  director: "directors",
+  actor: "actors",
+  company: "studios",
+};
 
 // Inline results cap; the rest stays reachable via the Browse-all modal.
 const INLINE_CAP = 20;
@@ -52,7 +57,9 @@ export default function SearchPanel({
   const [names, setNames] = useState<(TmdbPerson | TmdbCompany)[]>([]);
   const [movies, setMovies] = useState<TmdbMovieCredit[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [browseAll, setBrowseAll] = useState(false);
+  const [showAllNames, setShowAllNames] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const lastClickedRef = useRef<number | null>(null);
 
@@ -73,19 +80,27 @@ export default function SearchPanel({
     async function run() {
       if (!ref && !query) {
         setNames([]);
+        setShowAllNames(false);
         setMovies([]);
         setLoading(false);
+        setSearchError(null);
         return;
       }
       try {
         setLoading(true);
+        setSearchError(null);
         if (ref) {
           // credits for a picked person/studio
-          const path =
-            TWO_STEP[mode] === "people"
-              ? `/api/search?mode=person-credits&ref=${ref.id}`
-              : `/api/search?mode=company-discover&ref=${ref.id}`;
+          let path = "";
+          if (mode === "director") {
+            path = `/api/search?mode=person-credits&ref=${ref.id}&role=director`;
+          } else if (mode === "actor") {
+            path = `/api/search?mode=person-credits&ref=${ref.id}&role=actor`;
+          } else {
+            path = `/api/search?mode=company-discover&ref=${ref.id}`;
+          }
           const res = await fetch(path, { signal: ctrl.signal });
+          if (!res.ok) throw new Error("Search service failed");
           const data = await res.json();
           setMovies((data.results ?? []) as TmdbMovieCredit[]);
           setNames([]);
@@ -95,9 +110,11 @@ export default function SearchPanel({
             `/api/search?mode=${mode}&q=${encodeURIComponent(query)}`,
             { signal: ctrl.signal },
           );
+          if (!res.ok) throw new Error("Search service failed");
           const data = await res.json();
           if (TWO_STEP[mode]) {
             setNames((data.results ?? []) as (TmdbPerson | TmdbCompany)[]);
+            setShowAllNames(false);
             setMovies([]);
           } else {
             setMovies((data.results ?? []) as TmdbMovieCredit[]);
@@ -108,6 +125,7 @@ export default function SearchPanel({
         if ((e as Error).name !== "AbortError") {
           setMovies([]);
           setNames([]);
+          setSearchError("Movie database temporarily unavailable. Tap retry to reconnect.");
         }
       } finally {
         if (!ctrl.signal.aborted) setLoading(false);
@@ -120,11 +138,14 @@ export default function SearchPanel({
   function switchMode(next: Mode) {
     setMode(next);
     setRef(null);
+    setShowAllNames(false);
     setNames([]);
     setMovies([]);
+    setSearchError(null);
   }
 
   function pickRef(n: TmdbPerson | TmdbCompany) {
+    setShowAllNames(false);
     setRef({ id: n.id, name: n.name });
   }
 
@@ -151,7 +172,7 @@ export default function SearchPanel({
       className="rounded-lg bg-surface p-4 ring-1 ring-white/10 sm:p-5"
     >
       <p className="text-sm text-muted">
-        Search any actor, director, studio, or movie — tap posters to start building your list.
+        Search any director, actor, studio, or movie — tap posters to start building your list.
       </p>
 
       {/* mode tabs */}
@@ -217,34 +238,79 @@ export default function SearchPanel({
         {loading ? (
           <SkeletonGrid />
         ) : showNames ? (
-          <ul className="flex flex-wrap gap-2">
-            {names.map((n) => (
-              <li key={n.id}>
-                <button
-                  type="button"
-                  onClick={() => pickRef(n)}
-                  className="min-h-11 rounded-full bg-surface px-4 py-1 text-sm text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-surface-raised hover:ring-white/20 active:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                >
-                  {n.name}
-                  {"origin_country" in n && (
-                    <span className="ml-2 text-xs text-muted">
-                      {(n as TmdbCompany).origin_country && (
-                        <span className="mr-1.5 rounded bg-surface-raised px-1.5 py-0.5">
-                          {(n as TmdbCompany).origin_country}
+          <div>
+            <div className="mb-2.5 flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+                Select {mode === "director" ? "a director" : mode === "actor" ? "an actor" : "a studio"} to view films:
+              </p>
+              <span className="text-xs text-muted">
+                {names.length} match{names.length === 1 ? "" : "es"}
+              </span>
+            </div>
+            <ul className="grid grid-cols-1 gap-2.5">
+              {(showAllNames ? names : names.slice(0, 6)).map((n) => {
+                const isCompany = "origin_country" in n || "movieCount" in n;
+                const company = isCompany ? (n as TmdbCompany) : null;
+                const person = !isCompany ? (n as TmdbPerson) : null;
+                const knownForTitles = person?.known_for
+                  ?.map((k) => k.title || k.name)
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .join(", ");
+
+                return (
+                  <li key={n.id}>
+                    <button
+                      type="button"
+                      onClick={() => pickRef(n)}
+                      className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-lg bg-surface p-3 text-left ring-1 ring-white/10 transition-all duration-200 ease-out hover:bg-surface-raised hover:ring-gold/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.99]"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-text transition-colors group-hover:text-gold">
+                          {n.name}
+                        </p>
+                        {person && (
+                          <p className="mt-0.5 text-xs text-muted">
+                            {person.known_for_department ?? "Film credit"}
+                            {knownForTitles && ` · ${knownForTitles}`}
+                          </p>
+                        )}
+                        {company && company.origin_country && (
+                          <p className="mt-0.5 text-xs text-muted">
+                            Studio · {company.origin_country}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {company?.movieCount !== undefined && (
+                          <span className="rounded-full bg-gold/15 px-2.5 py-1 text-xs font-semibold tabular-nums text-gold ring-1 ring-gold/30">
+                            {company.movieCount} movies
+                          </span>
+                        )}
+                        <span
+                          aria-hidden="true"
+                          className="text-xs text-muted transition-transform duration-200 ease-out group-hover:translate-x-0.5 group-hover:text-gold"
+                        >
+                          →
                         </span>
-                      )}
-                      {(n as TmdbCompany).movieCount !== undefined && (
-                        <span className="mr-1.5 rounded bg-surface-raised px-1.5 py-0.5 tabular-nums">
-                          {(n as TmdbCompany).movieCount} movies
-                        </span>
-                      )}
-                      Production company
-                    </span>
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            {names.length > 6 && (
+              <button
+                type="button"
+                onClick={() => setShowAllNames((v) => !v)}
+                className="mt-3 min-h-11 w-full rounded bg-surface-raised px-4 text-xs font-medium uppercase tracking-wider text-muted ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                {showAllNames
+                  ? "Show top 6 only ↑"
+                  : `Show all ${names.length} matching ${TWO_STEP[mode] ?? "results"} ↓`}
+              </button>
+            )}
+          </div>
         ) : showMovies && movies.length > 0 ? (
           <div>
             {/* results header: "Add all" adds the page; "Clear selection" (only
@@ -299,6 +365,20 @@ export default function SearchPanel({
               </button>
             )}
           </div>
+        ) : searchError ? (
+          <div className="rounded-lg bg-accent-red/10 border border-accent-red/30 p-4 text-center">
+            <p className="text-xs font-semibold text-accent-red">{searchError}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setDebouncedQ("");
+                setTimeout(() => setDebouncedQ(q), 10);
+              }}
+              className="mt-2.5 inline-flex min-h-9 items-center rounded-full bg-accent-red/20 px-4 text-xs font-bold uppercase tracking-wider text-accent-red ring-1 ring-accent-red/40 hover:bg-accent-red/30"
+            >
+              Retry Search ↺
+            </button>
+          </div>
         ) : debouncedQ.trim() || ref ? (
           <p className="py-8 text-center text-sm text-muted">Nothing found. Try another search.</p>
         ) : null}
@@ -329,6 +409,7 @@ function BrowseAllModal({
   onClose: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   // Ref keeps the trap stable even though the parent passes an inline onClose.
   const onCloseRef = useRef(onClose);
   useEffect(() => {
@@ -338,12 +419,33 @@ function BrowseAllModal({
   const selectedCount = movies.filter(isSelected).length;
   // Client-side filter over the same source array; empty query shows everything.
   const [filterQ, setFilterQ] = useState("");
+  const [sort, setSort] = useState<BrowseSortOption>("year-desc");
   // Progressive batch render: cap initial requests so the modal never fires 100+
-  // concurrent TMDB fetches; "Show more" reveals the next chunk.
+  // concurrent TMDB fetches; auto-loads next chunk on scroll.
   const BATCH = 30;
   const [visibleCount, setVisibleCount] = useState(BATCH);
   const shown = filterByTitle(movies, filterQ);
-  const visible = shown.slice(0, visibleCount);
+  const sorted = sortMovies(shown, sort);
+  const visible = sorted.slice(0, visibleCount);
+
+  // Lazy load more results as user scrolls down towards the sentinel
+  useEffect(() => {
+    if (shown.length <= visibleCount) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + BATCH, shown.length));
+        }
+      },
+      { root: null, rootMargin: "300px" },
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [shown.length, visibleCount]);
 
   // Focus-on-open runs once; restoring focus to the trigger here covers close
   // via ✕, footer Close, overlay click, and Escape alike.
@@ -362,7 +464,7 @@ function BrowseAllModal({
       }
       if (e.key !== "Tab" || !panelRef.current) return;
       const els = Array.from(
-        panelRef.current.querySelectorAll<HTMLElement>("button:not([disabled])"),
+        panelRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), select:not([disabled]), input:not([disabled])"),
       );
       if (els.length === 0) return;
       const first = els[0];
@@ -395,10 +497,9 @@ function BrowseAllModal({
         className="animate-celebrate relative flex max-h-[85dvh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-surface shadow-2xl ring-1 ring-white/10 xl:max-w-4xl 2xl:max-w-5xl"
       >
         {/* Header/footer are static flex siblings of the scrolling grid, so they
-            stay pinned while the posters scroll. Header is one row: filter +
-            result count + close — no title bar. */}
-        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-3">
-          <div className="relative min-w-0 flex-1">
+            stay pinned while the posters scroll. Header holds filter, sort, count and close. */}
+        <div className="flex flex-wrap items-center gap-3 border-b border-white/10 px-5 py-3">
+          <div className="relative min-w-[12rem] flex-1">
             <input
               type="search"
               value={filterQ}
@@ -420,6 +521,26 @@ function BrowseAllModal({
                 ✕
               </button>
             )}
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="browse-sort" className="sr-only">
+              Sort results
+            </label>
+            <select
+              id="browse-sort"
+              value={sort}
+              onChange={(e) => {
+                setSort(e.target.value as BrowseSortOption);
+                setVisibleCount(BATCH);
+              }}
+              className="min-h-11 rounded bg-surface-raised px-3 text-sm text-text ring-1 ring-white/10 transition-shadow duration-200 ease-out hover:ring-white/20 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent"
+            >
+              <option value="year-desc">Year: Newest first</option>
+              <option value="year-asc">Year: Oldest first</option>
+              <option value="title-asc">Title: A → Z</option>
+              <option value="title-desc">Title: Z → A</option>
+              <option value="relevance">Search relevance</option>
+            </select>
           </div>
           <p aria-live="polite" className="shrink-0 text-sm tabular-nums text-muted">
             {shown.length} result{shown.length === 1 ? "" : "s"}
@@ -448,13 +569,13 @@ function BrowseAllModal({
             />
           ))}
           {shown.length > visibleCount && (
-            <button
-              type="button"
-              onClick={() => setVisibleCount((c) => c + BATCH)}
-              className="relative z-10 col-span-full min-h-11 rounded bg-surface-raised px-4 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-[rgb(60,60,70)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            <div
+              ref={sentinelRef}
+              className="col-span-full py-4 flex items-center justify-center gap-2 text-xs sm:text-sm text-muted"
             >
-              Show more ({shown.length - visibleCount} remaining)
-            </button>
+              <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-muted border-t-gold" />
+              <span>Loading more films… ({shown.length - visibleCount} remaining)</span>
+            </div>
           )}
           {shown.length === 0 && (
             <p className="col-span-full py-8 text-center text-sm text-muted">
@@ -462,16 +583,16 @@ function BrowseAllModal({
             </p>
           )}
         </div>
-        <footer className="flex min-h-11 items-center justify-between gap-3 border-t border-white/10 px-5 py-1.5">
-          <p aria-live="polite" className="text-sm text-muted">
+        <footer className="flex min-h-11 items-center justify-between gap-3 border-t border-white/10 px-5 py-2">
+          <p aria-live="polite" className="text-sm font-medium text-muted">
             {selectedCount} selected
           </p>
           <button
             type="button"
             onClick={onClose}
-            className="min-h-11 rounded-full bg-surface-raised px-4 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-[rgb(60,60,70)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="min-h-10 rounded-full bg-surface-raised px-5 text-xs font-bold uppercase tracking-wider text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
           >
-            Close
+            Done / Close
           </button>
         </footer>
       </div>

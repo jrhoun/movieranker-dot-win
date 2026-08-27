@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   daysSinceUtcEpoch,
   weeksSinceUtcEpoch,
+  getNextWeeklyMarqueeRotation,
   pickTonightsEntry,
   tonightsShortlist,
   overlapsTheme,
@@ -44,6 +45,15 @@ describe("weeksSinceUtcEpoch", () => {
     // d(3*DAY) is Sunday (still week 0), d(4*DAY) is the next Monday.
     expect(weeksSinceUtcEpoch(d(3 * DAY))).toBe(0);
     expect(weeksSinceUtcEpoch(d(4 * DAY))).toBe(1);
+  });
+});
+
+describe("getNextWeeklyMarqueeRotation", () => {
+  it("returns next Monday UTC midnight", () => {
+    // Wed Aug 26 2026 -> next Monday is Aug 31 2026 00:00:00 UTC
+    const wed = d(Date.UTC(2026, 7, 26, 15, 30));
+    const nextRotation = getNextWeeklyMarqueeRotation(wed);
+    expect(nextRotation.toISOString()).toBe("2026-08-31T00:00:00.000Z");
   });
 });
 

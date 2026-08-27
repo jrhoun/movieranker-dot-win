@@ -4,6 +4,7 @@ import {
   sharpenNextPair,
   type RankedMovie,
 } from "./ranking";
+import { SHORTLIST_THEMES } from "./shortlist-themes";
 
 export interface PlaySession {
   title: string;
@@ -25,7 +26,17 @@ export function loadSession(): PlaySession | null {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as PlaySession;
+    const session = JSON.parse(raw) as PlaySession;
+    if (session.themeSlug) {
+      const theme = SHORTLIST_THEMES.find((t) => t.slug === session.themeSlug);
+      if (theme && (session.curated || session.title === "Rain Soaked Cinema")) {
+        session.title = theme.title;
+      }
+    } else if (session.title === "Rain Soaked Cinema") {
+      session.title = "Heavy Rain, Poor Choices";
+      session.themeSlug = "rain-soaked-cinema";
+    }
+    return session;
   } catch {
     return null;
   }

@@ -239,12 +239,16 @@ export function sharpenNextPair(order: RankedMovie[]): [RankedMovie, RankedMovie
   return [byElo[best + 1], byElo[best]];
 }
 
-export function finalizeRanks(movies: RankedMovie[]): { tmdbId: number; rank: number }[] {
-  const sorted = [...movies].sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId);
-  const out: { tmdbId: number; rank: number }[] = [];
-  sorted.forEach((m, i) => {
-    const rank = i > 0 && m.elo === sorted[i - 1].elo ? out[i - 1].rank : i + 1;
+export function finalizeRanks(movies: RankedMovie[]): { tmdbId: number; rank: number | null }[] {
+  const active = movies.filter((m) => !m.parked).sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId);
+  const parked = movies.filter((m) => m.parked);
+  const out: { tmdbId: number; rank: number | null }[] = [];
+  active.forEach((m, i) => {
+    const rank = i > 0 && m.elo === active[i - 1].elo ? (out[i - 1]?.rank ?? i + 1) : i + 1;
     out.push({ tmdbId: m.tmdbId, rank });
+  });
+  parked.forEach((m) => {
+    out.push({ tmdbId: m.tmdbId, rank: null });
   });
   return out;
 }

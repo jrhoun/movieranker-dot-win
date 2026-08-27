@@ -220,16 +220,21 @@ describe("POST /api/lists", () => {
     expect(update!.args[0]).toEqual({
       theme_slug: "secretly-same-story",
       curated: true,
+      visibility: "public",
     });
   });
 
-  it("defaults curated to false when a themeSlug is sent alone", async () => {
+  it("defaults curated to false and visibility to public when a themeSlug is sent alone", async () => {
     const res = await POST(jsonRequest({ ...doneBody, themeSlug: "noirs" }));
     expect(res.status).toBe(201);
     const update = currentDb.calls.find(
       (c) => c.table === "lists" && c.method === "update",
     );
-    expect(update!.args[0]).toEqual({ theme_slug: "noirs", curated: false });
+    expect(update!.args[0]).toEqual({
+      theme_slug: "noirs",
+      curated: false,
+      visibility: "public",
+    });
   });
 
   it("rejects curated without themeSlug with 400", async () => {

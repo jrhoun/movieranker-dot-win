@@ -4,6 +4,11 @@ import { invalid } from "@/lib/lists-api";
 import { checkHandle } from "@/lib/handles";
 import { mergeShowcase, type ProfileShowcase } from "@/lib/public-profile";
 import {
+  calculateTotalXp,
+  levelFor,
+  MIN_PIN_LIST_LEVEL,
+} from "@/lib/gamification";
+import {
   LIMITS,
   rateKey,
   rateLimit,
@@ -124,6 +129,41 @@ export async function PATCH(request: Request) {
     );
     if (!merged) return invalid("invalid showcase");
     if (merged.favoriteListId) {
+      // Gate: user must be Level 10 or higher to pin a featured list
+      let lifetimeXp = (row as { showcase?: { lifetimeXp?: number } }).showcase?.lifetimeXp ?? 0;
+      if (lifetimeXp === 0) {
+        const { data: userLists } = await supabase
+          .from("lists")
+          .select("id,list_movies(count)")
+          .eq("owner_id", auth.user.id);
+        const listIds = (userLists ?? []).map((l) => l.id);
+        const { data: attributions } = listIds.length
+          ? await supabase
+              .from("participant_attributions")
+              .select("user_id")
+              .in("list_id", listIds)
+          : { data: [] };
+        const referralCount = (attributions ?? []).filter(
+          (a) => a.user_id && a.user_id !== auth.user.id,
+        ).length;
+        lifetimeXp = calculateTotalXp({
+          lists: (userLists ?? []).map((l) => {
+            const c = Array.isArray(l.list_movies) ? l.list_movies[0]?.count ?? 0 : 0;
+            return { movieCount: Number(c) };
+          }),
+          referralCount,
+        });
+      }
+      const userLevel = levelFor(lifetimeXp).level;
+      if (userLevel < MIN_PIN_LIST_LEVEL) {
+        return NextResponse.json(
+          {
+            error: `Pinning a featured ranking unlocks at Level ${MIN_PIN_LIST_LEVEL}. You are currently Level ${userLevel}.`,
+          },
+          { status: 403 },
+        );
+      }
+
       // Trust boundary: the featured list must be owned AND a public done list.
       const { data: fav } = await supabase
         .from("lists")

@@ -3,6 +3,7 @@ import { getTonightsShortlist } from "@/lib/shortlist";
 import type { ThemeCommunityActivity } from "@/lib/shortlist";
 import { getMovieById, getPreferredPosterPath } from "@/lib/tmdb";
 import type { TmdbMovieCredit } from "@/lib/tmdb";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 // Server component: resolves this week's themed marquee (deterministic weekly
 // rotation) and hydrates the movie details both the hero fan and the strip
@@ -15,6 +16,8 @@ export default async function Page() {
   let credits: TmdbMovieCredit[] = [];
   let proposedBy: string | null = null;
   let activity: ThemeCommunityActivity = { count: 0, previews: [] };
+  let userThemeListId: string | null = null;
+
   try {
     const { theme, movieIds, activity: a } = await getTonightsShortlist();
     title = theme.title;
@@ -33,6 +36,21 @@ export default async function Page() {
         posterPath: await getPreferredPosterPath(c.tmdbId, c.posterPath),
       })),
     );
+
+    const supabase = await createSupabaseServerClient();
+    const { data: auth } = await supabase.auth.getUser();
+    if (auth?.user && slug) {
+      const { data } = await supabase
+        .from("lists")
+        .select("id")
+        .eq("owner_id", auth.user.id)
+        .eq("theme_slug", slug)
+        .eq("status", "done")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      userThemeListId = data?.id ?? null;
+    }
   } catch {
     // fall through to hardcoded hero fan
   }
@@ -47,6 +65,7 @@ export default async function Page() {
         proposedBy,
         settledCount: activity.count,
         previews: activity.previews,
+        userThemeListId,
       }}
     />
   );

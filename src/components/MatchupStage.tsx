@@ -1,28 +1,39 @@
 "use client";
 
 import type { RankedMovie } from "@/lib/ranking";
+import { tmdbMovieUrl } from "@/lib/tmdb";
 
-const POSTER_BASE = "https://image.tmdb.org/t/p/w342";
+const POSTER_BASE = "https://image.tmdb.org/t/p/w500";
 
 function Side({
   movie,
   otherId,
-  losing,
-  winning,
+  position,
+  settlingLoserId,
   onVote,
   onPark,
 }: {
   movie: RankedMovie;
   otherId: number;
-  losing: boolean;
-  winning: boolean;
+  position: "left" | "right";
+  settlingLoserId: number | null;
   onVote: (winnerId: number, loserId: number) => void;
   onPark: (tmdbId: number) => void;
 }) {
+  const isLosing = settlingLoserId === movie.tmdbId;
+  const isWinning = settlingLoserId !== null && settlingLoserId === otherId;
+
+  let animClass = "";
+  if (isWinning) {
+    animClass = position === "left" ? "animate-hit-right" : "animate-hit-left";
+  } else if (isLosing) {
+    animClass = position === "left" ? "animate-recoil-left" : "animate-recoil-right";
+  }
+
   return (
     <div
-      className={`flex min-w-0 flex-col justify-center gap-2 ${losing ? "loser-bop" : ""}`}
-      aria-hidden={losing}
+      className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-2 sm:gap-3 transition-transform duration-200 ease-out ${animClass}`}
+      aria-hidden={isLosing}
     >
       {/* Only the poster frame is the vote target — titles/meta stay outside so
           stray taps near the card edges don't cast a vote. */}
@@ -31,13 +42,14 @@ function Side({
         onClick={() => onVote(movie.tmdbId, otherId)}
         aria-label={`Pick ${movie.title} as the winner`}
         style={{ touchAction: "manipulation" }}
-        className="group mx-auto block w-fit select-none rounded transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
-        disabled={losing}
+        className="group mx-auto block w-fit select-none rounded-xl sm:rounded-2xl transition-transform duration-200 ease-out hover:-translate-y-2 focus:outline-none focus-visible:outline-none active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+        disabled={isLosing || settlingLoserId !== null}
       >
         <div
-          className={`aspect-[2/3] h-[min(62svh,64vw)] overflow-hidden rounded bg-surface ring-1 ring-white/10 transition-all duration-200 ease-out group-hover:ring-accent group-focus-visible:ring-accent group-active:ring-accent ${
-            winning ? "winner-gold-pulse" : ""
-          }`}>
+          className={`aspect-[2/3] h-[min(52svh,40vw)] sm:h-[min(58svh,36vw)] md:h-[min(65svh,34vw,650px)] lg:h-[min(70svh,32vw,750px)] overflow-hidden rounded-xl sm:rounded-2xl bg-surface ring-1 ring-white/15 shadow-[0_20px_50px_rgba(0,0,0,0.6),0_0_40px_rgba(245,197,24,0.12)] transition-all duration-200 ease-out group-hover:ring-2 group-hover:ring-gold group-focus-visible:ring-2 group-focus-visible:ring-gold group-active:ring-gold ${
+            isWinning ? "animate-poster-winner ring-2 ring-gold" : ""
+          }`}
+        >
           {movie.posterPath ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -48,18 +60,40 @@ function Side({
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center p-3 text-center text-sm text-muted">
+            <div className="flex h-full w-full items-center justify-center p-4 text-center text-sm sm:text-base text-muted">
               {movie.title}
             </div>
           )}
         </div>
       </button>
-      <p className="truncate px-1 text-center text-xl font-semibold sm:text-3xl">{movie.title}</p>
-      <p className="text-center text-sm text-muted sm:text-base">{movie.releaseYear ?? "—"}</p>
+      <p className="w-full max-w-[15rem] sm:max-w-xs md:max-w-sm lg:max-w-md text-center text-base sm:text-xl md:text-2xl font-bold leading-tight line-clamp-2">
+        <a
+          href={tmdbMovieUrl(movie.tmdbId)}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`View ${movie.title} on TMDB (opens in new tab)`}
+          className="transition-colors hover:text-gold hover:underline focus-visible:outline-1 focus-visible:outline-gold"
+        >
+          {movie.title}
+        </a>
+      </p>
+      <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-muted">
+        <span>{movie.releaseYear ?? "—"}</span>
+        <span aria-hidden="true" className="text-white/20">·</span>
+        <a
+          href={tmdbMovieUrl(movie.tmdbId)}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`View ${movie.title} on TMDB (opens in new tab)`}
+          className="text-xs text-muted underline decoration-gold/50 underline-offset-2 transition-colors hover:text-gold focus-visible:outline-1 focus-visible:outline-gold"
+        >
+          TMDB ↗
+        </a>
+      </div>
       <button
         type="button"
         onClick={() => onPark(movie.tmdbId)}
-        className="min-h-11 rounded border border-white/10 px-2 text-xs text-muted transition-colors duration-200 ease-out hover:border-white/40 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised sm:text-sm"
+        className="mt-0.5 inline-flex min-h-9 items-center justify-center rounded-full bg-surface-raised/90 px-4 py-1 text-xs font-semibold text-text/80 ring-1 ring-white/20 transition-all duration-150 ease-out hover:bg-surface-raised hover:text-gold hover:ring-gold/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-95"
       >
         Haven&apos;t seen
       </button>
@@ -82,31 +116,31 @@ export default function MatchupStage({
   return (
     <section
       aria-label="Which movie is better?"
-      className="grid flex-1 grid-cols-[1fr_auto_1fr] items-center gap-1 select-none sm:gap-3"
+      className="mx-auto flex w-full max-w-6xl xl:max-w-7xl flex-1 items-center justify-center gap-3 sm:gap-10 md:gap-14 lg:gap-20 px-2 py-2 select-none"
     >
       <Side
         movie={a}
         otherId={b.tmdbId}
-        losing={settlingLoserId === a.tmdbId}
-        winning={settlingLoserId === b.tmdbId}
+        position="left"
+        settlingLoserId={settlingLoserId}
         onVote={onVote}
         onPark={onPark}
       />
       <div
         aria-hidden="true"
-        className="flex flex-col items-center gap-1 px-0.5 sm:gap-2"
+        className="flex shrink-0 flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3"
       >
-        <span className="text-xs text-gold/70">✦</span>
-        <p className="font-display text-2xl leading-none tracking-widest text-gold drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)] sm:text-3xl">
+        <span className="text-xs sm:text-sm text-gold/70">✦</span>
+        <p className="font-display text-2xl leading-none tracking-widest text-gold drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)] sm:text-4xl lg:text-5xl">
           VS
         </p>
-        <span className="text-xs text-gold/70">✦</span>
+        <span className="text-xs sm:text-sm text-gold/70">✦</span>
       </div>
       <Side
         movie={b}
         otherId={a.tmdbId}
-        losing={settlingLoserId === b.tmdbId}
-        winning={settlingLoserId === a.tmdbId}
+        position="right"
+        settlingLoserId={settlingLoserId}
         onVote={onVote}
         onPark={onPark}
       />

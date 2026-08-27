@@ -17,11 +17,14 @@ export interface ListHeader {
   ownerId: string;
 }
 
-export type RankedRow = ListMovieRow & { rank: number };
+export type RankedRow = ListMovieRow & { rank: number | null };
 
-/** Trust stored final_rank; fall back to array position for safety. */
+/** Trust stored final_rank; fall back to array position for safety when movie was compared. */
 export function withRanks(movies: ListMovieRow[]): RankedRow[] {
-  return movies.map((m, i) => ({ ...m, rank: m.finalRank ?? i + 1 }));
+  return movies.map((m, i) => ({
+    ...m,
+    rank: m.finalRank !== null && m.finalRank !== undefined ? m.finalRank : (m.comparisons === 0 ? null : i + 1),
+  }));
 }
 
 /** Top 3 for the podium; everything else renders below it. */
