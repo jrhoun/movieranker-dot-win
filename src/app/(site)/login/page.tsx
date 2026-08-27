@@ -13,7 +13,7 @@ function requestedNext(): string | null {
 
 function callbackUrl() {
   const next = requestedNext();
-  const target = next && next !== "/" ? next : "/u/profile";
+  const target = safeNext(next);
   return `${window.location.origin}/auth/callback?next=${encodeURIComponent(target)}`;
 }
 
@@ -36,11 +36,11 @@ export default function LoginPage() {
   const [note, setNote] = useState<{ type: "info" | "error" | "success"; text: string } | null>(null);
 
   useEffect(() => {
-    // already signed in? straight to your profile & lists
+    // already signed in? straight to intended page or home
     createSupabaseBrowserClient()
       .auth.getUser()
       .then(({ data }) => {
-        if (data.user) router.replace("/u/profile");
+        if (data.user) router.replace(safeNext(requestedNext()));
       });
   }, [router]);
 
