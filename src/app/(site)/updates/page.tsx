@@ -22,13 +22,13 @@ export default function UpdatesPage() {
       <header className="mb-10 text-center sm:text-left">
         <div className="inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/5 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-gold mb-3">
           <span aria-hidden="true">✦</span>
-          <span>Changelog &amp; Announcements</span>
+          <span>Updates &amp; Notes</span>
         </div>
         <h1 className="font-display text-3xl uppercase tracking-wider text-text sm:text-4xl">
           What&apos;s New on MovieRanker
         </h1>
         <p className="mt-2 text-sm text-muted leading-relaxed sm:text-base">
-          Recent releases, newly added features, and product announcements.
+          A running log of new features, small improvements, and things we&apos;re trying out as we build.
         </p>
       </header>
 
