@@ -16,6 +16,8 @@ export interface PlaySession {
   themeSlug?: string | null;
   /** True while roster is locked to the theme; unlocking keeps themeSlug. */
   curated?: boolean;
+  /** Chronological history of [winnerId, loserId] pairs voted in this session. */
+  history?: Array<[number, number]>;
   /** Pre-vote deep copy for single-level undo; has its own snapshot stripped. */
   undoSnapshot?: PlaySession | null;
 }
@@ -90,9 +92,11 @@ export function applyVote(
   loserId: number,
 ): PlaySession {
   const { movies, orderChanged } = recordMatchupResult(s.movies, winnerId, loserId);
+  const history: Array<[number, number]> = [...(s.history ?? []), [winnerId, loserId]];
   return {
     ...s,
     movies,
+    history,
     votesSinceOrderChange: orderChanged ? 0 : s.votesSinceOrderChange + 1,
     undoSnapshot: snapshotForUndo(s),
   };
@@ -114,6 +118,9 @@ export function selectNextPair(
   if (active.length < 2) return null;
   return sharpening
     ? sharpenNextPair(active)
-    : nextMatchup(active,
-        previousPair ? ([previousPair[0].tmdbId, previousPair[1].tmdbId] as const) : undefined);
+    : nextMatchup(
+        active,
+        previousPair ? ([previousPair[0].tmdbId, previousPair[1].tmdbId] as const) : undefined,
+        s.history,
+      );
 }

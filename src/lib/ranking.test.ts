@@ -179,6 +179,45 @@ describe("nextMatchup", () => {
     test("undefined previousPair keeps plain behavior", () => {
       expect(nextMatchup(roster).map((m) => m.tmdbId)).toEqual([1, 2]);
     });
+
+    test("never repeats a pair when uncompared pairs exist in pairHistory", () => {
+      const four = [
+        movie({ tmdbId: 1, elo: 1016, comparisons: 1 }),
+        movie({ tmdbId: 2, elo: 984, comparisons: 1 }),
+        movie({ tmdbId: 3, elo: 1016, comparisons: 1 }),
+        movie({ tmdbId: 4, elo: 984, comparisons: 1 }),
+      ];
+      // History: [1,2] and [3,4] have played.
+      const history: [number, number][] = [
+        [1, 2],
+        [3, 4],
+      ];
+      // Pair [1, 3] or [2, 4] must be chosen — NOT [1, 2] or [3, 4] again!
+      const [a, b] = nextMatchup(four, [3, 4], history);
+      const pair = [a.tmdbId, b.tmdbId].sort();
+      expect(pair).not.toEqual([1, 2]);
+      expect(pair).not.toEqual([3, 4]);
+      expect([[1, 3], [2, 4]]).toContainEqual(pair);
+    });
+
+    test("in a 6-movie list (like weekly marquee), all 15 unique pairs are played before any rematch", () => {
+      let currentMovies = Array.from({ length: 6 }, (_, i) => movie({ tmdbId: i + 1 }));
+      const history: [number, number][] = [];
+      const seenPairs = new Set<string>();
+      let prev: [number, number] | undefined;
+
+      for (let i = 0; i < 15; i++) {
+        const [a, b] = nextMatchup(currentMovies, prev, history);
+        const k = a.tmdbId < b.tmdbId ? `${a.tmdbId}:${b.tmdbId}` : `${b.tmdbId}:${a.tmdbId}`;
+        expect(seenPairs.has(k)).toBe(false); // must NEVER repeat in first 15 votes!
+        seenPairs.add(k);
+        history.push([a.tmdbId, b.tmdbId]);
+        currentMovies = applyWin(currentMovies, a.tmdbId, b.tmdbId);
+        prev = [a.tmdbId, b.tmdbId];
+      }
+
+      expect(seenPairs.size).toBe(15);
+    });
   });
 });
 
@@ -474,8 +513,9 @@ describe("simulation: stability reachable within ~n log n * 2 votes", () => {
     let significantOnce = false;
     let votes = 0;
     let prevIds: [number, number] | undefined;
+    const history: [number, number][] = [];
     while (votes < maxVotes) {
-      const [a, b] = nextMatchup(movies, prevIds);
+      const [a, b] = nextMatchup(movies, prevIds, history);
       const favoriteWins = rand() < 0.85;
       const favorite = strength[a.tmdbId - 1] > strength[b.tmdbId - 1] ? a : b;
       const underdog = favorite === a ? b : a;
@@ -484,6 +524,7 @@ describe("simulation: stability reachable within ~n log n * 2 votes", () => {
       const result = recordMatchupResult(movies, winner.tmdbId, loser.tmdbId);
       movies = result.movies;
       prevIds = [a.tmdbId, b.tmdbId];
+      history.push([winner.tmdbId, loser.tmdbId]);
       if (result.orderChanged) {
         votesSinceOrderChange = 0;
         significantOnce = true;

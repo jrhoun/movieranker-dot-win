@@ -41,62 +41,86 @@ export function applyWin(
   });
 }
 
-/** All unordered pairs of a movie list; each pair ordered lower-elo first
- * (tmdbId asc on ties) and the list ordered so the first pair is the closest-rated
- * one — identical choice and tie-breaks as the original adjacent-scan: gap asc,
- * then the lower movie's (elo, tmdbId). */
-function candidatePairs(list: RankedMovie[]): [RankedMovie, RankedMovie][] {
-  const byElo = [...list].sort((a, b) => a.elo - b.elo || a.tmdbId - b.tmdbId);
-  const pairs: [RankedMovie, RankedMovie][] = [];
-  for (let i = 0; i < byElo.length; i++)
-    for (let j = i + 1; j < byElo.length; j++) pairs.push([byElo[i], byElo[j]]);
-  return pairs.sort(
-    (p, q) =>
-      p[1].elo - p[0].elo - (q[1].elo - q[0].elo) ||
-      p[0].elo - q[0].elo ||
-      p[0].tmdbId - q[0].tmdbId,
-  );
-}
 
 function isPair(pair: [RankedMovie, RankedMovie], ids: readonly [number, number]): boolean {
   const [x, y] = [pair[0].tmdbId, pair[1].tmdbId];
   return (x === ids[0] && y === ids[1]) || (x === ids[1] && y === ids[0]);
 }
 
-/** Closest-rated least-compared pair. `previousPair` (tmdbIds, any order) is the
- * anti-immediate-repeat rule: the exact last matchup is skipped whenever any
- * alternative exists, so one vote can't leave the same two movies facing off
- * again. Falls back to the wider roster if the least-compared tier IS the
- * previous pair; with only two active movies the rematch is unavoidable and
- * returned as-is. */
+function pairKey(id1: number, id2: number): string {
+  return id1 < id2 ? `${id1}:${id2}` : `${id2}:${id1}`;
+}
+
+/** Closest-rated least-compared pair. Prioritizes uncompared pairs (timesCompared = 0)
+ * so users never see duplicate matchups while fresh pairings exist.
+ * `previousPair` avoids immediate rematches; `pairHistory` tracks all prior
+ * matchups in the session. */
 export function nextMatchup(
   movies: RankedMovie[],
   previousPair?: readonly [number, number],
+  pairHistory?: ReadonlyArray<readonly [number, number]>,
 ): [RankedMovie, RankedMovie] {
   const active = movies.filter((m) => !m.parked);
   if (active.length < 2) throw new Error("nextMatchup needs at least 2 active movies");
-
-  // "least-recently-compared" = lowest comparisons count
-  const minComparisons = Math.min(...active.map((m) => m.comparisons));
-  let pool = active.filter((m) => m.comparisons === minComparisons);
-
-  // ponytail: odd rotation leaves a single least-compared movie; pair it with its closest-rated peer instead of tracking timestamps
-  if (pool.length < 2) {
-    const rest = active.filter((m) => m.comparisons !== minComparisons);
-    const other = rest.reduce((a, b) => {
-      const da = Math.abs(a.elo - pool[0].elo);
-      const db = Math.abs(b.elo - pool[0].elo);
-      return db < da || (db === da && b.tmdbId < a.tmdbId) ? b : a;
-    });
-    pool = [pool[0], other];
+  if (active.length === 2) {
+    const [a, b] = [active[0], active[1]];
+    return a.elo < b.elo || (a.elo === b.elo && a.tmdbId < b.tmdbId) ? [a, b] : [b, a];
   }
 
-  const pairs = candidatePairs(pool);
-  const alternatives = previousPair ? pairs.filter((p) => !isPair(p, previousPair)) : pairs;
-  if (alternatives.length > 0) return alternatives[0];
-  // pool offered only the previous pair — widen to the whole roster
-  const wide = previousPair ? candidatePairs(active).filter((p) => !isPair(p, previousPair)) : [];
-  return wide[0] ?? pairs[0];
+  // Count past comparisons per unordered pair from history
+  const pairCounts = new Map<string, number>();
+  if (pairHistory && pairHistory.length > 0) {
+    for (const [w, l] of pairHistory) {
+      const k = pairKey(w, l);
+      pairCounts.set(k, (pairCounts.get(k) ?? 0) + 1);
+    }
+  }
+
+  // Generate all unordered pairs
+  const allPairs: [RankedMovie, RankedMovie][] = [];
+  for (let i = 0; i < active.length; i++) {
+    for (let j = i + 1; j < active.length; j++) {
+      const a = active[i];
+      const b = active[j];
+      if (a.elo < b.elo || (a.elo === b.elo && a.tmdbId < b.tmdbId)) {
+        allPairs.push([a, b]);
+      } else {
+        allPairs.push([b, a]);
+      }
+    }
+  }
+
+  // Sort candidate pairs:
+  // 1. timesCompared: uncompared (0) first — never repeat when fresh pairs exist
+  // 2. isImmediatePrevious: skip the exact previous matchup if any alternative exists
+  // 3. sumComparisons: balance overall participation across all movies
+  // 4. eloGap: closest Elo ratings for maximum information gain
+  // 5. deterministic tie-breakers
+  allPairs.sort((p, q) => {
+    const keyP = pairKey(p[0].tmdbId, p[1].tmdbId);
+    const keyQ = pairKey(q[0].tmdbId, q[1].tmdbId);
+    const countP = pairCounts.get(keyP) ?? 0;
+    const countQ = pairCounts.get(keyQ) ?? 0;
+    if (countP !== countQ) return countP - countQ;
+
+    const prevP = previousPair && isPair(p, previousPair) ? 1 : 0;
+    const prevQ = previousPair && isPair(q, previousPair) ? 1 : 0;
+    if (prevP !== prevQ) return prevP - prevQ;
+
+    const sumP = p[0].comparisons + p[1].comparisons;
+    const sumQ = q[0].comparisons + q[1].comparisons;
+    if (sumP !== sumQ) return sumP - sumQ;
+
+    const gapP = Math.abs(p[1].elo - p[0].elo);
+    const gapQ = Math.abs(q[1].elo - q[0].elo);
+    if (gapP !== gapQ) return gapP - gapQ;
+
+    if (p[0].elo !== q[0].elo) return p[0].elo - q[0].elo;
+    if (p[0].tmdbId !== q[0].tmdbId) return p[0].tmdbId - q[0].tmdbId;
+    return p[1].tmdbId - q[1].tmdbId;
+  });
+
+  return allPairs[0];
 }
 
 
