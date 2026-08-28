@@ -10,6 +10,7 @@ import {
   OG_SIZE,
   OgCard,
   PosterRow,
+  clampHeadline,
   headlineSize,
   posterUrl,
 } from "./og-card";
@@ -151,6 +152,20 @@ describe("headlineSize", () => {
   });
 });
 
+describe("clampHeadline", () => {
+  it("leaves a normal title alone", () => {
+    expect(clampHeadline("THE GREATEST HEIST MOVIES EVER MADE")).toBe(
+      "THE GREATEST HEIST MOVIES EVER MADE",
+    );
+  });
+
+  it("truncates an unbounded title, since the API does not cap list titles", () => {
+    const clamped = clampHeadline("A".repeat(400));
+    expect(clamped).toHaveLength(118);
+    expect(clamped.endsWith("...")).toBe(true);
+  });
+});
+
 describe("posterUrl", () => {
   it("builds an absolute TMDB url, since Satori fetches server-side", () => {
     expect(posterUrl("/abc.jpg")).toBe("https://image.tmdb.org/t/p/w342/abc.jpg");
@@ -237,6 +252,38 @@ describe("card rendering", () => {
         headline: "OBSCURE FILMS WITH NO ART",
         subline: "3 FILMS RANKED HEAD-TO-HEAD",
         children: h(PosterRow, { posters: [null, null, null] }),
+      }),
+    );
+  });
+
+  it("renders the versus card when the two lists share no films", async () => {
+    await expectRealCard(
+      "versus-no-overlap",
+      h(OgCard, {
+        eyebrow: "VERSUS",
+        headline: "NO OVERLAP",
+        headlineSizePx: 96,
+        subline: "THESE TWO LISTS SHARE NO FILMS",
+        children: h(
+          "div",
+          { style: { display: "flex", fontSize: "27px", color: COLORS.muted } },
+          "MY TOP 20 vs A STRANGER'S TOP 20",
+        ),
+      }),
+    );
+  });
+
+  it("keeps the wordmark on the card when a title is absurdly long", async () => {
+    // List titles are not capped server-side. Before clampHeadline this pushed
+    // the wordmark off the bottom edge — silently, at HTTP 200.
+    await expectRealCard(
+      "absurd-title",
+      h(OgCard, {
+        eyebrow: "RANKED ON MOVIERANKER",
+        headline:
+          "THE DEFINITIVE AND COMPLETELY EXHAUSTIVE RANKING OF EVERY SINGLE MOTION PICTURE EVER COMMITTED TO CELLULOID BY ANY STUDIO ANYWHERE IN THE WORLD SINCE EIGHTEEN NINETY FIVE INCLUDING SHORTS",
+        subline: "900 FILMS RANKED HEAD-TO-HEAD",
+        children: h(PosterRow, { posters: [STUB_POSTER, STUB_POSTER, STUB_POSTER] }),
       }),
     );
   });

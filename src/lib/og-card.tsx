@@ -74,6 +74,22 @@ export function headlineSize(text: string): number {
 }
 
 /**
+ * Hard ceiling on headline length.
+ *
+ * List titles are NOT capped server-side (src/app/api/lists/route.ts only
+ * requires a non-empty string), so a 300-character title is reachable. At the
+ * smallest ramp step that wraps to four lines and pushes the wordmark off the
+ * bottom edge — the same clipping the first draft of this layout shipped. Two
+ * lines is what the vertical budget affords, so clamp there.
+ *
+ * "..." rather than the ellipsis character: Bebas has no U+2026 glyph, and a
+ * missing glyph renders as a tofu box.
+ */
+export function clampHeadline(text: string, max = 118): string {
+  return text.length <= max ? text : `${text.slice(0, max - 3).trimEnd()}...`;
+}
+
+/**
  * The marquee light strip: the card's identity, drawn as CSS circles because
  * the site's ✦ has no glyph in Bebas. A theatre marquee is the thing the whole
  * product is named after, so it earns the top edge of every card.
@@ -191,6 +207,9 @@ export interface OgCardProps {
  * as one product in a feed.
  */
 export function OgCard({ eyebrow, headline, headlineSizePx, subline, children }: OgCardProps) {
+  // Clamped here, not at the call sites, so an unbounded list title cannot
+  // reach the layout through a route that forgot to guard it.
+  const line = clampHeadline(headline);
   return (
     <div
       style={{
@@ -233,13 +252,13 @@ export function OgCard({ eyebrow, headline, headlineSizePx, subline, children }:
             textAlign: "center",
             maxWidth: "1040px",
             marginTop: "10px",
-            fontSize: `${headlineSizePx ?? headlineSize(headline)}px`,
+            fontSize: `${headlineSizePx ?? headlineSize(line)}px`,
             lineHeight: 1,
             letterSpacing: "0.02em",
             color: COLORS.gold,
           }}
         >
-          {headline}
+          {line}
         </div>
         {subline ? (
           <div

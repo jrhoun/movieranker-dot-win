@@ -73,7 +73,10 @@ export async function generateMetadata({
     ? "What connects these films? | movieranker.win"
     : `${list.title} – Movie Ranking | movieranker.win`;
   const desc = isMarquee
-    ? `One hidden thread runs through all ${movies.length} films in this week's Marquee. Rank them and see if you can spot it.`
+    ? // No "this week's": a marquee list stays shareable long after its week,
+      // and dating it here would repeat the misattribution the share text's
+      // marqueeNumber anchor exists to prevent.
+      `One hidden thread runs through all ${movies.length} films in this Marquee. Rank them and see if you can spot it.`
     : topMovie
       ? `#1 Champion: ${topMovie.title}. Ranked across ${movies.length} films on MovieRanker.`
       : `Ranked list of ${movies.length} movies on MovieRanker.`;

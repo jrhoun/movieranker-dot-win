@@ -24,7 +24,10 @@ create table if not exists marquee_solves (
   primary key (user_id, theme_slug)
 );
 
--- Idempotent guards, in case an earlier draft of this file was already applied.
+-- Brings a table created by an earlier draft of this file up to date. The
+-- create policy statements below are NOT idempotent — re-running this file on a
+-- database that already has the policies will error on the first one. Drop them
+-- first if you need to re-apply.
 alter table marquee_solves add column if not exists correct boolean not null default false;
 alter table marquee_solves add column if not exists attempted_at timestamptz not null default now();
 
