@@ -217,9 +217,9 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
               role="presentation"
               className="font-display text-[clamp(2.5rem,11vw,6rem)] uppercase leading-none tracking-widest"
             >
-              <span aria-hidden="true" className="mr-2 align-middle text-gold text-[0.35em]">✦</span>
+              <span aria-hidden="true" className="mr-2 align-middle text-gold text-[0.5em]">✦</span>
               <span className="marquee-gold drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)]">movieranker.win</span>
-              <span aria-hidden="true" className="ml-2 align-middle text-gold text-[0.35em]">✦</span>
+              <span aria-hidden="true" className="ml-2 align-middle text-gold text-[0.5em]">✦</span>
             </p>
             <h1 className="mt-3 text-xl font-medium text-text sm:text-2xl">
               Settling the best movies of all time.

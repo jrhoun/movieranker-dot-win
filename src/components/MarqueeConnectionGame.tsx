@@ -1,44 +1,91 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { shuffledOptions } from "@/lib/connection-options";
 import type { ThemeConnectionGame } from "@/lib/shortlist-themes";
 
 interface MarqueeConnectionGameProps {
   themeSlug: string;
-  themeTitle: string;
+  /** Human marquee counter, for the header. NOT the theme title — see below. */
+  marqueeNumber?: number | null;
   game: ThemeConnectionGame;
+  /**
+   * True only when the viewer has just been redirected here from finishing the
+   * ranking. Drives the congratulations modal; a later visit shows the card
+   * inline instead.
+   */
+  justFinished?: boolean;
   onBonusEarned?: (xp: number) => void;
   className?: string;
 }
 
+interface GameState {
+  /**
+   * The AUTHORED option index, never the on-screen position. The buttons are
+   * shuffled for display, so storing a display position would score old saved
+   * answers against the wrong option and would break the moment the order
+   * changed.
+   */
+  selected: number | null;
+  revealed: boolean;
+  /** Whether the guess was right. Absent on entries written before this field existed. */
+  correct?: boolean;
+}
+
 export default function MarqueeConnectionGame({
   themeSlug,
-  themeTitle,
+  marqueeNumber,
   game,
+  justFinished = false,
   onBonusEarned,
   className = "",
 }: MarqueeConnectionGameProps) {
   const storageKey = `mr-conn-${themeSlug}`;
-  const [gameState, setGameState] = useState<{
-    selected: number | null;
-    revealed: boolean;
-    /** Whether the guess was right. Absent on entries written before this field existed. */
-    correct?: boolean;
-  }>(() => {
+  const [gameState, setGameState] = useState<GameState>(() => {
     if (typeof window === "undefined") return { selected: null, revealed: false };
     try {
       const saved = localStorage.getItem(storageKey);
-      if (saved) return JSON.parse(saved);
+      if (saved) return JSON.parse(saved) as GameState;
     } catch {
       // ignore
     }
     return { selected: null, revealed: false };
   });
+  // Resolved ONCE, in a lazy initializer, for two reasons: a later prop change
+  // must not yank the modal away mid-answer, and the modal has to stay open
+  // after a guess so the reveal can be read — so it cannot simply derive from
+  // `revealed`.
+  const [modalOpen, setModalOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    if (!justFinished) return false;
+    try {
+      return localStorage.getItem(storageKey) === null;
+    } catch {
+      return true;
+    }
+  });
 
   const { selected, revealed } = gameState;
 
+  useEffect(() => {
+    if (!modalOpen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setModalOpen(false);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [modalOpen]);
+
+  // Display order. Every authored game puts its answer at index 0, so without
+  // this the answer is always button A. See lib/connection-options.ts.
+  const options = useMemo(
+    () => shuffledOptions(themeSlug, game.options),
+    [themeSlug, game.options],
+  );
+
   /**
-   * Tells the server this attempt happened. `guessIndex` is null for a peek.
+   * Tells the server this attempt happened. `guessIndex` is null for a peek,
+   * and is always the AUTHORED index, which is what the API scores against.
    *
    * Every outcome is reported, not just wins. The server records only the FIRST
    * attempt per theme, so staying silent about a wrong guess would leave the
@@ -57,13 +104,13 @@ export default function MarqueeConnectionGame({
     });
   }
 
-  function handleGuess(index: number) {
+  function handleGuess(originalIndex: number) {
     if (revealed) return;
-    const isCorrect = index === game.correctIndex;
-    const nextState = { selected: index, revealed: true, correct: isCorrect };
+    const isRight = originalIndex === game.correctIndex;
+    const nextState: GameState = { selected: originalIndex, revealed: true, correct: isRight };
     setGameState(nextState);
 
-    if (isCorrect) {
+    if (isRight) {
       onBonusEarned?.(5);
       // Local counter kept for the immediate in-page nudge; the SERVER row is
       // what backs the codebreaker achievement, because localStorage is
@@ -75,7 +122,7 @@ export default function MarqueeConnectionGame({
         // ignore
       }
     }
-    recordAttempt(index);
+    recordAttempt(originalIndex);
 
     try {
       localStorage.setItem(storageKey, JSON.stringify(nextState));
@@ -90,7 +137,7 @@ export default function MarqueeConnectionGame({
     // share can distinguish "peeked" from "guessed and missed". This still
     // spends the attempt — otherwise you could read the answer here and then
     // clear storage to "solve" it.
-    const nextState = { selected: null, revealed: true, correct: false };
+    const nextState: GameState = { selected: null, revealed: true, correct: false };
     setGameState(nextState);
     recordAttempt(null);
     try {
@@ -101,8 +148,12 @@ export default function MarqueeConnectionGame({
   }
 
   const isCorrect = selected === game.correctIndex;
+  // THE HEADER NAMES THE WEEK, NOT THE THEME. The theme title is a paraphrase of
+  // the answer — "Thin Air, Vertical Drops" sitting above an option about
+  // high-altitude drops hands the quiz over.
+  const weekLabel = marqueeNumber ? `Weekly Marquee #${marqueeNumber}` : "Weekly Marquee";
 
-  return (
+  const card = (
     <div
       className={`w-full max-w-xl mx-auto rounded-2xl border border-gold/30 bg-gradient-to-b from-surface to-surface/80 p-5 sm:p-6 shadow-2xl backdrop-blur-md ring-1 ring-gold/20 animate-fade-in ${className}`}
     >
@@ -116,7 +167,7 @@ export default function MarqueeConnectionGame({
             <h3 className="font-display text-base uppercase tracking-wider text-gold sm:text-lg">
               The Secret Connection
             </h3>
-            <p className="text-xs text-muted">Weekly Marquee: {themeTitle}</p>
+            <p className="text-xs text-muted">{weekLabel}</p>
           </div>
         </div>
 
@@ -130,18 +181,25 @@ export default function MarqueeConnectionGame({
       {!revealed ? (
         /* Stage 1: Interactive Guessing Challenge */
         <div className="mt-4 space-y-4">
+          {justFinished && (
+            <p className="text-sm font-semibold text-gold leading-relaxed">
+              Congratulations! You finished the marquee ranking for this week.
+            </p>
+          )}
           <p className="text-sm font-medium text-text leading-relaxed">
-            Can you deduce the secret cinematic thread connecting every film in this week&apos;s marquee?
+            {justFinished
+              ? "Now for bonus points — what's the theme connecting the marquee movies?"
+              : "What's the theme connecting the marquee movies?"}
           </p>
 
           <div className="grid gap-2.5 sm:grid-cols-2">
-            {game.options.map((option, idx) => {
-              const letter = String.fromCharCode(65 + idx);
+            {options.map(({ option, originalIndex }, position) => {
+              const letter = String.fromCharCode(65 + position);
               return (
                 <button
                   key={option}
                   type="button"
-                  onClick={() => handleGuess(idx)}
+                  onClick={() => handleGuess(originalIndex)}
                   className="group flex items-start gap-2.5 rounded-xl border border-white/10 bg-surface-raised/80 p-3 text-left transition-all duration-200 hover:border-gold/50 hover:bg-gold/10 hover:shadow-md active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-gold cursor-pointer"
                 >
                   <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-white/10 font-mono text-xs font-bold text-text group-hover:bg-gold group-hover:text-bg transition-colors">
@@ -205,5 +263,34 @@ export default function MarqueeConnectionGame({
         </div>
       )}
     </div>
+  );
+
+  return (
+    <>
+      {card}
+      {modalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Bonus round: the secret connection"
+          onClick={() => setModalOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+        >
+          <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-xl my-auto">
+            <button
+              type="button"
+              onClick={() => setModalOpen(false)}
+              aria-label="Close"
+              className="absolute -top-2 -right-2 z-10 rounded-full bg-surface-raised p-1.5 text-muted ring-1 ring-white/15 hover:bg-white/10 hover:text-text focus-visible:outline-2 focus-visible:outline-gold transition-colors"
+            >
+              <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+            {card}
+          </div>
+        </div>
+      )}
+    </>
   );
 }

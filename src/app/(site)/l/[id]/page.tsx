@@ -100,10 +100,16 @@ function shareUrl(listId: string, refHandle?: string | null): string {
 
 export default async function PublicListPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ finished?: string }>;
 }) {
   const { id } = await params;
+  // Set by the ranking flow's redirect (play-room / SaveGateSheet). Distinguishes
+  // "you just finished this" from "you opened a link", which is the difference
+  // between a congratulations modal and a quiet card further down the page.
+  const justFinished = (await searchParams)?.finished === "1";
   const supabase = await createSupabaseServerClient();
 
   // RLS: public sees only status='done'; owners also see their drafts.
@@ -282,7 +288,8 @@ export default async function PublicListPage({
         <section aria-label="Marquee mystery connection" className="mt-12">
           <MarqueeConnectionGame
             themeSlug={list.theme_slug}
-            themeTitle={list.title}
+            marqueeNumber={listMarqueeNumber}
+            justFinished={justFinished}
             game={getThemeConnectionGame({
               slug: list.theme_slug,
               title: list.title,
