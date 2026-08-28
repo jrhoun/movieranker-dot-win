@@ -6,6 +6,7 @@ import {
   pickTonightsEntry,
   tonightsShortlist,
   overlapsTheme,
+  marqueeNumber,
 } from "./shortlist";
 import { SHORTLIST_THEMES } from "./shortlist-themes";
 
@@ -170,3 +171,28 @@ describe("overlapsTheme", () => {
     expect(overlapsTheme([1, 2, 3], [])).toBe(false);
   });
 });
+
+describe("marqueeNumber", () => {
+  // Launch week began Monday 2026-08-24 UTC.
+  it("is 1 during the launch week", () => {
+    expect(marqueeNumber(new Date("2026-08-24T00:00:00Z"))).toBe(1);
+  });
+
+  it("stays 1 later in the launch week", () => {
+    expect(marqueeNumber(new Date("2026-08-30T23:59:00Z"))).toBe(1);
+  });
+
+  it("increments on the next UTC Monday", () => {
+    expect(marqueeNumber(new Date("2026-08-31T00:00:00Z"))).toBe(2);
+  });
+
+  it("advances by one per week thereafter", () => {
+    expect(marqueeNumber(new Date("2026-09-07T00:00:00Z"))).toBe(3);
+    expect(marqueeNumber(new Date("2026-09-14T00:00:00Z"))).toBe(4);
+  });
+
+  it("never returns less than 1 for pre-launch dates", () => {
+    expect(marqueeNumber(new Date("2020-01-01T00:00:00Z"))).toBe(1);
+  });
+});
+
