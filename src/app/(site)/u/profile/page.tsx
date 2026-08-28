@@ -131,7 +131,8 @@ export default async function MyListsPage() {
     .select("owner_id,theme_slug,created_at")
     .not("theme_slug", "is", null)
     .eq("status", "done")
-    .in("visibility", ["unlisted", "public"]);
+    .in("visibility", ["unlisted", "public"])
+    .limit(10000);
   const completions: ThemeCompletion[] = ((themeRows ?? []) as Record<string, unknown>[])
     .filter((r) => typeof r.owner_id === "string" && typeof r.theme_slug === "string")
     .map((r) => ({
@@ -140,16 +141,10 @@ export default async function MyListsPage() {
       createdAt: String(r.created_at ?? ""),
     }));
   const standing = marqueeStanding(completions, auth.user.id);
-  // Deliberately NOT filtered by user_id: the "read own solves" RLS policy
-  // (supabase/upgrade-2.sql) already scopes this to auth.uid(), so this is the
-  // VIEWER's solve count, not a table-wide total. Do not "fix" this by adding
-  // .eq("user_id", ...) — on a public profile that would need the profile
-  // owner's id, which RLS will not return anyway.
-  // Consequence: on someone else's public profile the count is 0 and the badge
-  // stays locked. That is the intended privacy-preserving default.
   const { count: solveCount } = await supabase
     .from("marquee_solves")
-    .select("theme_slug", { count: "exact", head: true });
+    .select("theme_slug", { count: "exact", head: true })
+    .eq("user_id", auth.user.id);
 
   const achievements = evaluateAchievements({
     doneLists: doneCards.length,

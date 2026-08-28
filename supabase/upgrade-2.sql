@@ -20,5 +20,3 @@ create policy "insert own solve" on marquee_solves for insert
 
 create policy "read own solves" on marquee_solves for select
   using (auth.uid() = user_id);
-
-create index if not exists idx_marquee_solves_user on marquee_solves(user_id);
