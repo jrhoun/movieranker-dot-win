@@ -6,6 +6,7 @@ import ParticipantChips from "@/components/ParticipantChips";
 import MoviePoster from "@/components/list/MoviePoster";
 import { normalizeHandle } from "@/lib/handles";
 import { evaluateAchievements } from "@/lib/gamification";
+import { marqueeStanding, type ThemeCompletion } from "@/lib/marquee-standing";
 import {
   EMPTY_SHOWCASE,
   parseShowcase,
@@ -152,6 +153,24 @@ export default async function PublicProfilePage({
     attributions ?? [],
     publicProfiles ?? [],
   );
+  // Marquee ordering achievements. RLS policy "anyone reads done lists" exposes
+  // status='done' + visibility in ('unlisted','public'), and marquee lists are
+  // saved public, so this ordering is identical for every viewer.
+  const { data: themeRows } = await supabase
+    .from("lists")
+    .select("owner_id,theme_slug,created_at")
+    .not("theme_slug", "is", null)
+    .eq("status", "done")
+    .in("visibility", ["unlisted", "public"]);
+  const completions: ThemeCompletion[] = ((themeRows ?? []) as Record<string, unknown>[])
+    .filter((r) => typeof r.owner_id === "string" && typeof r.theme_slug === "string")
+    .map((r) => ({
+      ownerId: r.owner_id as string,
+      themeSlug: r.theme_slug as string,
+      createdAt: String(r.created_at ?? ""),
+    }));
+  const standing = marqueeStanding(completions, profile.id);
+
   // Unlocked only; cards.length is the public done-list count (shapePublicProfile
   // filters to status=done + visibility=public, so private/unlisted never count).
   const allAchievements = evaluateAchievements({
@@ -159,6 +178,7 @@ export default async function PublicProfilePage({
     moviesRanked,
     maxMoviesInSingleList: Math.max(0, ...cards.map((c) => c.posters.length)),
     coCuratedLists: cards.filter((c) => (c.chips?.length ?? 0) > 0).length,
+    ...standing,
   }).filter((a) => a.unlocked);
   // Showcase curation: featured list + pinned achievements first. The favorite
   // must be among the shaped (public done) cards or it is silently omitted.

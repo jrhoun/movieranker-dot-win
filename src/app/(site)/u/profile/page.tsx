@@ -22,6 +22,7 @@ import {
   unlockedAt,
   xpProgress,
 } from "@/lib/gamification";
+import { marqueeStanding, type ThemeCompletion } from "@/lib/marquee-standing";
 
 interface DbList {
   id: string;
@@ -122,11 +123,29 @@ export default async function MyListsPage() {
   const lifetimeXp = Math.max(currentXp, showcase.lifetimeXp ?? 0);
   const progress = xpProgress(lifetimeXp);
   const doneCards = cards.filter((c) => c.status === "done");
+  // Marquee ordering achievements. RLS policy "anyone reads done lists" exposes
+  // status='done' + visibility in ('unlisted','public'), and marquee lists are
+  // saved public, so this ordering is identical for every viewer.
+  const { data: themeRows } = await supabase
+    .from("lists")
+    .select("owner_id,theme_slug,created_at")
+    .not("theme_slug", "is", null)
+    .eq("status", "done")
+    .in("visibility", ["unlisted", "public"]);
+  const completions: ThemeCompletion[] = ((themeRows ?? []) as Record<string, unknown>[])
+    .filter((r) => typeof r.owner_id === "string" && typeof r.theme_slug === "string")
+    .map((r) => ({
+      ownerId: r.owner_id as string,
+      themeSlug: r.theme_slug as string,
+      createdAt: String(r.created_at ?? ""),
+    }));
+  const standing = marqueeStanding(completions, auth.user.id);
   const achievements = evaluateAchievements({
     doneLists: doneCards.length,
     moviesRanked: progress.current,
     maxMoviesInSingleList: Math.max(0, ...doneCards.map((c) => c.posters.length)),
     coCuratedLists: doneCards.filter((c) => (c.chips?.length ?? 0) > 0).length,
+    ...standing,
   });
   const level = levelFor(progress.current);
   const { unlocked, locked } = unlockedAt(level.level);
