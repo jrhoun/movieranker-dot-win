@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Analytics } from "@vercel/analytics/react";
 import { Bebas_Neue, Geist, Geist_Mono } from "next/font/google";
+import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -21,8 +22,10 @@ const bebas = Bebas_Neue({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "MovieRanker – Head-to-Head Film Tournaments & Rankings",
   description: "Rank movies with friends, settle debates head-to-head, and build definitive film lists.",
+  alternates: { canonical: "/" },
 };
 
 export const viewport: Viewport = {
