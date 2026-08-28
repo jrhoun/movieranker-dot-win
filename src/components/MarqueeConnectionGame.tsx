@@ -19,7 +19,12 @@ export default function MarqueeConnectionGame({
   className = "",
 }: MarqueeConnectionGameProps) {
   const storageKey = `mr-conn-${themeSlug}`;
-  const [gameState, setGameState] = useState<{ selected: number | null; revealed: boolean }>(() => {
+  const [gameState, setGameState] = useState<{
+    selected: number | null;
+    revealed: boolean;
+    /** Whether the guess was right. Absent on entries written before this field existed. */
+    correct?: boolean;
+  }>(() => {
     if (typeof window === "undefined") return { selected: null, revealed: false };
     try {
       const saved = localStorage.getItem(storageKey);
@@ -35,7 +40,7 @@ export default function MarqueeConnectionGame({
   function handleGuess(index: number) {
     if (revealed) return;
     const isCorrect = index === game.correctIndex;
-    const nextState = { selected: index, revealed: true };
+    const nextState = { selected: index, revealed: true, correct: isCorrect };
     setGameState(nextState);
 
     if (isCorrect) {
@@ -56,7 +61,9 @@ export default function MarqueeConnectionGame({
   }
 
   function handleSkipToReveal() {
-    const nextState = { selected: null, revealed: true };
+    // Peeked without guessing: not correct, and selected stays null so the
+    // share can distinguish "peeked" from "guessed and missed".
+    const nextState = { selected: null, revealed: true, correct: false };
     setGameState(nextState);
     try {
       localStorage.setItem(storageKey, JSON.stringify(nextState));
