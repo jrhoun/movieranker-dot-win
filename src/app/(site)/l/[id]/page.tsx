@@ -10,6 +10,7 @@ import ShareButton from "@/components/ShareButton";
 import { withRanks, type ListMovieRow } from "@/lib/list-view";
 import { chipParticipants } from "@/lib/participants";
 import { SITE_URL } from "@/lib/site";
+import { marqueeNumber } from "@/lib/shortlist";
 import { getThemeConnectionGame } from "@/lib/shortlist-themes";
 import { computeThemeStats, type ThemeRoom } from "@/lib/theme-stats";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -152,6 +153,15 @@ export default async function PublicListPage({
     publicProfiles ?? [],
   );
   const ownerProfile = (publicProfiles ?? []).find((p) => p.id === list.owner_id);
+  const url = shareUrl(id, ownerProfile?.handle ?? null);
+
+  // Top three by final rank, for the share text. Rows with a null finalRank
+  // (parked films) are excluded — they hold no podium position.
+  const sharePodium = rows
+    .filter((r) => typeof r.finalRank === "number")
+    .sort((a, b) => (a.finalRank ?? 0) - (b.finalRank ?? 0))
+    .slice(0, 3)
+    .map((r) => ({ title: r.title }));
 
   // Community Verdict: aggregate every done room sharing this theme. RLS keeps
   // private rooms out for strangers, but "owner all" would admit the viewer's own
@@ -208,7 +218,15 @@ export default async function PublicListPage({
             {list.status === "done" && (
               <CompareModal listId={id} listTitle={list.title} />
             )}
-            <ShareButton title={list.title} url={shareUrl(id, ownerProfile?.handle ?? null)} />
+            <ShareButton
+              title={list.title}
+              url={url}
+              themeSlug={list.theme_slug}
+              marqueeNumber={list.theme_slug ? marqueeNumber() : null}
+              topMovies={sharePodium}
+              totalMovies={rows.length}
+              curatorHandle={ownerProfile?.handle ?? null}
+            />
           </div>
         </div>
 
