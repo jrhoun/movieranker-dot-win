@@ -23,6 +23,7 @@ interface DbList {
   status: string;
   owner_id: string;
   theme_slug: string | null;
+  created_at: string;
 }
 
 interface DbMovie {
@@ -109,7 +110,7 @@ export default async function PublicListPage({
   // RLS: public sees only status='done'; owners also see their drafts.
   const { data: list } = await supabase
     .from("lists")
-    .select("id,title,description,participants,status,owner_id,theme_slug")
+    .select("id,title,description,participants,status,owner_id,theme_slug,created_at")
     .eq("id", id)
     .maybeSingle<DbList>();
 
@@ -154,6 +155,21 @@ export default async function PublicListPage({
   );
   const ownerProfile = (publicProfiles ?? []).find((p) => p.id === list.owner_id);
   const url = shareUrl(id, ownerProfile?.handle ?? null);
+
+  // The marquee number identifies WHICH weekly puzzle this list belongs to, so it
+  // must be anchored to the week the room was made — not the week someone
+  // happens to be reading it. Calling marqueeNumber() bare relabelled every past
+  // marquee share with the current week's number.
+  //
+  // created_at rather than an inversion of theme_slug -> week: the rotation pool
+  // is SHORTLIST_THEMES plus whatever community proposals were approved at the
+  // time, so pool.length shifts and a slug cannot be mapped back to its week
+  // reliably. The one case created_at gets wrong is a room saved after the UTC
+  // Monday flip but played before it (Sunday evening in the Americas), which
+  // reads one week high.
+  const listMarqueeNumber = list.theme_slug
+    ? marqueeNumber(new Date(list.created_at))
+    : null;
 
   // Top three by final rank, for the share text. Rows with a null finalRank
   // (parked films) are excluded — they hold no podium position.
@@ -222,7 +238,7 @@ export default async function PublicListPage({
               title={list.title}
               url={url}
               themeSlug={list.theme_slug}
-              marqueeNumber={list.theme_slug ? marqueeNumber() : null}
+              marqueeNumber={listMarqueeNumber}
               topMovies={sharePodium}
               totalMovies={rows.length}
               curatorHandle={ownerProfile?.handle ?? null}
