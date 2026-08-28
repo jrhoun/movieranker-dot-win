@@ -44,7 +44,7 @@ export async function generateMetadata({
   const supabase = await createSupabaseServerClient();
   const { data: list } = await supabase
     .from("lists")
-    .select("title,description,status,list_movies(title,poster_path,final_rank)")
+    .select("title,description,status,theme_slug,list_movies(title,poster_path,final_rank)")
     .eq("id", id)
     .maybeSingle();
 
@@ -65,32 +65,28 @@ export async function generateMetadata({
     .sort((a, b) => (a.final_rank ?? 0) - (b.final_rank ?? 0));
   const topMovie = ranked[0];
 
-  const title = `${list.title} – Movie Ranking | movieranker.win`;
-  const desc = topMovie
-    ? `#1 Champion: ${topMovie.title}. Ranked across ${movies.length} films on MovieRanker.`
-    : `Ranked list of ${movies.length} movies on MovieRanker.`;
+  // THE SPOILER RULE: for a marquee list, list.title IS the theme title. Naming
+  // it in og:title would spoil the week's puzzle in every link preview, so the
+  // preview poses the question instead — matching the card in opengraph-image.tsx.
+  const isMarquee = !!list.theme_slug;
+  const title = isMarquee
+    ? "What connects these films? | movieranker.win"
+    : `${list.title} – Movie Ranking | movieranker.win`;
+  const desc = isMarquee
+    ? `One hidden thread runs through all ${movies.length} films in this week's Marquee. Rank them and see if you can spot it.`
+    : topMovie
+      ? `#1 Champion: ${topMovie.title}. Ranked across ${movies.length} films on MovieRanker.`
+      : `Ranked list of ${movies.length} movies on MovieRanker.`;
 
-  const ogImage = topMovie?.poster_path
-    ? `https://image.tmdb.org/t/p/w780${topMovie.poster_path}`
-    : undefined;
-
+  // No openGraph.images or twitter.images: opengraph-image.tsx in this segment
+  // generates a proper 1200x630 card. The old code pointed at a raw 780x1170
+  // TMDB poster, which every link card centre-cropped into a band across the
+  // actor's chin.
   return {
     title,
     description: desc,
-    openGraph: {
-      title,
-      description: desc,
-      type: "website",
-      images: ogImage
-        ? [{ url: ogImage, width: 780, height: 1170, alt: topMovie?.title ?? list.title }]
-        : undefined,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description: desc,
-      images: ogImage ? [ogImage] : undefined,
-    },
+    openGraph: { title, description: desc, type: "website" },
+    twitter: { card: "summary_large_image", title, description: desc },
   };
 }
 

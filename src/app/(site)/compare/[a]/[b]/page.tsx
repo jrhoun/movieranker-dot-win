@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import MarqueeHeading from "@/components/MarqueeHeading";
@@ -32,6 +33,53 @@ interface DbMovieRow {
 
 function shareUrl(listId: string): string {
   return `${SITE_URL}/compare/${listId}`;
+}
+
+/**
+ * This page previously exported no metadata at all, so a shared versus link
+ * previewed identically to the homepage. The access gate mirrors the page's:
+ * a list the viewer cannot read never has its title put in a title tag.
+ *
+ * openGraph.images is deliberately absent — opengraph-image.tsx in this segment
+ * generates the 1200x630 card.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ a: string; b: string }>;
+}): Promise<Metadata> {
+  const { a, b } = await params;
+  const supabase = await createSupabaseServerClient();
+  const [{ data: lists }, user] = await Promise.all([
+    supabase
+      .from("lists")
+      .select("id,title,status,visibility,owner_id")
+      .in("id", [a, b])
+      .returns<DbListRow[]>(),
+    supabase.auth.getUser(),
+  ]);
+  const viewerId = user.data.user?.id ?? null;
+  const rowA = lists?.find((l) => l.id === a);
+  const rowB = lists?.find((l) => l.id === b);
+  const readable =
+    rowA &&
+    rowB &&
+    canCompare({ ...rowA, ownerId: rowA.owner_id }, viewerId) &&
+    canCompare({ ...rowB, ownerId: rowB.owner_id }, viewerId);
+
+  const title = readable
+    ? `${rowA.title} vs ${rowB.title} – Taste Compatibility | movieranker.win`
+    : "Versus – Taste Compatibility | movieranker.win";
+  const description = readable
+    ? "Where these two rankings agree, where they collide, and the one score that settles it."
+    : "Compare two movie rankings head-to-head and score how much your taste really overlaps.";
+
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: "website" },
+    twitter: { card: "summary_large_image", title, description },
+  };
 }
 
 /** Delta arrow between the two ranks; negative = B ranked it better. */
