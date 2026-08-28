@@ -34,6 +34,22 @@ export function weeksSinceUtcEpoch(date: Date = new Date()): number {
   return Math.floor((daysSinceUtcEpoch(date) + 3) / 7);
 }
 
+/**
+ * ISO-week index of the launch week (Monday 2026-08-24 UTC). Derived rather
+ * than hardcoded so it stays correct against weeksSinceUtcEpoch's Monday anchor.
+ */
+const MARQUEE_EPOCH_WEEK = weeksSinceUtcEpoch(new Date("2026-08-24T00:00:00Z"));
+
+/**
+ * Human-facing marquee counter: 1 during launch week, +1 each UTC Monday.
+ * weeksSinceUtcEpoch() counts from 1970 (~2900), which reads as noise in a
+ * share; a small incrementing number reads as an appointment.
+ * Clamped to >= 1 so pre-launch dates never produce 0 or negatives.
+ */
+export function marqueeNumber(date: Date = new Date()): number {
+  return Math.max(1, weeksSinceUtcEpoch(date) - MARQUEE_EPOCH_WEEK + 1);
+}
+
 /** Date of the next UTC Monday midnight rotation (exact millisecond). */
 export function getNextWeeklyMarqueeRotation(date: Date = new Date()): Date {
   const currentWeek = weeksSinceUtcEpoch(date);

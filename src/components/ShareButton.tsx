@@ -1,13 +1,39 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  formatShareText,
+  readConnectionOutcome,
+  type ConnectionOutcome,
+  type ShareMovie,
+} from "@/lib/share-text";
 
 const menuItem =
   "flex min-h-10 w-full items-center gap-2.5 rounded-lg px-3.5 text-left text-xs font-medium text-text transition-colors duration-150 ease-out hover:bg-white/10 hover:text-gold focus-visible:outline-2 focus-visible:outline-gold";
 
-export default function ShareButton({ title, url }: { title: string; url: string }) {
+export interface ShareButtonProps {
+  title: string;
+  url: string;
+  /** Non-empty when this list came from a weekly marquee theme. */
+  themeSlug?: string | null;
+  marqueeNumber?: number | null;
+  topMovies?: ShareMovie[];
+  totalMovies?: number | null;
+  curatorHandle?: string | null;
+}
+
+export default function ShareButton({
+  title,
+  url,
+  themeSlug,
+  marqueeNumber,
+  topMovies,
+  totalMovies,
+  curatorHandle,
+}: ShareButtonProps) {
   const [open, setOpen] = useState(false);
   const [canNativeShare, setCanNativeShare] = useState(false);
+  const [connection, setConnection] = useState<ConnectionOutcome>("unplayed");
   const [toast, setToast] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -20,6 +46,19 @@ export default function ShareButton({ title, url }: { title: string; url: string
       if (t.current) clearTimeout(t.current);
     };
   }, []);
+
+  // The quiz outcome lives only in localStorage (mr-conn-<slug>), written by
+  // MarqueeConnectionGame. Read after mount so SSR markup matches.
+  useEffect(() => {
+    if (!themeSlug) return;
+    try {
+      const outcome = readConnectionOutcome(localStorage.getItem(`mr-conn-${themeSlug}`));
+      Promise.resolve().then(() => setConnection(outcome));
+    } catch {
+      // Storage blocked (private mode, disabled cookies): leave "unplayed" so
+      // the share omits the line rather than claiming anything untrue.
+    }
+  }, [themeSlug]);
 
   // close on outside click / Escape while open
   useEffect(() => {
@@ -44,6 +83,28 @@ export default function ShareButton({ title, url }: { title: string; url: string
     timer.current = setTimeout(() => setToast(null), 2500);
   }
 
+  const shareText = formatShareText({
+    title,
+    url,
+    themeSlug,
+    marqueeNumber,
+    topMovies,
+    totalMovies,
+    curatorHandle,
+    connection,
+  });
+  const encodedText = encodeURIComponent(shareText);
+
+  async function copyResult() {
+    setOpen(false);
+    try {
+      await navigator.clipboard.writeText(shareText);
+      showToast("Result copied — paste it anywhere");
+    } catch {
+      showToast("Couldn't copy — grab the URL from the address bar");
+    }
+  }
+
   async function copyLink() {
     setOpen(false);
     try {
@@ -57,7 +118,7 @@ export default function ShareButton({ title, url }: { title: string; url: string
   async function nativeShare() {
     setOpen(false);
     try {
-      await navigator.share({ title, url });
+      await navigator.share({ title, text: shareText, url });
       return;
     } catch (error) {
       if ((error as Error).name === "AbortError") return;
@@ -66,9 +127,8 @@ export default function ShareButton({ title, url }: { title: string; url: string
   }
 
   const mailto = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(url)}`;
-  const shareText = encodeURIComponent(`${title} — ${url}`);
-  const threadsUrl = `https://www.threads.net/intent/post?text=${shareText}`;
-  const blueskyUrl = `https://bsky.app/intent/compose?text=${shareText}`;
+  const threadsUrl = `https://www.threads.net/intent/post?text=${encodedText}`;
+  const blueskyUrl = `https://bsky.app/intent/compose?text=${encodedText}`;
 
   return (
     <>
@@ -89,6 +149,13 @@ export default function ShareButton({ title, url }: { title: string; url: string
             aria-label="Share options"
             className="animate-fade-in absolute right-0 top-full z-50 mt-1.5 w-52 overflow-hidden rounded-xl border border-white/5 bg-surface/95 p-1.5 shadow-2xl ring-1 ring-gold/40 backdrop-blur-md"
           >
+            <button type="button" role="menuitem" onClick={() => void copyResult()} className={menuItem}>
+              <svg className="size-4 shrink-0 text-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+              </svg>
+              <span className="font-semibold text-gold">Copy result</span>
+            </button>
             <button type="button" role="menuitem" onClick={() => void copyLink()} className={menuItem}>
               <svg className="size-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />

@@ -211,14 +211,19 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
           {/* Marquee wordmark: Bebas caps, warm gold sweep clipped to the
               glyphs (one-shot shimmer, reduced-motion-safe), ✦ bulbs flanking. */}
           <div className="mx-auto inline-block rounded-lg bg-bg/80 px-6 py-5 shadow-lg ring-1 ring-white/10 backdrop-blur-[2px] sm:px-8">
-            <h1 className="font-display text-[clamp(2.5rem,11vw,6rem)] uppercase leading-none tracking-widest">
+            {/* Wordmark is the visual anchor but not the document heading: the
+                h1 below carries the descriptive phrase search engines index. */}
+            <p
+              role="presentation"
+              className="font-display text-[clamp(2.5rem,11vw,6rem)] uppercase leading-none tracking-widest"
+            >
               <span aria-hidden="true" className="mr-2 align-middle text-gold text-[0.35em]">✦</span>
               <span className="marquee-gold drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)]">movieranker.win</span>
               <span aria-hidden="true" className="ml-2 align-middle text-gold text-[0.35em]">✦</span>
-            </h1>
-            <p className="mt-3 text-xl font-medium text-text sm:text-2xl">
-              Settling the best movies of all time.
             </p>
+            <h1 className="mt-3 text-xl font-medium text-text sm:text-2xl">
+              Settling the best movies of all time.
+            </h1>
             <p className="mt-1.5 text-lg text-muted sm:text-xl">
               <span className="underline decoration-gold decoration-2 underline-offset-4">
                 One list at a time.

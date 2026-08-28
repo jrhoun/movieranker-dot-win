@@ -19,7 +19,12 @@ export default function MarqueeConnectionGame({
   className = "",
 }: MarqueeConnectionGameProps) {
   const storageKey = `mr-conn-${themeSlug}`;
-  const [gameState, setGameState] = useState<{ selected: number | null; revealed: boolean }>(() => {
+  const [gameState, setGameState] = useState<{
+    selected: number | null;
+    revealed: boolean;
+    /** Whether the guess was right. Absent on entries written before this field existed. */
+    correct?: boolean;
+  }>(() => {
     if (typeof window === "undefined") return { selected: null, revealed: false };
     try {
       const saved = localStorage.getItem(storageKey);
@@ -32,14 +37,37 @@ export default function MarqueeConnectionGame({
 
   const { selected, revealed } = gameState;
 
+  /**
+   * Tells the server this attempt happened. `guessIndex` is null for a peek.
+   *
+   * Every outcome is reported, not just wins. The server records only the FIRST
+   * attempt per theme, so staying silent about a wrong guess would leave the
+   * try unspent — clear localStorage and you could come back and claim the
+   * badge on a second go. Fire-and-forget: a signed-out user gets a 401 and
+   * simply earns no badge.
+   */
+  function recordAttempt(guessIndex: number | null) {
+    void fetch("/api/marquee-solve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ themeSlug, guessIndex }),
+    }).catch(() => {
+      // Offline or blocked: the local state still stands; the badge just waits
+      // until an attempt is successfully recorded.
+    });
+  }
+
   function handleGuess(index: number) {
     if (revealed) return;
     const isCorrect = index === game.correctIndex;
-    const nextState = { selected: index, revealed: true };
+    const nextState = { selected: index, revealed: true, correct: isCorrect };
     setGameState(nextState);
 
     if (isCorrect) {
       onBonusEarned?.(5);
+      // Local counter kept for the immediate in-page nudge; the SERVER row is
+      // what backs the codebreaker achievement, because localStorage is
+      // per-device and editable from the console.
       try {
         const solvedCount = parseInt(localStorage.getItem("mr-connections-solved") || "0", 10);
         localStorage.setItem("mr-connections-solved", String(solvedCount + 1));
@@ -47,6 +75,7 @@ export default function MarqueeConnectionGame({
         // ignore
       }
     }
+    recordAttempt(index);
 
     try {
       localStorage.setItem(storageKey, JSON.stringify(nextState));
@@ -56,8 +85,14 @@ export default function MarqueeConnectionGame({
   }
 
   function handleSkipToReveal() {
-    const nextState = { selected: null, revealed: true };
+    if (revealed) return;
+    // Peeked without guessing: not correct, and selected stays null so the
+    // share can distinguish "peeked" from "guessed and missed". This still
+    // spends the attempt — otherwise you could read the answer here and then
+    // clear storage to "solve" it.
+    const nextState = { selected: null, revealed: true, correct: false };
     setGameState(nextState);
+    recordAttempt(null);
     try {
       localStorage.setItem(storageKey, JSON.stringify(nextState));
     } catch {

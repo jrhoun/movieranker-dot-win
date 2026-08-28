@@ -44,3 +44,11 @@ next-env.d.ts
 # pi session tasks
 .pi/tasks/
 .scratch/
+
+# git worktrees
+.worktrees/
+worktrees/
+.superpowers/sdd/
+
+# Generated OG card previews (og-card.test.ts writes these for visual review)
+.og-preview/

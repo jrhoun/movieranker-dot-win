@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import CompareModal from "@/components/list/CompareModal";
 import ListViews from "@/components/list/ListViews";
@@ -10,6 +9,8 @@ import ParticipantChips from "@/components/ParticipantChips";
 import ShareButton from "@/components/ShareButton";
 import { withRanks, type ListMovieRow } from "@/lib/list-view";
 import { chipParticipants } from "@/lib/participants";
+import { SITE_URL } from "@/lib/site";
+import { marqueeNumber } from "@/lib/shortlist";
 import { getThemeConnectionGame } from "@/lib/shortlist-themes";
 import { computeThemeStats, type ThemeRoom } from "@/lib/theme-stats";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -22,6 +23,7 @@ interface DbList {
   status: string;
   owner_id: string;
   theme_slug: string | null;
+  created_at: string;
 }
 
 interface DbMovie {
@@ -42,7 +44,7 @@ export async function generateMetadata({
   const supabase = await createSupabaseServerClient();
   const { data: list } = await supabase
     .from("lists")
-    .select("title,description,status,list_movies(title,poster_path,final_rank)")
+    .select("title,description,status,theme_slug,list_movies(title,poster_path,final_rank)")
     .eq("id", id)
     .maybeSingle();
 
@@ -63,43 +65,37 @@ export async function generateMetadata({
     .sort((a, b) => (a.final_rank ?? 0) - (b.final_rank ?? 0));
   const topMovie = ranked[0];
 
-  const title = `${list.title} – Movie Ranking | movieranker.win`;
-  const desc = topMovie
-    ? `#1 Champion: ${topMovie.title}. Ranked across ${movies.length} films on MovieRanker.`
-    : `Ranked list of ${movies.length} movies on MovieRanker.`;
+  // THE SPOILER RULE: for a marquee list, list.title IS the theme title. Naming
+  // it in og:title would spoil the week's puzzle in every link preview, so the
+  // preview poses the question instead — matching the card in opengraph-image.tsx.
+  const isMarquee = !!list.theme_slug;
+  const title = isMarquee
+    ? "What connects these films? | movieranker.win"
+    : `${list.title} – Movie Ranking | movieranker.win`;
+  const desc = isMarquee
+    ? // No "this week's": a marquee list stays shareable long after its week,
+      // and dating it here would repeat the misattribution the share text's
+      // marqueeNumber anchor exists to prevent.
+      `One hidden thread runs through all ${movies.length} films in this Marquee. Rank them and see if you can spot it.`
+    : topMovie
+      ? `#1 Champion: ${topMovie.title}. Ranked across ${movies.length} films on MovieRanker.`
+      : `Ranked list of ${movies.length} movies on MovieRanker.`;
 
-  const ogImage = topMovie?.poster_path
-    ? `https://image.tmdb.org/t/p/w780${topMovie.poster_path}`
-    : undefined;
-
+  // No openGraph.images or twitter.images: opengraph-image.tsx in this segment
+  // generates a proper 1200x630 card. The old code pointed at a raw 780x1170
+  // TMDB poster, which every link card centre-cropped into a band across the
+  // actor's chin.
   return {
     title,
     description: desc,
-    openGraph: {
-      title,
-      description: desc,
-      type: "website",
-      images: ogImage
-        ? [{ url: ogImage, width: 780, height: 1170, alt: topMovie?.title ?? list.title }]
-        : undefined,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description: desc,
-      images: ogImage ? [ogImage] : undefined,
-    },
+    openGraph: { title, description: desc, type: "website" },
+    twitter: { card: "summary_large_image", title, description: desc },
   };
 }
 
-async function shareUrl(listId: string, refHandle?: string | null): Promise<string> {
-  const base = process.env.NEXT_PUBLIC_SITE_URL;
+function shareUrl(listId: string, refHandle?: string | null): string {
   const refQuery = refHandle ? `?ref=${encodeURIComponent(refHandle)}` : "";
-  if (base) return `${base.replace(/\/+$/, "")}/l/${listId}${refQuery}`;
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "movieranker.win";
-  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}/l/${listId}${refQuery}`;
+  return `${SITE_URL}/l/${listId}${refQuery}`;
 }
 
 export default async function PublicListPage({
@@ -113,7 +109,7 @@ export default async function PublicListPage({
   // RLS: public sees only status='done'; owners also see their drafts.
   const { data: list } = await supabase
     .from("lists")
-    .select("id,title,description,participants,status,owner_id,theme_slug")
+    .select("id,title,description,participants,status,owner_id,theme_slug,created_at")
     .eq("id", id)
     .maybeSingle<DbList>();
 
@@ -157,6 +153,30 @@ export default async function PublicListPage({
     publicProfiles ?? [],
   );
   const ownerProfile = (publicProfiles ?? []).find((p) => p.id === list.owner_id);
+  const url = shareUrl(id, ownerProfile?.handle ?? null);
+
+  // The marquee number identifies WHICH weekly puzzle this list belongs to, so it
+  // must be anchored to the week the room was made — not the week someone
+  // happens to be reading it. Calling marqueeNumber() bare relabelled every past
+  // marquee share with the current week's number.
+  //
+  // created_at rather than an inversion of theme_slug -> week: the rotation pool
+  // is SHORTLIST_THEMES plus whatever community proposals were approved at the
+  // time, so pool.length shifts and a slug cannot be mapped back to its week
+  // reliably. The one case created_at gets wrong is a room saved after the UTC
+  // Monday flip but played before it (Sunday evening in the Americas), which
+  // reads one week high.
+  const listMarqueeNumber = list.theme_slug
+    ? marqueeNumber(new Date(list.created_at))
+    : null;
+
+  // Top three by final rank, for the share text. Rows with a null finalRank
+  // (parked films) are excluded — they hold no podium position.
+  const sharePodium = rows
+    .filter((r) => typeof r.finalRank === "number")
+    .sort((a, b) => (a.finalRank ?? 0) - (b.finalRank ?? 0))
+    .slice(0, 3)
+    .map((r) => ({ title: r.title }));
 
   // Community Verdict: aggregate every done room sharing this theme. RLS keeps
   // private rooms out for strangers, but "owner all" would admit the viewer's own
@@ -213,7 +233,15 @@ export default async function PublicListPage({
             {list.status === "done" && (
               <CompareModal listId={id} listTitle={list.title} />
             )}
-            <ShareButton title={list.title} url={await shareUrl(id, ownerProfile?.handle ?? null)} />
+            <ShareButton
+              title={list.title}
+              url={url}
+              themeSlug={list.theme_slug}
+              marqueeNumber={listMarqueeNumber}
+              topMovies={sharePodium}
+              totalMovies={rows.length}
+              curatorHandle={ownerProfile?.handle ?? null}
+            />
           </div>
         </div>
 
