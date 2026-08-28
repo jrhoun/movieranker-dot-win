@@ -144,7 +144,10 @@ export default async function MyListsPage() {
   const { count: solveCount } = await supabase
     .from("marquee_solves")
     .select("theme_slug", { count: "exact", head: true })
-    .eq("user_id", auth.user.id);
+    .eq("user_id", auth.user.id)
+    // The table records every attempt, including wrong guesses and peeks, so
+    // the badge must count only the ones that were actually cracked.
+    .eq("correct", true);
 
   const achievements = evaluateAchievements({
     doneLists: doneCards.length,

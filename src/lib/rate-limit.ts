@@ -11,6 +11,9 @@ export const LIMITS = {
   // brute-force enumeration of handle variants is expensive.
   claimHandle: { limit: 5, windowMs: 3_600_000 }, // POST /api/profile
   claimParticipant: { limit: 10, windowMs: 60_000 }, // POST/DELETE participant claims
+  // Marquee connection attempts. The (user_id, theme_slug) primary key is the
+  // real one-attempt cap; this only blunts scripted hammering.
+  marqueeSolve: { limit: 10, windowMs: 60_000 }, // POST /api/marquee-solve
 } as const;
 
 const buckets = new Map<string, number[]>();

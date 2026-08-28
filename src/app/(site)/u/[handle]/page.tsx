@@ -177,7 +177,10 @@ export default async function PublicProfilePage({
   const { count: solveCount } = await supabase
     .from("marquee_solves")
     .select("theme_slug", { count: "exact", head: true })
-    .eq("user_id", profile.id);
+    .eq("user_id", profile.id)
+    // The table records every attempt, including wrong guesses and peeks, so
+    // the badge must count only the ones that were actually cracked.
+    .eq("correct", true);
 
   // Unlocked only; cards.length is the public done-list count (shapePublicProfile
   // filters to status=done + visibility=public, so private/unlisted never count).

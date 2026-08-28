@@ -16,15 +16,25 @@ vi.mock("@/lib/supabase/server", () => ({
 
 function makeDb(opts: { user?: { id: string } | null }) {
   const calls: Call[] = [];
+  // Stands in for the real (user_id, theme_slug) primary key. Modelling it here
+  // rather than always returning success is the point: the one-attempt rule is
+  // enforced by the database, so a mock that accepts every insert would let the
+  // brute-force regression pass silently.
+  const rows = new Set<string>();
   const client = {
     auth: {
       getUser: async () => ({ data: { user: opts.user ?? null }, error: null }),
     },
     from(table: string) {
       const obj: Record<string, unknown> = {};
-      obj.upsert = async (...args: unknown[]) => {
-        calls.push({ table, method: "upsert", args });
-        return currentDb.writeResult ?? { data: null, error: null };
+      obj.insert = async (...args: unknown[]) => {
+        calls.push({ table, method: "insert", args });
+        if (currentDb.writeResult) return currentDb.writeResult;
+        const row = args[0] as { user_id: string; theme_slug: string };
+        const key = `${row.user_id}:${row.theme_slug}`;
+        if (rows.has(key)) return { data: null, error: { code: "23505", message: "duplicate key" } };
+        rows.add(key);
+        return { data: null, error: null };
       };
       return obj;
     },
@@ -54,6 +64,15 @@ describe("isValidSolveRequest", () => {
     expect(isValidSolveRequest({ themeSlug: "x", guessIndex: 1.5 })).toBe(false);
   });
 
+  it("accepts a null guessIndex, the 'peeked at the answer' attempt", () => {
+    expect(isValidSolveRequest({ themeSlug: "x", guessIndex: null })).toBe(true);
+  });
+
+  it("still rejects a body with no guessIndex key at all", () => {
+    // undefined is a malformed client, distinct from an explicit null peek.
+    expect(isValidSolveRequest({ themeSlug: "x" })).toBe(false);
+  });
+
   it("rejects non-objects", () => {
     expect(isValidSolveRequest(null)).toBe(false);
     expect(isValidSolveRequest("nope")).toBe(false);
@@ -79,6 +98,10 @@ describe("isCorrectGuess", () => {
 
   it("returns false for a real theme's wrong index", () => {
     expect(isCorrectGuess("secretly-same-story", 1)).toBe(false);
+  });
+
+  it("returns false for a peek, even on a theme with a game", () => {
+    expect(isCorrectGuess("secretly-same-story", null)).toBe(false);
   });
 });
 
@@ -106,32 +129,86 @@ describe("POST /api/marquee-solve", () => {
     await expect(res.json()).resolves.toEqual({ error: "sign in to record a solve" });
   });
 
-  it("returns 200 { solved: false } and does not upsert on incorrect guess", async () => {
-    const res = await post({ themeSlug: "secretly-same-story", guessIndex: 2 });
-    expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toEqual({ solved: false });
-    expect(currentDb.calls).toHaveLength(0);
-  });
-
-  it("returns 200 { solved: true } and upserts solve on correct guess", async () => {
+  it("returns 200 { solved: true } and records correct:true on a right guess", async () => {
     const res = await post({ themeSlug: "secretly-same-story", guessIndex: 0 });
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ solved: true });
 
-    const upsert = currentDb.calls.find((c) => c.method === "upsert");
-    expect(upsert).toBeTruthy();
-    expect(upsert?.table).toBe("marquee_solves");
-    expect(upsert?.args[0]).toEqual({
+    const insert = currentDb.calls.find((c) => c.method === "insert");
+    expect(insert?.table).toBe("marquee_solves");
+    expect(insert?.args[0]).toEqual({
       user_id: "u-1",
       theme_slug: "secretly-same-story",
-    });
-    expect(upsert?.args[1]).toEqual({
-      onConflict: "user_id,theme_slug",
-      ignoreDuplicates: true,
+      correct: true,
     });
   });
 
-  it("returns 500 when database upsert fails", async () => {
+  it("STILL RECORDS a wrong guess, so the attempt is spent", async () => {
+    // The old handler returned early on a wrong guess without writing anything.
+    // That left the try unspent: clear localStorage and you could come back and
+    // claim the badge on a second go.
+    const res = await post({ themeSlug: "secretly-same-story", guessIndex: 2 });
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ solved: false });
+
+    const insert = currentDb.calls.find((c) => c.method === "insert");
+    expect(insert?.args[0]).toEqual({
+      user_id: "u-1",
+      theme_slug: "secretly-same-story",
+      correct: false,
+    });
+  });
+
+  it("records a peek (null guessIndex) as a spent, incorrect attempt", async () => {
+    const res = await post({ themeSlug: "secretly-same-story", guessIndex: null });
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ solved: false });
+    expect((currentDb.calls[0]?.args[0] as { correct: boolean }).correct).toBe(false);
+  });
+
+  it("cannot be brute-forced: only the first of four guesses is recorded", async () => {
+    // The quiz has four options. Before the primary key backed this endpoint, a
+    // client could simply POST 0,1,2,3 and be guaranteed a recorded solve.
+    const outcomes = [];
+    for (const guessIndex of [3, 2, 1, 0]) {
+      const res = await post({ themeSlug: "secretly-same-story", guessIndex });
+      outcomes.push(await res.json());
+    }
+
+    // First attempt (index 3) is wrong and is the one that lands.
+    expect(outcomes[0]).toEqual({ solved: false });
+    // Every later attempt is rejected — including index 0, the right answer.
+    expect(outcomes.slice(1)).toEqual([
+      { solved: false, alreadyAttempted: true },
+      { solved: false, alreadyAttempted: true },
+      { solved: false, alreadyAttempted: true },
+    ]);
+
+    // Exactly one row was ever written, and it records the failure.
+    const written = currentDb.calls.filter((c) => c.method === "insert");
+    expect(written).toHaveLength(4); // all four were attempted...
+    expect(
+      written.filter((c) => (c.args[0] as { correct: boolean }).correct === true),
+    ).toHaveLength(1); // ...but the only correct one was refused by the key.
+  });
+
+  it("does not leak the verdict on a replay after the attempt is spent", async () => {
+    await post({ themeSlug: "secretly-same-story", guessIndex: 1 });
+    const res = await post({ themeSlug: "secretly-same-story", guessIndex: 0 });
+    // Right answer, but reported as unsolved: the endpoint must not become an
+    // oracle that confirms the answer for someone who already had their go.
+    await expect(res.json()).resolves.toEqual({ solved: false, alreadyAttempted: true });
+  });
+
+  it("returns 429 once the rate limit is exhausted", async () => {
+    let last: Response | undefined;
+    for (let i = 0; i < 12; i++) {
+      last = await post({ themeSlug: `theme-${i}`, guessIndex: 0 });
+    }
+    expect(last?.status).toBe(429);
+  });
+
+  it("returns 500 when the database write fails for any other reason", async () => {
     currentDb.writeResult = { error: { message: "db down" } };
     const res = await post({ themeSlug: "secretly-same-story", guessIndex: 0 });
     expect(res.status).toBe(500);

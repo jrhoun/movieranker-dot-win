@@ -37,6 +37,26 @@ export default function MarqueeConnectionGame({
 
   const { selected, revealed } = gameState;
 
+  /**
+   * Tells the server this attempt happened. `guessIndex` is null for a peek.
+   *
+   * Every outcome is reported, not just wins. The server records only the FIRST
+   * attempt per theme, so staying silent about a wrong guess would leave the
+   * try unspent — clear localStorage and you could come back and claim the
+   * badge on a second go. Fire-and-forget: a signed-out user gets a 401 and
+   * simply earns no badge.
+   */
+  function recordAttempt(guessIndex: number | null) {
+    void fetch("/api/marquee-solve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ themeSlug, guessIndex }),
+    }).catch(() => {
+      // Offline or blocked: the local state still stands; the badge just waits
+      // until an attempt is successfully recorded.
+    });
+  }
+
   function handleGuess(index: number) {
     if (revealed) return;
     const isCorrect = index === game.correctIndex;
@@ -54,16 +74,8 @@ export default function MarqueeConnectionGame({
       } catch {
         // ignore
       }
-      // Fire-and-forget: a signed-out user gets a 401 and simply earns no badge.
-      void fetch("/api/marquee-solve", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ themeSlug, guessIndex: index }),
-      }).catch(() => {
-        // Offline or blocked: the local nudge still happened; the badge just
-        // waits until a solve is successfully recorded.
-      });
     }
+    recordAttempt(index);
 
     try {
       localStorage.setItem(storageKey, JSON.stringify(nextState));
@@ -73,10 +85,14 @@ export default function MarqueeConnectionGame({
   }
 
   function handleSkipToReveal() {
+    if (revealed) return;
     // Peeked without guessing: not correct, and selected stays null so the
-    // share can distinguish "peeked" from "guessed and missed".
+    // share can distinguish "peeked" from "guessed and missed". This still
+    // spends the attempt — otherwise you could read the answer here and then
+    // clear storage to "solve" it.
     const nextState = { selected: null, revealed: true, correct: false };
     setGameState(nextState);
+    recordAttempt(null);
     try {
       localStorage.setItem(storageKey, JSON.stringify(nextState));
     } catch {
