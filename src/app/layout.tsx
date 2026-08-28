@@ -56,6 +56,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                   gtag('js', new Date());
                   gtag('config', '${gaId}', {
                     page_path: window.location.pathname,
+                    allow_google_signals: false,
+                    allow_ad_personalization_signals: false,
+                    anonymize_ip: true,
                   });
                 `,
               }}

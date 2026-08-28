@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import { CONTACT_EMAIL } from "@/lib/site";
 
-export const metadata: Metadata = { title: "Privacy Policy · movieranker.win" };
+export const metadata: Metadata = { title: "Privacy Policy · MovieRanker" };
 
 function H2({ children }: { children: React.ReactNode }) {
   return (
@@ -23,7 +23,7 @@ export default function PrivacyPage() {
           </p>
 
           <p>
-            At movieranker.win (&ldquo;we&rdquo;, &ldquo;our&rdquo;, or &ldquo;us&rdquo;), we respect your privacy. This Privacy Policy explains what information we collect when you use our service, why we collect it, and how you can manage or delete your data.
+            At MovieRanker (&ldquo;we&rdquo;, &ldquo;our&rdquo;, or &ldquo;us&rdquo;), we respect your privacy. This Privacy Policy explains what information we collect when you use our service, why we collect it, and how you can manage or delete your data.
           </p>
 
           <H2>1. Information We Collect</H2>
@@ -36,21 +36,23 @@ export default function PrivacyPage() {
             <li><strong>Session State:</strong> While playing locally, in-progress ranking sessions are stored in your browser&apos;s local storage to prevent data loss on page refresh.</li>
           </ul>
 
-          <H2>2. Cookies & Local Storage</H2>
+          <H2>2. Cookies &amp; Local Storage</H2>
           <p>
-            We use strictly necessary authentication cookies to maintain your login session. We do not use advertising, marketing, or tracking cookies.
+            We use strictly necessary authentication cookies to maintain your login session, and lightweight local storage to save your in-progress rankings. We do not sell your data or use cross-site behavioral advertising cookies.
           </p>
 
-          <H2>3. Third-Party Service Providers</H2>
+          <H2>3. Third-Party Services &amp; Analytics</H2>
           <p>
-            We rely on trusted third-party providers to operate the service:
+            We rely on trusted third-party providers to operate and improve MovieRanker:
           </p>
-          <ul className="list-disc space-y-1 pl-5 text-muted">
+          <ul className="list-disc space-y-1.5 pl-5 text-muted">
             <li><strong>Supabase:</strong> Provides managed database hosting, user authentication, and API infrastructure.</li>
             <li><strong>The Movie Database (TMDB):</strong> Provides movie metadata, descriptions, release years, and poster images.</li>
+            <li><strong>Vercel Analytics:</strong> Provides privacy-friendly, cookie-free telemetry on page speed and aggregated site traffic without collecting personal identifiable information.</li>
+            <li><strong>Google Analytics (GA4):</strong> Collects aggregated, non-personalized metrics (such as page views and general geographic regions) to help us understand which features are popular. Advertising features and cross-site tracking are disabled.</li>
           </ul>
           <p>
-            We do not sell, rent, or monetize your personal data with third parties.
+            We do not sell, rent, or monetize your personal information.
           </p>
 
           <H2>4. Data Retention & Deletion</H2>
