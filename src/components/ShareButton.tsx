@@ -1,94 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import StoryCardModal from "./StoryCardModal";
-
-export interface ShareMovieItem {
-  title: string;
-  releaseYear?: number | null;
-  posterPath?: string | null;
-}
-
-export interface ShareButtonProps {
-  title: string;
-  url: string;
-  themeSlug?: string | null;
-  topMovies?: ShareMovieItem[];
-  totalMovies?: number;
-  curatorHandle?: string | null;
-  connectionSolved?: boolean;
-}
 
 const menuItem =
-  "flex min-h-10 w-full items-center gap-2.5 rounded-lg px-3.5 text-left text-xs font-medium text-text transition-colors duration-150 ease-out hover:bg-white/10 hover:text-gold focus-visible:outline-2 focus-visible:outline-gold cursor-pointer";
+  "flex min-h-10 w-full items-center gap-2.5 rounded-lg px-3.5 text-left text-xs font-medium text-text transition-colors duration-150 ease-out hover:bg-white/10 hover:text-gold focus-visible:outline-2 focus-visible:outline-gold";
 
-export function formatShareText({
-  title,
-  url,
-  themeSlug,
-  topMovies = [],
-  totalMovies,
-  curatorHandle,
-  connectionSolved = false,
-}: ShareButtonProps): string {
-  if (themeSlug) {
-    // Wordle / Connections style Marquee format
-    const medals = ["🥇 1.", "🥈 2.", "🥉 3."];
-    const podiumLines = topMovies
-      .slice(0, 3)
-      .map((m, i) => `${medals[i]} ${m.title}${m.releaseYear ? ` (${m.releaseYear})` : ""}`);
-
-    const lines = [
-      `MovieRanker ✦ Weekly Marquee`,
-      `"${title}"`,
-      "",
-      ...podiumLines,
-      "",
-      connectionSolved ? "🔍 Secret Connection: Solved (+5 XP)" : "🔍 Secret Connection: Unlocked",
-      totalMovies ? `🎬 ${totalMovies}/${totalMovies} Films Ranked` : "",
-      "",
-      "Can you guess the secret link?",
-      url,
-    ].filter(Boolean);
-
-    return lines.join("\n");
-  }
-
-  // Regular / Custom list format
-  const topLines = topMovies
-    .slice(0, 3)
-    .map((m, i) => `${i + 1}. ${m.title}${m.releaseYear ? ` (${m.releaseYear})` : ""}`);
-
-  const lines = [
-    `${title} 🎬`,
-    curatorHandle ? `Ranked on MovieRanker by @${curatorHandle}` : `Ranked on MovieRanker`,
-    "",
-    ...topLines,
-    "",
-    totalMovies ? `${totalMovies} Films Ranked · Full Consensus` : "Full Consensus",
-    url,
-  ].filter(Boolean);
-
-  return lines.join("\n");
-}
-
-export default function ShareButton({
-  title,
-  url,
-  themeSlug,
-  topMovies = [],
-  totalMovies,
-  curatorHandle,
-  connectionSolved = false,
-}: ShareButtonProps) {
+export default function ShareButton({ title, url }: { title: string; url: string }) {
   const [open, setOpen] = useState(false);
-  const [showStoryModal, setShowStoryModal] = useState(false);
   const [canNativeShare, setCanNativeShare] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    // async hop so SSR/hydration markup matches before feature-detecting
     Promise.resolve().then(() => setCanNativeShare(!!navigator.share));
     const t = timer;
     return () => {
@@ -119,27 +44,7 @@ export default function ShareButton({
     timer.current = setTimeout(() => setToast(null), 2500);
   }
 
-  const shareText = formatShareText({
-    title,
-    url,
-    themeSlug,
-    topMovies,
-    totalMovies,
-    curatorHandle,
-    connectionSolved,
-  });
-
-  async function copyFormattedResult() {
-    setOpen(false);
-    try {
-      await navigator.clipboard.writeText(shareText);
-      showToast(themeSlug ? "Marquee result copied to clipboard!" : "Ranking copied to clipboard!");
-    } catch {
-      showToast("Couldn't copy — grab the URL from the address bar");
-    }
-  }
-
-  async function copyLinkOnly() {
+  async function copyLink() {
     setOpen(false);
     try {
       await navigator.clipboard.writeText(url);
@@ -152,17 +57,18 @@ export default function ShareButton({
   async function nativeShare() {
     setOpen(false);
     try {
-      await navigator.share({ title, text: shareText, url });
+      await navigator.share({ title, url });
       return;
     } catch (error) {
       if ((error as Error).name === "AbortError") return;
     }
-    void copyFormattedResult();
+    void copyLink();
   }
 
-  const encodedText = encodeURIComponent(shareText);
-  const threadsUrl = `https://www.threads.net/intent/post?text=${encodedText}`;
-  const blueskyUrl = `https://bsky.app/intent/compose?text=${encodedText}`;
+  const mailto = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(url)}`;
+  const shareText = encodeURIComponent(`${title} — ${url}`);
+  const threadsUrl = `https://www.threads.net/intent/post?text=${shareText}`;
+  const blueskyUrl = `https://bsky.app/intent/compose?text=${shareText}`;
 
   return (
     <>
@@ -177,57 +83,26 @@ export default function ShareButton({
           <span aria-hidden="true">✦</span>
           Share
         </button>
-
         {open && (
           <div
             role="menu"
             aria-label="Share options"
-            className="animate-fade-in absolute right-0 top-full z-50 mt-1.5 w-60 overflow-hidden rounded-xl border border-white/5 bg-surface/95 p-1.5 shadow-2xl ring-1 ring-gold/40 backdrop-blur-md"
+            className="animate-fade-in absolute right-0 top-full z-50 mt-1.5 w-52 overflow-hidden rounded-xl border border-white/5 bg-surface/95 p-1.5 shadow-2xl ring-1 ring-gold/40 backdrop-blur-md"
           >
-            {/* Copy Wordle/Connections formatted text */}
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => void copyFormattedResult()}
-              className={menuItem}
-            >
-              <svg className="size-4 shrink-0 text-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-              </svg>
-              <span className="font-semibold text-gold">
-                {themeSlug ? "Copy Result (Wordle-style)" : "Copy Result Text"}
-              </span>
-            </button>
-
-            {/* Instagram Story Graphic Card */}
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                setShowStoryModal(true);
-              }}
-              className={menuItem}
-            >
-              <svg className="size-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                <circle cx="9" cy="9" r="2" />
-                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-              </svg>
-              <span>Story Card (IG / Stories)</span>
-            </button>
-
-            <button type="button" role="menuitem" onClick={() => void copyLinkOnly()} className={menuItem}>
+            <button type="button" role="menuitem" onClick={() => void copyLink()} className={menuItem}>
               <svg className="size-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
               </svg>
-              <span>Copy Link Only</span>
+              <span>Copy link</span>
             </button>
-
-            <div className="my-1 border-t border-white/10" />
-
+            <a role="menuitem" href={mailto} onClick={() => setOpen(false)} className={menuItem}>
+              <svg className="size-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect width="20" height="16" x="2" y="4" rx="2" />
+                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+              </svg>
+              <span>Email</span>
+            </a>
             <a
               role="menuitem"
               href={threadsUrl}
@@ -241,7 +116,6 @@ export default function ShareButton({
               </svg>
               <span>Post to Threads</span>
             </a>
-
             <a
               role="menuitem"
               href={blueskyUrl}
@@ -255,7 +129,6 @@ export default function ShareButton({
               </svg>
               <span>Post to Bluesky</span>
             </a>
-
             {canNativeShare && (
               <button
                 type="button"
@@ -274,21 +147,6 @@ export default function ShareButton({
           </div>
         )}
       </div>
-
-      {showStoryModal && (
-        <StoryCardModal
-          options={{
-            title,
-            themeSlug,
-            curatorHandle,
-            totalMovies: totalMovies ?? topMovies.length,
-            connectionSolved,
-            topMovies,
-          }}
-          onClose={() => setShowStoryModal(false)}
-        />
-      )}
-
       {toast && (
         <div
           role="status"
