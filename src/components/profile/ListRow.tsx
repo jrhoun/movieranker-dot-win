@@ -163,17 +163,28 @@ export default function ListRow({ list, featured, onToggleFeature, userLevel }: 
   return (
     <article className="rounded bg-surface ring-1 ring-white/10 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:ring-gold/40 motion-reduce:transition-none">
       <div className="flex items-center gap-3 p-2 pr-3">
-        {/* Leading poster, mandated true 2:3 frame; actions carry all links */}
-        <div className="w-11 shrink-0 overflow-hidden rounded-sm" aria-hidden="true">
+        {/* Leading poster */}
+        <Link
+          href={href}
+          aria-label={`View ${list.title}`}
+          className="w-11 shrink-0 overflow-hidden rounded-sm transition-transform duration-200 hover:scale-105 focus-visible:outline-2 focus-visible:outline-gold"
+        >
           <MoviePoster
             title={top?.title ?? list.title}
             posterPath={top?.posterPath ?? null}
             className="rounded-sm"
           />
-        </div>
+        </Link>
 
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-sm font-semibold">{list.title}</h2>
+          <h2 className="truncate text-sm sm:text-base font-semibold">
+            <Link
+              href={href}
+              className="text-text transition-colors hover:text-gold hover:underline focus-visible:outline-1 focus-visible:outline-gold"
+            >
+              {list.title}
+            </Link>
+          </h2>
           {list.chips && list.chips.length > 0 && (
             <p className="mt-0.5 truncate text-xs text-muted">
               With <ParticipantChips chips={list.chips} />
@@ -192,6 +203,10 @@ export default function ListRow({ list, featured, onToggleFeature, userLevel }: 
                 ✦ Marquee
               </span>
             )}
+            <span className="font-mono text-text/80">
+              {list.posters.length} {list.posters.length === 1 ? "film" : "films"}
+            </span>
+            <span>·</span>
             <span>{date}</span>
             {/* Native select keeps visibility wired in one tight control. */}
             <select
