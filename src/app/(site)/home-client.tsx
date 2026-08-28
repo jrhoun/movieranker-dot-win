@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import CandidateTray from "@/components/CandidateTray";
 import MarqueeHeading from "@/components/MarqueeHeading";
+import MarqueeInfoTooltip from "@/components/MarqueeInfoTooltip";
 import MoviePoster from "@/components/list/MoviePoster";
 import SearchPanel from "@/components/SearchPanel";
 import { FAN_POSTERS } from "@/lib/hero-posters";
@@ -415,9 +416,12 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
         className="scroll-mt-6 rounded-lg bg-surface p-5 ring-1 ring-gold/40 sm:p-6 md:col-start-3 md:row-start-1"
       >
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <p className="font-display text-xs uppercase tracking-[0.2em] text-muted">
-            This week&apos;s marquee
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className="font-display text-xs uppercase tracking-[0.2em] text-muted">
+              This week&apos;s marquee
+            </p>
+            <MarqueeInfoTooltip />
+          </div>
           <MarqueeCountdown />
         </div>
 
