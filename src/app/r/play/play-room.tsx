@@ -14,8 +14,8 @@ import {
   estimateRemainingVotes,
   expectedConsensusVotes,
   finalizeRanks,
+  isPodiumLocked,
   isStable,
-  recordMatchupResult,
   type RankedMovie,
 } from "@/lib/ranking";
 import {
@@ -324,14 +324,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     active.length >= 2 &&
     isStable(active, session.votesSinceOrderChange, fieldSplit);
 
-  // Close-call baseline, captured once when the room first reaches stability.
-  // Only backs the consensus-screen line ("resolved vs initial"); the voting
-  // view now shows an absolute secondary chip instead. Render-phase init:
-  // no first-paint flicker.
   const [initialClosePairs, setInitialClosePairs] = useState<number | null>(null);
-  if (stable && initialClosePairs === null) {
-    setInitialClosePairs(countClosePairs(active));
-  }
 
   function handleVote(winnerId: number, loserId: number) {
     if (!session || settlingLoserId !== null) return;
@@ -342,12 +335,17 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         // ignore browsers blocking vibration
       }
     }
-    setFieldSplit((f) => f || recordMatchupResult(session.movies, winnerId, loserId).orderChanged);
     const next = applyVote(session, winnerId, loserId);
     setSession(next);
     saveSession(next);
+    const nextSplit = fieldSplit || next.votesSinceOrderChange === 0;
+    setFieldSplit(nextSplit);
+    const nextActive = next.movies.filter((m) => !m.parked);
+    if (initialClosePairs === null && nextActive.length >= 2 && isStable(nextActive, next.votesSinceOrderChange, nextSplit)) {
+      setInitialClosePairs(countClosePairs(nextActive));
+    }
     setSettlingLoserId(loserId);
-    // directional hit & recoil physical animation (380ms) runs before next matchup swaps in
+    // Snappy physical recoil animation (260ms) before next matchup swaps in
     settleTimer.current = setTimeout(() => {
       const updatePair = () => {
         setSettlingLoserId(null);
@@ -361,7 +359,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
       } else {
         updatePair();
       }
-    }, 390);
+    }, 260);
   }
 
   function handleParkToggle(tmdbId: number, toParked: boolean) {
@@ -543,11 +541,13 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   // comfort band or growing if the session runs long. Bar pct = X/Y from the
   // same two values, so bar and text are arithmetically incapable of
   // disagreeing. Capped at 99% — only stability itself is 100%.
-  const estTotal = Math.max(
-    expectedConsensusVotes(active.length),
-    doneVotes + remainingVotes,
+  const maxUniquePairs = (active.length * (active.length - 1)) / 2;
+  const estTotal = Math.min(
+    maxUniquePairs,
+    Math.max(expectedConsensusVotes(active.length), doneVotes + remainingVotes),
   );
   const pct = Math.min(99, Math.round((doneVotes / Math.max(1, estTotal)) * 100));
+  const podiumLocked = !stable && isPodiumLocked(active);
 
   return (
     <main className="mx-auto flex min-h-dvh w-full flex-col">
@@ -954,6 +954,21 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
                 Wrap up list →
               </button>
             </div>
+            {podiumLocked && (
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-gold/10 px-3.5 py-2 ring-1 ring-gold/40 animate-fade-in">
+                <div className="flex items-center gap-2 text-xs font-semibold text-gold">
+                  <span aria-hidden="true" className="text-base">🏆</span>
+                  <span>Your Top 3 Podium is locked in!</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFinished(true)}
+                  className="inline-flex min-h-8 items-center rounded-full bg-gold px-3.5 text-xs font-bold uppercase tracking-wider text-bg shadow hover:opacity-90 active:scale-95 transition-all cursor-pointer shrink-0"
+                >
+                  Claim Podium →
+                </button>
+              </div>
+            )}
           </div>
           <div className="relative flex flex-1 flex-col justify-center py-2">
             {/* Premiere Night stage lighting: static low-intensity curtain

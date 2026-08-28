@@ -41,7 +41,6 @@ export function applyWin(
   });
 }
 
-
 function isPair(pair: [RankedMovie, RankedMovie], ids: readonly [number, number]): boolean {
   const [x, y] = [pair[0].tmdbId, pair[1].tmdbId];
   return (x === ids[0] && y === ids[1]) || (x === ids[1] && y === ids[0]);
@@ -53,8 +52,7 @@ function pairKey(id1: number, id2: number): string {
 
 /** Closest-rated least-compared pair. Prioritizes uncompared pairs (timesCompared = 0)
  * so users never see duplicate matchups while fresh pairings exist.
- * `previousPair` avoids immediate rematches; `pairHistory` tracks all prior
- * matchups in the session. */
+ * Balances comparisons across all movies and picks the closest Elo pairs. */
 export function nextMatchup(
   movies: RankedMovie[],
   previousPair?: readonly [number, number],
@@ -93,8 +91,8 @@ export function nextMatchup(
   // Sort candidate pairs:
   // 1. timesCompared: uncompared (0) first — never repeat when fresh pairs exist
   // 2. isImmediatePrevious: skip the exact previous matchup if any alternative exists
-  // 3. sumComparisons: balance overall participation across all movies
-  // 4. eloGap: closest Elo ratings for maximum information gain
+  // 3. sumComparisons: balance overall participation so all movies get evaluated
+  // 4. eloGap: closest Elo ratings (maximum information gain / entropy)
   // 5. deterministic tie-breakers
   allPairs.sort((p, q) => {
     const keyP = pairKey(p[0].tmdbId, p[1].tmdbId);
@@ -122,8 +120,6 @@ export function nextMatchup(
 
   return allPairs[0];
 }
-
-
 
 /** Quiet-streak requirement, size-scaled: small rosters settle fast, so they
  * owe fewer consecutive quiet votes; n>=12 keeps the original 6. */
@@ -169,11 +165,6 @@ export function recordMatchupResult(
   const tol = STABLE_ORDER_TOLERANCE;
   const before = bandSignature(movies, tol);
   const next = applyWin(movies, winnerId, loserId);
-  // Hysteresis: a pair hovering AT the tolerance boundary would flip
-  // merged/split on alternating wins, resetting settling forever. So the
-  // after-signature uses sticky thresholds per adjacency: pairs already in one
-  // band must clearly separate (> tol + HYSTERESIS) to split, split pairs must
-  // get clearly close (< tol - HYSTERESIS) to re-merge.
   const beforeBandOf = new Map<number, number>();
   before.forEach((band, i) => band.forEach((id) => beforeBandOf.set(id, i)));
   const byElo = [...next].sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId);
@@ -199,28 +190,32 @@ export const STABILITY_MIN_COMPARISONS = 3;
 
 /** Quick phase: stability requires (a) every ACTIVE movie has real evidence
  * (comparisons >= STABILITY_MIN_COMPARISONS), (b) the field has DIFFERENTIATED
- * at least once (significant cross-band movement happened — guards against
- * celebrating an insertion-order list where everything is still tied), and
- * (c) no significant movement for STABILITY_VOTES_N consecutive votes.
- * Sharpen phase afterwards is optional gap tightening (sharpenNextPair);
- * finishing early is always available. */
+ * at least once, and (c) no significant movement for stabilityVotesN consecutive votes. */
 export function isStable(
   movies: RankedMovie[],
   votesSinceOrderChanged: number,
   significantOrderChangedAtLeastOnce: boolean,
 ): boolean {
-  if (votesSinceOrderChanged < stabilityVotesN(movies.filter((m) => !m.parked).length))
-    return false;
+  const active = movies.filter((m) => !m.parked);
+  if (active.length < 2) return false;
+  if (votesSinceOrderChanged < stabilityVotesN(active.length)) return false;
   if (!significantOrderChangedAtLeastOnce) return false;
   return movies.every((m) => m.parked || m.comparisons >= STABILITY_MIN_COMPARISONS);
 }
 
+/** Quick-exit helper: Returns true when top 3 active movies have sufficient
+ * evidence and clear separation from rank 4, letting users lock in their podium early. */
+export function isPodiumLocked(movies: RankedMovie[]): boolean {
+  const active = movies.filter((m) => !m.parked).sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId);
+  if (active.length < 4) return false;
+  // Top 3 must each have at least 2 comparisons
+  if (active.slice(0, 3).some((m) => m.comparisons < 2)) return false;
+  // Clear separation between #3 and #4 (at least 20 Elo)
+  return active[2].elo - active[3].elo >= 20;
+}
+
 /** Remaining work estimate: counts ADJACENT PAIRS WITHIN THE COMFORT BAND
- * (gap <= SHARPEN_COMFORT_GAP) — i.e. close calls sharpen could tighten.
- * Reads as "~N close calls left" rather than votes strictly required; the same
- * ceil(count*2), min-1 formula keeps the progress-bar math unchanged. */
-/** Raw adjacent-pair count within the comfort band — no vote-estimate floor.
- * Backs both the ~votes estimate and the resolved-vs-initial progress line. */
+ * (gap <= SHARPEN_COMFORT_GAP) — i.e. close calls sharpen could tighten. */
 export function countClosePairs(order: RankedMovie[]): number {
   const sorted = [...order].sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId);
   let close = 0;
@@ -235,16 +230,12 @@ export function estimateRemainingVotes(order: RankedMovie[]): number {
 }
 
 /** Empirical votes-to-consensus for the tuned engine (sim medians r5:
- * n=4..20 stabilize at ~1.0× n·log₂n votes at 85% consistency). Backs the
- * room's progress bar — NOT a promise: variance is real, hence the bar caps
- * at 99% until stability actually fires. */
+ * n=4..20 stabilize at ~1.0× n·log₂n votes at 85% consistency). */
 export function expectedConsensusVotes(activeCount: number): number {
   return Math.ceil(activeCount * Math.log2(Math.max(2, activeCount)));
 }
 
-/** Sharpen-phase status line: current-vs-initial so slow progress stays visible
- * even though one vote moves a pair only ~16–32 elo points. Honest by design:
- * a vote that nets zero resolutions just holds the fraction steady. */
+/** Sharpen-phase status line */
 export function closeCallProgress(current: number, initial: number): string {
   if (current <= 0) return "No close calls left — ready to finish.";
   return `${current} of ${initial} matchups still too close to call`;
@@ -252,14 +243,12 @@ export function closeCallProgress(current: number, initial: number): string {
 
 export function sharpenNextPair(order: RankedMovie[]): [RankedMovie, RankedMovie] | null {
   if (order.length < 2) return null;
-  // ponytail: O(n log n) re-sort per call; fine at session sizes (~dozens of movies)
   const byElo = [...order].sort((a, b) => b.elo - a.elo || a.tmdbId - b.tmdbId);
   let best = 0;
   for (let i = 1; i < byElo.length - 1; i++) {
     if (byElo[i].elo - byElo[i + 1].elo < byElo[best].elo - byElo[best + 1].elo) best = i;
   }
   if (byElo[best].elo - byElo[best + 1].elo > SHARPEN_COMFORT_GAP) return null;
-  // ascending-elo order, same convention as nextMatchup
   return [byElo[best + 1], byElo[best]];
 }
 
