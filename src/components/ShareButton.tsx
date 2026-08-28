@@ -52,7 +52,8 @@ export default function ShareButton({
   useEffect(() => {
     if (!themeSlug) return;
     try {
-      setConnection(readConnectionOutcome(localStorage.getItem(`mr-conn-${themeSlug}`)));
+      const outcome = readConnectionOutcome(localStorage.getItem(`mr-conn-${themeSlug}`));
+      Promise.resolve().then(() => setConnection(outcome));
     } catch {
       // Storage blocked (private mode, disabled cookies): leave "unplayed" so
       // the share omits the line rather than claiming anything untrue.

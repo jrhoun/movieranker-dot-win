@@ -98,7 +98,7 @@ describe("formatShareText — marquee format", () => {
   });
 
   it("omits the connection line when the field is absent", () => {
-    const { connection: _drop, ...noConnection } = MARQUEE_INPUT;
+    const noConnection = { ...MARQUEE_INPUT, connection: undefined };
     expect(formatShareText(noConnection)).not.toMatch(/Cracked|Missed|Peeked/);
   });
 
