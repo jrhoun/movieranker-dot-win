@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import CompareModal from "@/components/list/CompareModal";
 import ListViews from "@/components/list/ListViews";
@@ -10,6 +9,7 @@ import ParticipantChips from "@/components/ParticipantChips";
 import ShareButton from "@/components/ShareButton";
 import { withRanks, type ListMovieRow } from "@/lib/list-view";
 import { chipParticipants } from "@/lib/participants";
+import { SITE_URL } from "@/lib/site";
 import { getThemeConnectionGame } from "@/lib/shortlist-themes";
 import { computeThemeStats, type ThemeRoom } from "@/lib/theme-stats";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -92,14 +92,9 @@ export async function generateMetadata({
   };
 }
 
-async function shareUrl(listId: string, refHandle?: string | null): Promise<string> {
-  const base = process.env.NEXT_PUBLIC_SITE_URL;
+function shareUrl(listId: string, refHandle?: string | null): string {
   const refQuery = refHandle ? `?ref=${encodeURIComponent(refHandle)}` : "";
-  if (base) return `${base.replace(/\/+$/, "")}/l/${listId}${refQuery}`;
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "movieranker.win";
-  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}/l/${listId}${refQuery}`;
+  return `${SITE_URL}/l/${listId}${refQuery}`;
 }
 
 export default async function PublicListPage({
@@ -213,7 +208,7 @@ export default async function PublicListPage({
             {list.status === "done" && (
               <CompareModal listId={id} listTitle={list.title} />
             )}
-            <ShareButton title={list.title} url={await shareUrl(id, ownerProfile?.handle ?? null)} />
+            <ShareButton title={list.title} url={shareUrl(id, ownerProfile?.handle ?? null)} />
           </div>
         </div>
 

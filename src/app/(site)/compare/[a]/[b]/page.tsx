@@ -1,9 +1,9 @@
-import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import MoviePoster from "@/components/list/MoviePoster";
 import ShareButton from "@/components/ShareButton";
+import { SITE_URL } from "@/lib/site";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { tmdbMovieUrl } from "@/lib/tmdb";
 import {
@@ -30,13 +30,8 @@ interface DbMovieRow {
   final_rank: number | null;
 }
 
-async function shareUrl(listId: string): Promise<string> {
-  const base = process.env.NEXT_PUBLIC_SITE_URL;
-  if (base) return `${base.replace(/\/+$/, "")}/compare/${listId}`;
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "movieranker.win";
-  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}/compare/${listId}`;
+function shareUrl(listId: string): string {
+  return `${SITE_URL}/compare/${listId}`;
 }
 
 /** Delta arrow between the two ranks; negative = B ranked it better. */
@@ -204,7 +199,7 @@ export default async function ComparePage({
   const vs = computeVersus(byList(a), byList(b));
   const handleA = handleOf(rowA.owner_id);
   const handleB = handleOf(rowB.owner_id);
-  const url = await shareUrl(`${a}/${b}`);
+  const url = shareUrl(`${a}/${b}`);
 
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-4 py-8 sm:max-w-2xl">
