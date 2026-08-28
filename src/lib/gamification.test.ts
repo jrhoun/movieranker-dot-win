@@ -99,12 +99,16 @@ describe("evaluateAchievements", () => {
   test("exactly-at-threshold counts unlock", () => {
     for (const stats of [
       { doneLists: 1, moviesRanked: 0 }, // first_premiere boundary
+      { doneLists: 5, moviesRanked: 0 }, // the_full_picture boundary
       { doneLists: 10, moviesRanked: 0 }, // marathoner boundary
+      { doneLists: 25, moviesRanked: 0 }, // final_cut boundary
       { doneLists: 0, moviesRanked: 100 }, // centurion boundary
       { doneLists: 50, moviesRanked: 0 }, // master_curator boundary
       { doneLists: 1, moviesRanked: 5, firstToMarquee: true }, // marquee_pioneer
       { doneLists: 1, moviesRanked: 5, top10Marquee: true }, // front_row_10
       { doneLists: 1, moviesRanked: 5, top100Marquee: true }, // century_marquee
+      { doneLists: 1, moviesRanked: 12, maxMoviesInSingleList: 12 }, // heavyweight
+      { doneLists: 1, moviesRanked: 5, coCuratedLists: 1 }, // double_feature
     ]) {
       const result = Object.fromEntries(
         evaluateAchievements(stats).map((a) => [a.key, a.unlocked]),
@@ -112,7 +116,11 @@ describe("evaluateAchievements", () => {
       expect(Object.values(result).some(Boolean)).toBe(true);
       expect(result).toMatchObject({
         first_premiere: stats.doneLists >= 1,
+        the_full_picture: stats.doneLists >= 5,
+        double_feature: (stats.coCuratedLists ?? 0) >= 1,
         marathoner: stats.doneLists >= 10,
+        heavyweight: (stats.maxMoviesInSingleList ?? 0) >= 12,
+        final_cut: stats.doneLists >= 25,
         centurion: stats.moviesRanked >= 100,
         master_curator: stats.doneLists >= 50,
         marquee_pioneer: !!stats.firstToMarquee,
@@ -123,7 +131,7 @@ describe("evaluateAchievements", () => {
   });
 
   test("just below threshold stays locked", () => {
-    const result = evaluateAchievements({ doneLists: 0, moviesRanked: 99 });
+    const result = evaluateAchievements({ doneLists: 0, moviesRanked: 99, maxMoviesInSingleList: 11, coCuratedLists: 0 });
     expect(result.every((a) => !a.unlocked)).toBe(true);
   });
 });

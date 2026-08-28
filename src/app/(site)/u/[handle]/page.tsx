@@ -157,6 +157,8 @@ export default async function PublicProfilePage({
   const allAchievements = evaluateAchievements({
     doneLists: cards.length,
     moviesRanked,
+    maxMoviesInSingleList: Math.max(0, ...cards.map((c) => c.posters.length)),
+    coCuratedLists: cards.filter((c) => (c.chips?.length ?? 0) > 0).length,
   }).filter((a) => a.unlocked);
   // Showcase curation: featured list + pinned achievements first. The favorite
   // must be among the shaped (public done) cards or it is silently omitted.

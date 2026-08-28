@@ -164,6 +164,10 @@ export interface AchievementStats {
   doneLists: number;
   /** Total movies ranked across counted lists. */
   moviesRanked: number;
+  /** Maximum movies in any single finished list. */
+  maxMoviesInSingleList?: number;
+  /** Total lists with co-curator participants. */
+  coCuratedLists?: number;
   /** True if the user was the #1 first to complete a weekly Marquee theme. */
   firstToMarquee?: boolean;
   /** True if the user was among the first 10 to complete a weekly Marquee theme. */
@@ -191,12 +195,44 @@ export const ACHIEVEMENTS: Achievement[] = [
     check: (s) => s.doneLists >= 1,
   },
   {
+    key: "the_full_picture",
+    name: "The Full Picture",
+    description: "Completed 5 full rankings with 100% consensus",
+    icon: "🎞️",
+    rarity: "common",
+    check: (s) => s.doneLists >= 5,
+  },
+  {
+    key: "double_feature",
+    name: "Double Feature",
+    description: "Ranked movies together with co-curator participants",
+    icon: "🍿",
+    rarity: "common",
+    check: (s) => (s.coCuratedLists ?? 0) >= 1,
+  },
+  {
     key: "marathoner",
     name: "Marathoner",
     description: "Finished 10 movie rankings",
     icon: "🏃",
     rarity: "common",
     check: (s) => s.doneLists >= 10,
+  },
+  {
+    key: "heavyweight",
+    name: "Heavyweight Division",
+    description: "Ranked a large tournament list of 12 or more movies",
+    icon: "🥊",
+    rarity: "rare",
+    check: (s) => (s.maxMoviesInSingleList ?? 0) >= 12,
+  },
+  {
+    key: "final_cut",
+    name: "The Final Cut",
+    description: "Finished 25 movie rankings with full dedication",
+    icon: "✂️",
+    rarity: "rare",
+    check: (s) => s.doneLists >= 25,
   },
   {
     key: "centurion",

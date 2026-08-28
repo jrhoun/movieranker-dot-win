@@ -121,9 +121,12 @@ export default async function MyListsPage() {
   });
   const lifetimeXp = Math.max(currentXp, showcase.lifetimeXp ?? 0);
   const progress = xpProgress(lifetimeXp);
+  const doneCards = cards.filter((c) => c.status === "done");
   const achievements = evaluateAchievements({
-    doneLists: cards.filter((c) => c.status === "done").length,
+    doneLists: doneCards.length,
     moviesRanked: progress.current,
+    maxMoviesInSingleList: Math.max(0, ...doneCards.map((c) => c.posters.length)),
+    coCuratedLists: doneCards.filter((c) => (c.chips?.length ?? 0) > 0).length,
   });
   const level = levelFor(progress.current);
   const { unlocked, locked } = unlockedAt(level.level);

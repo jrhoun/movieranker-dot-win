@@ -33,8 +33,6 @@ import {
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const NUDGE_COMPARISONS = 10;
-/** At this many estimated votes left, remind users finishing early is fine. */
-const ESTIMATE_HINT_THRESHOLD = 12;
 
 function RankedList({ movies }: { movies: RankedMovie[] }) {
   const byId = new Map(movies.map((m) => [m.tmdbId, m]));
@@ -800,7 +798,12 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
       {finished ? (
         <section className="flex flex-1 flex-col items-center justify-center gap-5 px-4 py-8">
           <div className="w-full max-w-md rounded bg-surface p-5 ring-1 ring-white/10">
-            <p className="text-sm uppercase tracking-widest text-accent">Final order</p>
+            <div className="flex items-center justify-between pb-2">
+              <p className="text-sm uppercase tracking-widest text-accent">Final order</p>
+              <span className="rounded-full bg-gold/15 px-2.5 py-0.5 text-xs font-bold text-gold ring-1 ring-gold/40">
+                +{active.length} XP Earned
+              </span>
+            </div>
             <RankedList movies={active} />
           </div>
           <div className="flex flex-col items-center gap-2">
@@ -876,9 +879,10 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               <button
                 type="button"
                 onClick={startSharpen}
-                className="min-h-11 rounded bg-surface-raised px-5 font-medium transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+                className="inline-flex items-center gap-2 min-h-11 rounded-full bg-surface-raised px-5 font-semibold text-text ring-1 ring-white/10 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:ring-gold/50 hover:text-gold active:scale-[0.98]"
               >
-                Sharpen the list
+                <span>🎯 Sharpen Close Calls</span>
+                <span className="rounded bg-gold/20 px-2 py-0.5 text-[10px] font-bold text-gold">+XP Bonus</span>
               </button>
             ) : (
               <p className="rounded-full bg-surface px-4 py-2 text-sm text-muted ring-1 ring-white/10">
@@ -920,11 +924,13 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               />
             </div>
             <div className="mt-2.5 flex items-center justify-between gap-3">
-              <p aria-live="polite" className="min-w-0 text-sm text-muted sm:text-base">
+              <div aria-live="polite" className="min-w-0 text-sm text-muted sm:text-base">
                 {sharpening ? (
-                  "Sharpening — closest call first"
+                  <span className="flex items-center gap-2 text-gold font-medium">
+                    <span>🎯 Sharpening — fine-tuning neck-and-neck debates</span>
+                  </span>
                 ) : (
-                  <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <div className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1">
                     <span className="flex shrink-0 items-baseline gap-x-1.5 whitespace-nowrap">
                       <span aria-hidden="true">Settling ·</span>
                       <span className="font-display text-xl leading-none tracking-wide text-gold sm:text-2xl">
@@ -941,11 +947,25 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
                         {closePairs} too close to call
                       </span>
                     )}
-                    {remainingVotes >= ESTIMATE_HINT_THRESHOLD &&
-                      " — finish anytime"}
-                  </span>
+                    {/* Encouraging motivational micro-nudges */}
+                    {doneVotes >= 2 && pct < 40 && (
+                      <span className="shrink-0 rounded-full bg-gold/10 px-2 py-0.5 text-xs font-medium text-gold ring-1 ring-gold/30 animate-fade-in">
+                        ✦ Off to a great start!
+                      </span>
+                    )}
+                    {pct >= 40 && pct <= 65 && !podiumLocked && (
+                      <span className="shrink-0 rounded-full bg-gold/10 px-2 py-0.5 text-xs font-medium text-gold ring-1 ring-gold/30 animate-fade-in">
+                        ✦ Halfway there — field taking shape
+                      </span>
+                    )}
+                    {pct > 65 && !podiumLocked && (
+                      <span className="shrink-0 rounded-full bg-gold/10 px-2 py-0.5 text-xs font-medium text-gold ring-1 ring-gold/30 animate-fade-in">
+                        ✦ Final stretch — crowning your champion!
+                      </span>
+                    )}
+                  </div>
                 )}
-              </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setFinished(true)}
@@ -955,10 +975,11 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               </button>
             </div>
             {podiumLocked && (
-              <div className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-gold/10 px-3.5 py-2 ring-1 ring-gold/40 animate-fade-in">
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gold/10 px-3.5 py-2 ring-1 ring-gold/40 animate-fade-in">
                 <div className="flex items-center gap-2 text-xs font-semibold text-gold">
                   <span aria-hidden="true" className="text-base">🏆</span>
                   <span>Your Top 3 Podium is locked in!</span>
+                  <span className="hidden sm:inline font-normal text-text/80 text-[11px]">— Keep ranking to achieve full consensus & earn bonus XP</span>
                 </div>
                 <button
                   type="button"
