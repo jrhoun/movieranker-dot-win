@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import MatchupStage from "@/components/MatchupStage";
+import MarqueeConnectionGame from "@/components/MarqueeConnectionGame";
 import MoviePoster from "@/components/list/MoviePoster";
 import ParkedStrip from "@/components/ParkedStrip";
 import SaveGateSheet from "@/components/SaveGateSheet";
 import { PersonIcon } from "@/components/ParticipantChips";
+import { getThemeConnectionGame } from "@/lib/shortlist-themes";
 import {
   closeCallProgress,
   countClosePairs,
@@ -868,6 +870,16 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
                 ` · ${session.participants.length} voter${session.participants.length === 1 ? "" : "s"}`}
             </p>
           </div>
+          {session.themeSlug && (
+            <div className="w-full max-w-xl mx-auto">
+              <MarqueeConnectionGame
+                themeSlug={session.themeSlug}
+                themeTitle={session.title}
+                game={getThemeConnectionGame({ slug: session.themeSlug, title: session.title })}
+              />
+            </div>
+          )}
+
           {canSharpen && initialClosePairs !== null && (
             <p className="max-w-sm rounded-full bg-surface px-4 py-2 text-sm text-muted ring-1 ring-white/10">
               {closeCallProgress(closePairs, initialClosePairs)} — Sharpen settles them one at

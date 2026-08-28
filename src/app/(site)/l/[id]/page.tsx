@@ -3,12 +3,14 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import CompareModal from "@/components/list/CompareModal";
 import ListViews from "@/components/list/ListViews";
+import MarqueeConnectionGame from "@/components/MarqueeConnectionGame";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import OwnerControls from "@/components/list/OwnerControls";
 import ParticipantChips from "@/components/ParticipantChips";
 import ShareButton from "@/components/ShareButton";
 import { withRanks, type ListMovieRow } from "@/lib/list-view";
 import { chipParticipants } from "@/lib/participants";
+import { getThemeConnectionGame } from "@/lib/shortlist-themes";
 import { computeThemeStats, type ThemeRoom } from "@/lib/theme-stats";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -247,6 +249,20 @@ export default async function PublicListPage({
           <ListViews movies={withRanks(rows)} />
         )}
       </div>
+
+      {list.theme_slug && list.status === "done" && (
+        <section aria-label="Marquee mystery connection" className="mt-12">
+          <MarqueeConnectionGame
+            themeSlug={list.theme_slug}
+            themeTitle={list.title}
+            game={getThemeConnectionGame({
+              slug: list.theme_slug,
+              title: list.title,
+              blurb: list.description ?? undefined,
+            })}
+          />
+        </section>
+      )}
 
       {list.theme_slug && list.status === "done" && stats !== null && stats.rooms >= 1 && (
         <section aria-label="Community stats" id="community-consensus" className="mt-14 scroll-mt-6">

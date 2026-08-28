@@ -168,6 +168,8 @@ export interface AchievementStats {
   maxMoviesInSingleList?: number;
   /** Total lists with co-curator participants. */
   coCuratedLists?: number;
+  /** Number of Marquee mystery connections successfully solved */
+  marqueeConnectionsSolved?: number;
   /** True if the user was the #1 first to complete a weekly Marquee theme. */
   firstToMarquee?: boolean;
   /** True if the user was among the first 10 to complete a weekly Marquee theme. */
@@ -193,6 +195,14 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "🎟️",
     rarity: "common",
     check: (s) => s.doneLists >= 1,
+  },
+  {
+    key: "codebreaker",
+    name: "The Codebreaker",
+    description: "Correctly solved a weekly Marquee connection mystery",
+    icon: "🔍",
+    rarity: "rare",
+    check: (s) => (s.marqueeConnectionsSolved ?? 0) >= 1,
   },
   {
     key: "the_full_picture",

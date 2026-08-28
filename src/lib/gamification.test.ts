@@ -106,6 +106,7 @@ describe("evaluateAchievements", () => {
       { doneLists: 50, moviesRanked: 0 }, // master_curator boundary
       { doneLists: 1, moviesRanked: 5, firstToMarquee: true }, // marquee_pioneer
       { doneLists: 1, moviesRanked: 5, top10Marquee: true }, // front_row_10
+      { doneLists: 1, moviesRanked: 5, marqueeConnectionsSolved: 1 }, // codebreaker
       { doneLists: 1, moviesRanked: 5, top100Marquee: true }, // century_marquee
       { doneLists: 1, moviesRanked: 12, maxMoviesInSingleList: 12 }, // heavyweight
       { doneLists: 1, moviesRanked: 5, coCuratedLists: 1 }, // double_feature
@@ -116,6 +117,7 @@ describe("evaluateAchievements", () => {
       expect(Object.values(result).some(Boolean)).toBe(true);
       expect(result).toMatchObject({
         first_premiere: stats.doneLists >= 1,
+        codebreaker: (stats.marqueeConnectionsSolved ?? 0) >= 1,
         the_full_picture: stats.doneLists >= 5,
         double_feature: (stats.coCuratedLists ?? 0) >= 1,
         marathoner: stats.doneLists >= 10,
@@ -131,7 +133,13 @@ describe("evaluateAchievements", () => {
   });
 
   test("just below threshold stays locked", () => {
-    const result = evaluateAchievements({ doneLists: 0, moviesRanked: 99, maxMoviesInSingleList: 11, coCuratedLists: 0 });
+    const result = evaluateAchievements({
+      doneLists: 0,
+      moviesRanked: 99,
+      maxMoviesInSingleList: 11,
+      coCuratedLists: 0,
+      marqueeConnectionsSolved: 0,
+    });
     expect(result.every((a) => !a.unlocked)).toBe(true);
   });
 });
