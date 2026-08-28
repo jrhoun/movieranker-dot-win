@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import CandidateTray from "@/components/CandidateTray";
 import MarqueeHeading from "@/components/MarqueeHeading";
-import MarqueeInfoTooltip from "@/components/MarqueeInfoTooltip";
+import MarqueeInfoModal from "@/components/MarqueeInfoModal";
 import MoviePoster from "@/components/list/MoviePoster";
 import SearchPanel from "@/components/SearchPanel";
 import { FAN_POSTERS } from "@/lib/hero-posters";
@@ -420,7 +420,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
             <p className="font-display text-xs uppercase tracking-[0.2em] text-muted">
               This week&apos;s marquee
             </p>
-            <MarqueeInfoTooltip />
+            <MarqueeInfoModal />
           </div>
           <MarqueeCountdown />
         </div>
