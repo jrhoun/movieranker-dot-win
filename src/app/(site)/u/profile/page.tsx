@@ -140,11 +140,23 @@ export default async function MyListsPage() {
       createdAt: String(r.created_at ?? ""),
     }));
   const standing = marqueeStanding(completions, auth.user.id);
+  // Deliberately NOT filtered by user_id: the "read own solves" RLS policy
+  // (supabase/upgrade-2.sql) already scopes this to auth.uid(), so this is the
+  // VIEWER's solve count, not a table-wide total. Do not "fix" this by adding
+  // .eq("user_id", ...) — on a public profile that would need the profile
+  // owner's id, which RLS will not return anyway.
+  // Consequence: on someone else's public profile the count is 0 and the badge
+  // stays locked. That is the intended privacy-preserving default.
+  const { count: solveCount } = await supabase
+    .from("marquee_solves")
+    .select("theme_slug", { count: "exact", head: true });
+
   const achievements = evaluateAchievements({
     doneLists: doneCards.length,
     moviesRanked: progress.current,
     maxMoviesInSingleList: Math.max(0, ...doneCards.map((c) => c.posters.length)),
     coCuratedLists: doneCards.filter((c) => (c.chips?.length ?? 0) > 0).length,
+    marqueeConnectionsSolved: solveCount ?? 0,
     ...standing,
   });
   const level = levelFor(progress.current);

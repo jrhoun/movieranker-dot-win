@@ -171,6 +171,17 @@ export default async function PublicProfilePage({
     }));
   const standing = marqueeStanding(completions, profile.id);
 
+  // Deliberately NOT filtered by user_id: the "read own solves" RLS policy
+  // (supabase/upgrade-2.sql) already scopes this to auth.uid(), so this is the
+  // VIEWER's solve count, not a table-wide total. Do not "fix" this by adding
+  // .eq("user_id", ...) — on a public profile that would need the profile
+  // owner's id, which RLS will not return anyway.
+  // Consequence: on someone else's public profile the count is 0 and the badge
+  // stays locked. That is the intended privacy-preserving default.
+  const { count: solveCount } = await supabase
+    .from("marquee_solves")
+    .select("theme_slug", { count: "exact", head: true });
+
   // Unlocked only; cards.length is the public done-list count (shapePublicProfile
   // filters to status=done + visibility=public, so private/unlisted never count).
   const allAchievements = evaluateAchievements({
@@ -178,6 +189,7 @@ export default async function PublicProfilePage({
     moviesRanked,
     maxMoviesInSingleList: Math.max(0, ...cards.map((c) => c.posters.length)),
     coCuratedLists: cards.filter((c) => (c.chips?.length ?? 0) > 0).length,
+    marqueeConnectionsSolved: solveCount ?? 0,
     ...standing,
   }).filter((a) => a.unlocked);
   // Showcase curation: featured list + pinned achievements first. The favorite

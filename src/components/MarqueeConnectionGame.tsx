@@ -45,12 +45,24 @@ export default function MarqueeConnectionGame({
 
     if (isCorrect) {
       onBonusEarned?.(5);
+      // Local counter kept for the immediate in-page nudge; the SERVER row is
+      // what backs the codebreaker achievement, because localStorage is
+      // per-device and editable from the console.
       try {
         const solvedCount = parseInt(localStorage.getItem("mr-connections-solved") || "0", 10);
         localStorage.setItem("mr-connections-solved", String(solvedCount + 1));
       } catch {
         // ignore
       }
+      // Fire-and-forget: a signed-out user gets a 401 and simply earns no badge.
+      void fetch("/api/marquee-solve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ themeSlug, guessIndex: index }),
+      }).catch(() => {
+        // Offline or blocked: the local nudge still happened; the badge just
+        // waits until a solve is successfully recorded.
+      });
     }
 
     try {
