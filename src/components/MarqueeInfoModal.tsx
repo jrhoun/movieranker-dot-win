@@ -110,11 +110,11 @@ export default function MarqueeInfoModal() {
             </div>
 
             {/* Footer */}
-            <div className="mt-6 pt-4 border-t border-white/10 flex justify-end">
+            <div className="mt-6 pt-4 border-t border-white/10 flex justify-center">
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="w-full sm:w-auto min-h-11 rounded-full bg-gold px-6 text-xs font-bold uppercase tracking-wider text-bg shadow-lg transition-transform duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+                className="w-full sm:w-auto min-h-11 rounded-full bg-gold px-8 text-xs font-bold uppercase tracking-wider text-bg shadow-lg transition-transform duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer text-center"
               >
                 ✦ Got It, Let&apos;s Rank!
               </button>
