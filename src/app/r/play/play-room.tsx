@@ -881,8 +881,8 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
                 onClick={startSharpen}
                 className="inline-flex items-center gap-2 min-h-11 rounded-full bg-surface-raised px-5 font-semibold text-text ring-1 ring-white/10 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:ring-gold/50 hover:text-gold active:scale-[0.98]"
               >
-                <span>🎯 Sharpen Close Calls</span>
-                <span className="rounded bg-gold/20 px-2 py-0.5 text-[10px] font-bold text-gold">+XP Bonus</span>
+                <span>Sharpen close calls</span>
+                <span className="rounded bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-gold">+XP</span>
               </button>
             ) : (
               <p className="rounded-full bg-surface px-4 py-2 text-sm text-muted ring-1 ring-white/10">
@@ -927,7 +927,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               <div aria-live="polite" className="min-w-0 text-sm text-muted sm:text-base">
                 {sharpening ? (
                   <span className="flex items-center gap-2 text-gold font-medium">
-                    <span>🎯 Sharpening — fine-tuning neck-and-neck debates</span>
+                    <span>Sharpening · resolving close calls</span>
                   </span>
                 ) : (
                   <div className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1">
@@ -947,20 +947,15 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
                         {closePairs} too close to call
                       </span>
                     )}
-                    {/* Encouraging motivational micro-nudges */}
-                    {doneVotes >= 2 && pct < 40 && (
-                      <span className="shrink-0 rounded-full bg-gold/10 px-2 py-0.5 text-xs font-medium text-gold ring-1 ring-gold/30 animate-fade-in">
-                        ✦ Off to a great start!
+                    {/* Clean, informative progress indicators */}
+                    {pct >= 45 && pct < 75 && !podiumLocked && (
+                      <span className="shrink-0 rounded-full bg-surface-raised px-2.5 py-0.5 text-xs text-muted ring-1 ring-white/10">
+                        Field narrowing
                       </span>
                     )}
-                    {pct >= 40 && pct <= 65 && !podiumLocked && (
-                      <span className="shrink-0 rounded-full bg-gold/10 px-2 py-0.5 text-xs font-medium text-gold ring-1 ring-gold/30 animate-fade-in">
-                        ✦ Halfway there — field taking shape
-                      </span>
-                    )}
-                    {pct > 65 && !podiumLocked && (
-                      <span className="shrink-0 rounded-full bg-gold/10 px-2 py-0.5 text-xs font-medium text-gold ring-1 ring-gold/30 animate-fade-in">
-                        ✦ Final stretch — crowning your champion!
+                    {pct >= 75 && !podiumLocked && (
+                      <span className="shrink-0 rounded-full bg-surface-raised px-2.5 py-0.5 text-xs text-muted ring-1 ring-white/10">
+                        Final matchups
                       </span>
                     )}
                   </div>
@@ -975,18 +970,18 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               </button>
             </div>
             {podiumLocked && (
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gold/10 px-3.5 py-2 ring-1 ring-gold/40 animate-fade-in">
-                <div className="flex items-center gap-2 text-xs font-semibold text-gold">
-                  <span aria-hidden="true" className="text-base">🏆</span>
-                  <span>Your Top 3 Podium is locked in!</span>
-                  <span className="hidden sm:inline font-normal text-text/80 text-[11px]">— Keep ranking to achieve full consensus & earn bonus XP</span>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gold/10 px-3.5 py-2 ring-1 ring-gold/30 animate-fade-in">
+                <div className="flex items-center gap-2 text-xs text-gold">
+                  <span aria-hidden="true" className="font-display text-sm">✦</span>
+                  <span className="font-semibold">Top 3 locked</span>
+                  <span className="hidden sm:inline text-muted text-[11px]">— Finish now or keep ranking the full list for complete stats</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setFinished(true)}
                   className="inline-flex min-h-8 items-center rounded-full bg-gold px-3.5 text-xs font-bold uppercase tracking-wider text-bg shadow hover:opacity-90 active:scale-95 transition-all cursor-pointer shrink-0"
                 >
-                  Claim Podium →
+                  Finish with Top 3 →
                 </button>
               </div>
             )}
