@@ -44,3 +44,8 @@ next-env.d.ts
 # pi session tasks
 .pi/tasks/
 .scratch/
+
+# git worktrees
+.worktrees/
+worktrees/
+.superpowers/sdd/
