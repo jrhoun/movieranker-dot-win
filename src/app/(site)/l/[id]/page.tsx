@@ -213,7 +213,18 @@ export default async function PublicListPage({
             {list.status === "done" && (
               <CompareModal listId={id} listTitle={list.title} />
             )}
-            <ShareButton title={list.title} url={await shareUrl(id, ownerProfile?.handle ?? null)} />
+            <ShareButton
+              title={list.title}
+              url={await shareUrl(id, ownerProfile?.handle ?? null)}
+              themeSlug={list.theme_slug}
+              topMovies={rows.map((r) => ({
+                title: r.title,
+                releaseYear: r.releaseYear,
+                posterPath: r.posterPath,
+              }))}
+              totalMovies={rows.length}
+              curatorHandle={ownerProfile?.handle ?? null}
+            />
           </div>
         </div>
 
