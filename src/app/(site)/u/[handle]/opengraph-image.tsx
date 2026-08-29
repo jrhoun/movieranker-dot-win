@@ -103,18 +103,21 @@ export default async function Image({ params }: { params: Promise<{ handle: stri
   // lib.dom's BodyInit disagree on the ArrayBufferLike generic even though a
   // Buffer is a Uint8Array at runtime.
   //
-  // Cache-Control matches ImageResponse's own default exactly (see
-  // @vercel/og's ImageResponse constructor) — the fallback branch above gets
-  // it for free by returning an ImageResponse; a bare Response does not set
-  // it on its own, and without it a crawler could re-render this on every
-  // fetch while the branded fallback next to it caches for a year.
+  // NOT ImageResponse's own default (`public, immutable, max-age=31536000`,
+  // which the fallback branch above gets for free): that default is correct
+  // for the list/compare cards, whose underlying list is frozen at
+  // status="done", but false for this one. The whole point of this feature
+  // is that a user re-equips cosmetics and other people see it — `immutable`
+  // would tell an intermediary cache never to revalidate, so an edge cache
+  // could keep serving someone's old frame for a year after they earned and
+  // equipped a new one. A short, revalidatable max-age still avoids
+  // re-rendering on every single crawler fetch without asserting this URL's
+  // content never changes.
   return new Response(new Uint8Array(png), {
     headers: {
       "Content-Type": contentType,
       "Cache-Control":
-        process.env.NODE_ENV === "development"
-          ? "no-cache, no-store"
-          : "public, immutable, no-transform, max-age=31536000",
+        process.env.NODE_ENV === "development" ? "no-cache, no-store" : "public, max-age=3600, must-revalidate",
     },
   });
 }
