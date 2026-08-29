@@ -18,7 +18,9 @@ export default function SiteFooter() {
               </span>
             </div>
             <p className="text-xs leading-relaxed text-muted">
-              Settle the movie night argument head-to-head. Pick films, vote matchups with friends, and crown a definitive winner.
+              Rank movies head-to-head — solo or with friends. A new themed Marquee every
+              week, with a hidden thread running through it. A place for people who love
+              lists and cinema.
             </p>
           </div>
 

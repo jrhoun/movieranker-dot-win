@@ -222,7 +222,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
               <span aria-hidden="true" className="ml-2 align-middle text-gold text-[0.5em]">✦</span>
             </p>
             <h1 className="mt-3 text-xl font-medium text-text sm:text-2xl">
-              Settling the best movies of all time.
+              Rank movies head-to-head. Solo or with friends.
             </h1>
             {/* Gold text rather than a gold underline: underlined body copy that
                 is not a link reads as a broken hyperlink, which is what this

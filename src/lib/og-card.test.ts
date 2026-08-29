@@ -183,9 +183,9 @@ describe("card rendering", () => {
     await expectRealCard(
       "home",
       h(OgCard, {
-        eyebrow: "HEAD-TO-HEAD FILM TOURNAMENTS",
+        eyebrow: "FOR PEOPLE WHO LOVE LISTS AND CINEMA",
         headline: "MOVIERANKER",
-        subline: "SETTLING THE BEST MOVIES OF ALL TIME",
+        subline: "RANK MOVIES HEAD-TO-HEAD, SOLO OR WITH FRIENDS",
       }),
     );
   });
@@ -235,9 +235,9 @@ describe("card rendering", () => {
     await expectRealCard(
       "fallback",
       h(OgCard, {
-        eyebrow: "HEAD-TO-HEAD FILM TOURNAMENTS",
+        eyebrow: "FOR PEOPLE WHO LOVE LISTS AND CINEMA",
         headline: "MOVIERANKER",
-        subline: "SETTLING THE BEST MOVIES OF ALL TIME",
+        subline: "RANK MOVIES HEAD-TO-HEAD, SOLO OR WITH FRIENDS",
       }),
     );
   });
