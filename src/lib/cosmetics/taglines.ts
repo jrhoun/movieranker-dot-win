@@ -1,5 +1,5 @@
 // src/lib/cosmetics/taglines.ts
-import type { AchievementStats } from "@/lib/gamification";
+import { evaluateAchievements, type AchievementStats } from "@/lib/gamification";
 import { SHORTLIST_THEMES } from "@/lib/shortlist-themes";
 import type { Rarity, TaglineItem, Unlock } from "./types";
 
@@ -136,40 +136,45 @@ export function taglineById(id: string): TaglineItem | undefined {
   return TAGLINES.find((t) => t.id === id);
 }
 
-function earnedTemplate(id: string): TaglineItem {
-  const template = EARNED_TAGLINES.find((t) => t.id === id);
-  if (!template) throw new Error(`no earned tagline template for "${id}"`);
-  return template;
+/** Which stat feeds the `{count}` in a given earned line's text, if it has one. */
+function countFor(id: string, stats: AchievementStats): number | undefined {
+  switch (id) {
+    case "tagline.earned.attendance":
+      return stats.marqueeWeeks ?? 0;
+    case "tagline.earned.solver":
+      return stats.marqueeConnectionsSolved ?? 0;
+    case "tagline.earned.centurion":
+      return stats.moviesRanked;
+    default:
+      return undefined;
+  }
 }
 
-/** Substitutes the literal `{count}` placeholder with the real number. */
-function withCount(template: TaglineItem, count: number): TaglineItem {
+/** Substitutes the literal `{count}` placeholder with the real number, if this line has one. */
+function interpolate(template: TaglineItem, stats: AchievementStats): TaglineItem {
+  const count = countFor(template.id, stats);
+  if (count === undefined) return template;
   const text = template.text.replace("{count}", String(count));
   return { ...template, name: text, text };
 }
 
 /**
- * Lines drawn from what the user has actually done. Derived from
- * `EARNED_TAGLINES`, so the ids/unlocks/rarities live in exactly one place.
- * Never purchasable and never droppable: the point is that they cannot be
- * obtained any other way.
+ * Lines drawn from what the user has actually done. The achievement system is
+ * the single authority on whether a line is unlocked — `evaluateAchievements`
+ * decides eligibility, this function only fills in the `{count}` placeholder.
+ * It must never re-derive its own thresholds: two places encoding one rule is
+ * exactly the drift that leaves the tagline offered while equip logic (which
+ * checks the same achievement) refuses it. Never purchasable and never
+ * droppable: the point is that they cannot be obtained any other way.
  */
 export function earnedTaglines(stats: AchievementStats): TaglineItem[] {
-  const out: TaglineItem[] = [];
-
-  const weeks = stats.marqueeWeeks ?? 0;
-  if (weeks > 0) {
-    out.push(withCount(earnedTemplate("tagline.earned.attendance"), weeks));
-  }
-  const solved = stats.marqueeConnectionsSolved ?? 0;
-  if (solved >= 5) {
-    out.push(withCount(earnedTemplate("tagline.earned.solver"), solved));
-  }
-  if (stats.moviesRanked >= 100) {
-    out.push(withCount(earnedTemplate("tagline.earned.centurion"), stats.moviesRanked));
-  }
-  if (stats.firstToMarquee) {
-    out.push(earnedTemplate("tagline.earned.pioneer"));
-  }
-  return out;
+  const unlocked = new Set(
+    evaluateAchievements(stats)
+      .filter((a) => a.unlocked)
+      .map((a) => a.key),
+  );
+  return EARNED_TAGLINES.filter((t) => {
+    const u = t.unlock;
+    return u.kind === "challenge" && unlocked.has(u.key);
+  }).map((t) => interpolate(t, stats));
 }

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { EARNED_TAGLINES, TAGLINES, earnedTaglines, taglineById } from "./taglines";
 import { itemById } from "./catalogue";
 import { SHORTLIST_THEMES } from "@/lib/shortlist-themes";
-import { ACHIEVEMENTS } from "@/lib/gamification";
+import { ACHIEVEMENTS, evaluateAchievements } from "@/lib/gamification";
 
 describe("the rights invariant", () => {
   it("no referential line is ever purchasable", () => {
@@ -76,12 +76,36 @@ describe("earnedTaglines", () => {
   });
 
   it("interpolates the real count rather than a fixed string", () => {
-    const nine = earnedTaglines({ ...base, marqueeWeeks: 9 });
+    // season_ticket (the achievement backing this line) unlocks at 12 weeks,
+    // so both samples must clear that threshold — only the rendered number
+    // should differ, not whether the line is offered at all.
+    const thirteen = earnedTaglines({ ...base, marqueeWeeks: 13 });
     const forty = earnedTaglines({ ...base, marqueeWeeks: 40 });
-    const nineText = nine.find((l) => l.id === "tagline.earned.attendance")?.text;
+    const thirteenText = thirteen.find((l) => l.id === "tagline.earned.attendance")?.text;
     const fortyText = forty.find((l) => l.id === "tagline.earned.attendance")?.text;
-    expect(nineText).toContain("9");
+    expect(thirteenText).toContain("13");
     expect(fortyText).toContain("40");
+  });
+
+  it("an earned line is offered only when its achievement is actually unlocked", () => {
+    // The tagline and the badge must agree; otherwise the UI offers something
+    // canEquip() will refuse.
+    for (const stats of [
+      { doneLists: 0, moviesRanked: 0, marqueeWeeks: 11 },
+      { doneLists: 0, moviesRanked: 0, marqueeWeeks: 12 },
+      { doneLists: 0, moviesRanked: 99 },
+      { doneLists: 0, moviesRanked: 100 },
+    ]) {
+      const unlocked = new Set(
+        evaluateAchievements(stats).filter((a) => a.unlocked).map((a) => a.key),
+      );
+      for (const line of earnedTaglines(stats)) {
+        expect(line.unlock.kind).toBe("challenge");
+        if (line.unlock.kind === "challenge") {
+          expect(unlocked.has(line.unlock.key), `${line.id} offered without its achievement`).toBe(true);
+        }
+      }
+    }
   });
 
   it("never leaks the {count} placeholder to the UI", () => {
