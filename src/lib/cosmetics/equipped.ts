@@ -14,9 +14,44 @@ export interface Equipped {
   background?: string | null;
   overlay?: string | null;
   tagline?: string | null;
+  /**
+   * The tagline's resolved display text, stored as a SNAPSHOT at equip time
+   * — never recomputed from `tagline` on read. A viewer of /u/[handle]
+   * (including the owner themselves, since that page filters by visibility
+   * unconditionally) cannot always re-derive it: RLS scopes `marquee_solves`
+   * to its own reader, and that page's achievement stats come from public
+   * done lists only, so a challenge earned partly through private lists
+   * (e.g. centurion) would under-count there and the line would silently
+   * vanish. Resolved and written once, server-side, by whoever holds the
+   * real owner's full-access stats — see the strip + recompute in
+   * /api/profile's PATCH handler. Never client-writable. `null` on a raw
+   * patch clears it, same as the four id fields above.
+   */
+  taglineText?: string | null;
 }
 
 export const ID_FIELDS = ["frame", "background", "overlay", "tagline"] as const;
+
+/**
+ * Fields where `null`, on a raw patch, means "clear this" — the read/write
+ * null-stripping loops in public-profile.ts share this list so a cleared
+ * tagline's stored text is deleted alongside its id, and neither ever
+ * round-trips through storage as a literal `null`. A superset of
+ * `ID_FIELDS`: `taglineText` is resolved display text, not a catalogue id,
+ * so it deliberately stays out of `ID_FIELDS` itself — equip-guard's
+ * per-field ownership loop iterates exactly that list, and must never try
+ * to look `taglineText` up as a catalogue item.
+ */
+export const NULLABLE_FIELDS = [...ID_FIELDS, "taglineText"] as const;
+
+/**
+ * Ample for every static and earned tagline text in the catalogue today;
+ * anything longer is rejected rather than silently truncated, since a
+ * client is never supposed to be sending this field at all (see the doc
+ * comment on `Equipped.taglineText`) — a wildly long value is a sign
+ * something upstream is confused, not a normal-sized tagline to accept.
+ */
+const TAGLINE_TEXT_MAX_LEN = 120;
 
 /**
  * TMDB poster paths look like "/abc123XYZ.jpg" — a leading slash, an
@@ -49,6 +84,15 @@ export function parseEquipped(input: unknown): Equipped | null {
   if (o.avatarPosterPath !== undefined) {
     if (typeof o.avatarPosterPath !== "string" || !POSTER_PATH.test(o.avatarPosterPath)) return null;
     out.avatarPosterPath = o.avatarPosterPath;
+  }
+  if (o.taglineText !== undefined) {
+    const v = o.taglineText;
+    // `null` clears it, same as the four id fields; anything else must be a
+    // reasonably-sized string. This function only validates shape — it does
+    // not know or care that a client is never supposed to send this field at
+    // all; that trust boundary lives in /api/profile's PATCH handler.
+    if (v !== null && (typeof v !== "string" || v.length > TAGLINE_TEXT_MAX_LEN)) return null;
+    out.taglineText = v;
   }
   return out;
 }

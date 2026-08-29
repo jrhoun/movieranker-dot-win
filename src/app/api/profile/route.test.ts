@@ -31,6 +31,10 @@ function makeDb(opts: { user?: { id: string } | null }) {
       };
       obj.select = track("select");
       obj.eq = track("eq");
+      obj.order = track("order");
+      obj.in = track("in");
+      obj.limit = track("limit");
+      obj.not = track("not");
       obj.update = (...args: unknown[]) => {
         isWrite = true;
         return track("update")(...args);
@@ -44,6 +48,31 @@ function makeDb(opts: { user?: { id: string } | null }) {
       obj.upsert = async (...args: unknown[]) => {
         calls.push({ table, method: "upsert", args });
         return currentDb.writeResult ?? { data: null, error: null };
+      };
+      // Makes the chain itself awaitable for the (equip-guard-only) reads
+      // that never call .maybeSingle() at all — route.ts's doneRows/themeRows
+      // queries are `await supabase.from("lists").select(...).eq(...).order(...)`
+      // with no terminal call, exactly like the real postgrest-js builder is
+      // thenable. Every OTHER existing chain in this file ends in
+      // .maybeSingle()/.upsert(), both real async functions returning a real
+      // Promise, so `await` lands on that Promise and never reaches this.
+      //
+      // Deliberately does NOT fall back to `currentDb.row` the way
+      // .maybeSingle() does: before this existed, `await obj` on a plain
+      // non-thenable object resolved to `obj` itself, so `{ data } = await
+      // ...` silently produced `data: undefined` for every such call (e.g.
+      // getReferralStats's own un-.maybeSingle()'d reads) — and callers
+      // already guard that with `?? []`/`?? 0`. Falling back to `currentDb.row`
+      // here instead would hand those un-configured calls a single object
+      // where they expect an array. Only a table explicitly set on
+      // `rowsByTable` gets real data through this path; everything else keeps
+      // resolving to `undefined`, preserving every pre-existing test's
+      // behavior exactly.
+      obj.then = (resolve: (v: DbResult) => void) => {
+        resolve({
+          data: table in (currentDb.rowsByTable ?? {}) ? currentDb.rowsByTable![table] : undefined,
+          error: null,
+        });
       };
       return obj;
     },
@@ -248,6 +277,85 @@ describe("PATCH /api/profile — showcase", () => {
     };
     expect(body.showcase.achievementKeys).toEqual(["first_premiere"]);
     expect(body.showcase.lifetimeXp).toBe(50);
+  });
+
+  it("silently drops a taglineText-only equip patch with nothing else to validate", async () => {
+    // No `rowsByTable.lists` configured on purpose: stripping taglineText
+    // before parseEquipped runs leaves an empty equip patch, so this path
+    // never reaches the equip-guard's DB reads at all.
+    currentDb.row = {
+      id: "u-1",
+      showcase: { achievementKeys: [], favoriteListId: null, lifetimeXp: 0 },
+    };
+    currentDb.writeResult = { data: { id: "u-1" }, error: null };
+    const res = await patchShowcase({ equipped: { taglineText: "SPOILER: not real" } });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { showcase: { equipped?: Record<string, unknown> } };
+    expect(body.showcase.equipped ?? {}).not.toHaveProperty("taglineText");
+  });
+
+  it("resolves and stores taglineText server-side when the patch equips a tagline", async () => {
+    // tagline.trailer.in-a-world is a STARTER tagline (owned unconditionally),
+    // so an empty `lists` table is enough — nothing else needs to be earned.
+    currentDb.row = {
+      id: "u-1",
+      showcase: { achievementKeys: [], favoriteListId: null, lifetimeXp: 0 },
+    };
+    currentDb.rowsByTable = { lists: [] };
+    currentDb.writeResult = { data: { id: "u-1" }, error: null };
+    const res = await patchShowcase({ equipped: { tagline: "tagline.trailer.in-a-world" } });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      showcase: { equipped?: { tagline?: string; taglineText?: string } };
+    };
+    expect(body.showcase.equipped).toEqual({
+      tagline: "tagline.trailer.in-a-world",
+      taglineText: "In a world…",
+    });
+    const upd = currentDb.calls.find((c) => c.method === "update")!;
+    expect((upd.args[0] as { showcase: { equipped?: unknown } }).showcase.equipped).toEqual({
+      tagline: "tagline.trailer.in-a-world",
+      taglineText: "In a world…",
+    });
+  });
+
+  it("ignores a client-supplied taglineText riding alongside a real tagline equip", async () => {
+    currentDb.row = {
+      id: "u-1",
+      showcase: { achievementKeys: [], favoriteListId: null, lifetimeXp: 0 },
+    };
+    currentDb.rowsByTable = { lists: [] };
+    currentDb.writeResult = { data: { id: "u-1" }, error: null };
+    const res = await patchShowcase({
+      equipped: { tagline: "tagline.trailer.in-a-world", taglineText: "SPOILER: not the real line" },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { showcase: { equipped?: { taglineText?: string } } };
+    // The server's own resolveTaglineText result, never the client's string —
+    // this is exactly the hole that would let a client render arbitrary text
+    // (or an unearned earned-tagline's spoiler text) on a real profile.
+    expect(body.showcase.equipped?.taglineText).toBe("In a world…");
+  });
+
+  it("clears the stored taglineText when the patch clears the tagline", async () => {
+    currentDb.row = {
+      id: "u-1",
+      showcase: {
+        achievementKeys: [],
+        favoriteListId: null,
+        lifetimeXp: 0,
+        equipped: { tagline: "tagline.trailer.in-a-world", taglineText: "In a world…", frame: "frame.brass" },
+      },
+    };
+    currentDb.rowsByTable = { lists: [] };
+    currentDb.writeResult = { data: { id: "u-1" }, error: null };
+    const res = await patchShowcase({ equipped: { tagline: null } });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { showcase: { equipped?: Record<string, unknown> } };
+    // The slot is cleared AND its snapshot text with it — no orphaned text
+    // left behind for a tagline that's no longer equipped. The untouched
+    // frame survives the merge.
+    expect(body.showcase.equipped).toEqual({ frame: "frame.brass" });
   });
 
   it("400 when neither visibility nor showcase is present", async () => {

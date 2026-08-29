@@ -176,4 +176,41 @@ describe("showcase equipped block", () => {
     expect(merged?.equipped).toEqual({ frame: "frame.brass" });
     expect(merged?.equipped).not.toHaveProperty("tagline");
   });
+
+  it("round-trips a stored taglineText snapshot", () => {
+    const parsed = parseShowcase({
+      achievementKeys: [],
+      favoriteListId: null,
+      equipped: { tagline: "tagline.earned.centurion", taglineText: "104 films ranked. No regrets." },
+    });
+    expect(parsed?.equipped).toEqual({
+      tagline: "tagline.earned.centurion",
+      taglineText: "104 films ranked. No regrets.",
+    });
+  });
+
+  it("clearing the tagline clears its stored text too", () => {
+    // Mirrors what /api/profile actually sends: a `tagline: null` patch is
+    // always paired with `taglineText: null`, so a cleared slot never leaves
+    // orphaned text behind for a tagline that's no longer equipped.
+    const merged = mergeShowcase(
+      {
+        achievementKeys: [],
+        favoriteListId: null,
+        equipped: { tagline: "tagline.earned.centurion", taglineText: "104 films ranked. No regrets." },
+      },
+      { equipped: { tagline: null, taglineText: null } },
+    );
+    expect(merged?.equipped).toBeUndefined();
+  });
+
+  it("strips a stored taglineText: null on read, same as the slot fields", () => {
+    expect(
+      parseShowcase({
+        achievementKeys: [],
+        favoriteListId: null,
+        equipped: { tagline: "tagline.80s.rewind", taglineText: null },
+      })?.equipped,
+    ).toEqual({ tagline: "tagline.80s.rewind" });
+  });
 });

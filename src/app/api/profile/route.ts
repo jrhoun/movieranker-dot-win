@@ -9,12 +9,14 @@ import {
   grandfatheredXp,
   levelFor,
   MIN_PIN_LIST_LEVEL,
+  type AchievementStats,
 } from "@/lib/gamification";
 import { fetchCareerXp } from "@/lib/career-xp";
 import { resolveReferrerId } from "@/lib/referrals";
 import { parseEquipped } from "@/lib/cosmetics/equipped";
 import { validateEquipPatch } from "@/lib/cosmetics/equip-guard";
 import { ownedItemIds } from "@/lib/cosmetics/ownership";
+import { resolveTaglineText } from "@/lib/cosmetics/taglines";
 import { marqueeStanding } from "@/lib/marquee-standing";
 import {
   LIMITS,
@@ -165,6 +167,20 @@ export async function PATCH(request: Request) {
     const clientShowcase: Record<string, unknown> = { ...(body.showcase as Record<string, unknown>) };
     delete clientShowcase.lifetimeXp;
 
+    // taglineText is server-derived from resolveTaglineText, the same trust
+    // boundary as lifetimeXp above: never believe a client-supplied value.
+    // Strip it before parseEquipped/validateEquipPatch ever see it, so it
+    // can't ride along disguised as an ordinary equip patch — ownership
+    // validation below only checks catalogue ids (ID_FIELDS) and the avatar
+    // fields, so a patch containing NOTHING but a rogue `taglineText` would
+    // otherwise sail through validateEquipPatch untouched and get persisted
+    // as-is. Recomputed below, from this user's own stats, whenever the
+    // patch actually changes `tagline`.
+    const clientEquipped = (clientShowcase as { equipped?: unknown }).equipped;
+    if (typeof clientEquipped === "object" && clientEquipped !== null && !Array.isArray(clientEquipped)) {
+      delete (clientEquipped as Record<string, unknown>).taglineText;
+    }
+
     // Current stored value first so a partial patch preserves the other field.
     const { data: row } = await supabase
       .from("profiles")
@@ -263,20 +279,25 @@ export async function PATCH(request: Request) {
 
       const equipBankedXp = (row as { showcase?: { lifetimeXp?: number } }).showcase?.lifetimeXp ?? 0;
       const { total, breakdown } = await fetchCareerXp(supabase, auth.user.id, equipBankedXp);
+      // Named and reused below for taglineText: this IS the owner's real,
+      // full-access stats (never RLS-limited the way a *reader* of
+      // /u/[handle] would be), which is exactly why the resolved text is
+      // computed and stored here rather than left for a page to re-derive.
+      const achievementStats: AchievementStats = {
+        doneLists: doneRows.length,
+        moviesRanked,
+        maxMoviesInSingleList,
+        coCuratedLists,
+        marqueeWeeks: finishedThemeSlugs.length,
+        // Recovered from the already-computed XP breakdown rather than a
+        // fresh query: connections XP is solve count * CONNECTION_SOLVE_XP.
+        marqueeConnectionsSolved: breakdown.connections / CONNECTION_SOLVE_XP,
+        ...standing,
+      };
       const owned = ownedItemIds({
         userId: auth.user.id,
         level: levelFor(total).level,
-        unlockedAchievementKeys: evaluateAchievements({
-          doneLists: doneRows.length,
-          moviesRanked,
-          maxMoviesInSingleList,
-          coCuratedLists,
-          marqueeWeeks: finishedThemeSlugs.length,
-          // Recovered from the already-computed XP breakdown rather than a
-          // fresh query: connections XP is solve count * CONNECTION_SOLVE_XP.
-          marqueeConnectionsSolved: breakdown.connections / CONNECTION_SOLVE_XP,
-          ...standing,
-        })
+        unlockedAchievementKeys: evaluateAchievements(achievementStats)
           .filter((a) => a.unlocked)
           .map((a) => a.key),
         finishedThemeSlugs,
@@ -284,6 +305,20 @@ export async function PATCH(request: Request) {
 
       const check = validateEquipPatch(equipPatch, owned, ownedTmdbIds, posterPathByTmdbId);
       if (!check.ok) return NextResponse.json({ error: check.error }, { status: 403 });
+
+      // taglineText: resolved here (never trusted from the client — see the
+      // strip above) and written back into the same raw object mergeShowcase
+      // will re-parse below. Only touched when this patch actually changes
+      // `tagline`; other equip-only patches (a frame, an avatar) leave
+      // whatever text is already stored untouched.
+      if (Object.prototype.hasOwnProperty.call(equipPatch, "tagline")) {
+        // A cleared tagline (`tagline: null`) clears its text with it, so
+        // storage never carries orphaned text for a slot that's now empty.
+        const taglineText = equipPatch.tagline
+          ? (resolveTaglineText(equipPatch.tagline, achievementStats) ?? null)
+          : null;
+        (clientEquipped as Record<string, unknown>).taglineText = taglineText;
+      }
     }
 
     const merged = mergeShowcase(

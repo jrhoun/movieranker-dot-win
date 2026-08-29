@@ -9,7 +9,6 @@ import { evaluateAchievements } from "@/lib/gamification";
 import { marqueeStanding, type ThemeCompletion } from "@/lib/marquee-standing";
 import { ownedItemIds } from "@/lib/cosmetics/ownership";
 import { resolveEquipped } from "@/lib/cosmetics/equipped";
-import { resolveTaglineText } from "@/lib/cosmetics/taglines";
 import {
   EMPTY_SHOWCASE,
   parseShowcase,
@@ -226,9 +225,15 @@ export default async function PublicProfilePage({
     finishedThemeSlugs,
   });
   const canvasEquipped = resolveEquipped(showcase.equipped, ownedCosmetics);
-  const taglineText = canvasEquipped.tagline
-    ? resolveTaglineText(canvasEquipped.tagline, achievementStats)
-    : undefined;
+  // Rendered as the stored SNAPSHOT, never recomputed via resolveTaglineText
+  // on this page: this page's achievementStats above is itself RLS-limited
+  // (public done lists only, and marquee_solves is scoped to its own reader),
+  // so a tagline earned partly through private lists or solves would
+  // silently vanish here for EVERY viewer — including the owner previewing
+  // their own /u/[handle] — if recomputed with these stats. /api/profile
+  // resolves and stores it once, at equip time, from the real owner's own
+  // full-access stats, so this is read straight through instead.
+  const taglineText = showcase.equipped?.taglineText ?? undefined;
 
   // Showcase curation: featured list + pinned achievements first. The favorite
   // must be among the shaped (public done) cards or it is silently omitted.

@@ -238,24 +238,38 @@ export default async function MyListsPage() {
     finishedThemeSlugs,
   });
   const canvasEquipped = resolveEquipped(showcase.equipped, ownedCosmetics);
-  const taglineText = canvasEquipped.tagline
-    ? resolveTaglineText(canvasEquipped.tagline, achievementStats)
-    : undefined;
+  // Stored SNAPSHOT, consistent with /u/[handle]: that page must read the
+  // stored value (its own achievement stats are RLS-limited and can't always
+  // re-derive an earned tagline), so the owner's own preview reads the same
+  // field rather than a live recompute that could show different text than
+  // what visitors actually see. /api/profile resolves and stores it at
+  // equip time, from these same achievementStats.
+  const taglineText = showcase.equipped?.taglineText ?? undefined;
   const ownedCosmeticIds = [...ownedCosmetics];
 
   // Avatar picker source: this user's own finished films, built straight from
   // the raw rows (title/poster_path/tmdb_id travel together per movie) rather
   // than zipping ListRowData's `posters` against its `movieIds` — those two
   // arrays are filtered independently and can misalign whenever a row is
-  // missing a tmdb_id.
-  const avatarFilms = ((lists ?? []) as DbList[])
-    .filter((l) => l.status === "done")
-    .flatMap((l) => l.list_movies ?? [])
-    .filter(
-      (m): m is { title: string; poster_path: string | null; tmdb_id: number } =>
-        typeof m.tmdb_id === "number",
-    )
-    .map((m) => ({ tmdbId: m.tmdb_id, title: m.title, posterPath: m.poster_path }));
+  // missing a tmdb_id. Deduplicated by tmdbId (the same film can appear in
+  // several finished lists, and AvatarPicker keys its chips on tmdbId — an
+  // unfiltered flatMap would produce duplicate React keys and a repeated
+  // visible chip), keeping the first occurrence unless it lacked a poster
+  // and a later one has one. Capped at a generous but bounded size for the
+  // picker's flex-wrap chip list.
+  const AVATAR_FILM_CAP = 60;
+  const avatarFilmsById = new Map<number, { tmdbId: number; title: string; posterPath: string | null }>();
+  for (const l of (lists ?? []) as DbList[]) {
+    if (l.status !== "done") continue;
+    for (const m of l.list_movies ?? []) {
+      if (typeof m.tmdb_id !== "number") continue;
+      const existing = avatarFilmsById.get(m.tmdb_id);
+      if (!existing || (!existing.posterPath && m.poster_path)) {
+        avatarFilmsById.set(m.tmdb_id, { tmdbId: m.tmdb_id, title: m.title, posterPath: m.poster_path });
+      }
+    }
+  }
+  const avatarFilms = [...avatarFilmsById.values()].slice(0, AVATAR_FILM_CAP);
 
   // Background ratchet: lock in new peak XP so deleting lists later never loses rank
   if (claimed && breakdown.total > (showcase.lifetimeXp ?? 0)) {

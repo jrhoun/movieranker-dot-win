@@ -49,6 +49,30 @@ describe("parseEquipped", () => {
       parseEquipped({ avatarPosterPath: "/x.jpg), url(https://evil.example/track.gif" }),
     ).toBeNull();
   });
+
+  it("accepts a reasonably-sized taglineText string", () => {
+    expect(parseEquipped({ taglineText: "13 Marquees, and counting." })).toEqual({
+      taglineText: "13 Marquees, and counting.",
+    });
+  });
+
+  it("accepts null on taglineText as a request to clear it", () => {
+    expect(parseEquipped({ taglineText: null })).toEqual({ taglineText: null });
+  });
+
+  it("rejects an over-long taglineText", () => {
+    // Never supposed to arrive from a client at all (see /api/profile), but
+    // shape validation still refuses anything wildly oversized rather than
+    // silently truncating it.
+    expect(parseEquipped({ taglineText: "x".repeat(121) })).toBeNull();
+    expect(parseEquipped({ taglineText: "x".repeat(120) })).toEqual({
+      taglineText: "x".repeat(120),
+    });
+  });
+
+  it("rejects a non-string, non-null taglineText", () => {
+    expect(parseEquipped({ taglineText: 42 })).toBeNull();
+  });
 });
 
 describe("resolveEquipped", () => {
