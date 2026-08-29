@@ -26,6 +26,29 @@ describe("parseEquipped", () => {
     const parsed = parseEquipped({ frame: "frame.brass", nope: "x" });
     expect(parsed).toEqual({ frame: "frame.brass" });
   });
+
+  it("accepts null on the four slot fields as a request to clear them", () => {
+    expect(parseEquipped({ frame: null })).toEqual({ frame: null });
+    expect(parseEquipped({ tagline: null })).toEqual({ tagline: null });
+  });
+
+  it("accepts a real TMDB-shaped avatarPosterPath", () => {
+    expect(parseEquipped({ avatarPosterPath: "/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg" })).toEqual({
+      avatarPosterPath: "/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg",
+    });
+  });
+
+  it("rejects an avatarPosterPath that isn't a real TMDB-shaped path", () => {
+    // Traversal-ish: extra slashes/dots inside the path.
+    expect(parseEquipped({ avatarPosterPath: "/../../etc/passwd" })).toBeNull();
+    // CSS-breakout: ProfileCanvas puts this in an UNQUOTED `url(${POSTER}${avatar})`.
+    // Comma-separated backgrounds are valid CSS, so this string closes the
+    // first url(), opens a second pointing at an attacker's host, and fetches
+    // it for every viewer of the profile.
+    expect(
+      parseEquipped({ avatarPosterPath: "/x.jpg), url(https://evil.example/track.gif" }),
+    ).toBeNull();
+  });
 });
 
 describe("resolveEquipped", () => {

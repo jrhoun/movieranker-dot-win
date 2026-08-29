@@ -34,6 +34,17 @@ describe("validateEquipPatch", () => {
   it("accepts an empty patch", () => {
     expect(validateEquipPatch({}, owned, films)).toEqual({ ok: true });
   });
+
+  it("refuses an id that is owned but belongs to a different slot", () => {
+    // background.filmstrip is a starter (owned by everyone) but it's a
+    // background, not a frame — canEquip alone never checked that.
+    const r = validateEquipPatch({ frame: "background.filmstrip" }, owned, films);
+    expect(r.ok).toBe(false);
+  });
+
+  it("accepts null on a slot field as a request to clear it, with no ownership check", () => {
+    expect(validateEquipPatch({ tagline: null }, owned, films)).toEqual({ ok: true });
+  });
 });
 
 // avatarPosterPath is what ProfileCanvas actually renders — it never reads
@@ -82,6 +93,28 @@ describe("validateEquipPatch avatarPosterPath", () => {
       { avatarTmdbId: 155, avatarPosterPath: "/real-batman-poster.jpg" },
       owned,
       films,
+    );
+    expect(r.ok).toBe(false);
+  });
+
+  it("refuses a poster that matches a DIFFERENT owned film's real path", () => {
+    const r = validateEquipPatch(
+      // /real-fight-club-poster.jpg is real, but it's tmdbId 550's poster, not 155's.
+      { avatarTmdbId: 155, avatarPosterPath: "/real-fight-club-poster.jpg" },
+      owned,
+      films,
+      posterPathByTmdbId,
+    );
+    expect(r.ok).toBe(false);
+  });
+
+  it("refuses any poster for a film whose stored poster_path is null", () => {
+    const mapWithNullPoster = new Map([[155, null]]);
+    const r = validateEquipPatch(
+      { avatarTmdbId: 155, avatarPosterPath: "/anything.jpg" },
+      owned,
+      films,
+      mapWithNullPoster,
     );
     expect(r.ok).toBe(false);
   });

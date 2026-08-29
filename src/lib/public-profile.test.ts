@@ -153,4 +153,27 @@ describe("showcase equipped block", () => {
     expect(parseShowcase({ achievementKeys: [], favoriteListId: null, equipped: null }))
       .toEqual({ achievementKeys: [], favoriteListId: null });
   });
+
+  it("strips a stored slot-field null on read, same as mergeShowcase does on write", () => {
+    // mergeShowcase always deletes a cleared slot before persisting, but a
+    // row written some other way could still carry one — parseShowcase must
+    // not let it leak through as a distinct-from-absent value.
+    expect(parseShowcase({ achievementKeys: [], favoriteListId: null, equipped: { frame: null } }))
+      .toEqual({ achievementKeys: [], favoriteListId: null });
+  });
+
+  it("clears a slot when the patch sets it to null, preserving the others", () => {
+    const merged = mergeShowcase(
+      {
+        achievementKeys: [],
+        favoriteListId: null,
+        equipped: { tagline: "tagline.80s.rewind", frame: "frame.brass" },
+      },
+      { equipped: { tagline: null } },
+    );
+    // The key is gone entirely — not present-but-null — so nothing downstream
+    // has to treat a stored null as a special case.
+    expect(merged?.equipped).toEqual({ frame: "frame.brass" });
+    expect(merged?.equipped).not.toHaveProperty("tagline");
+  });
 });

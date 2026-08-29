@@ -216,6 +216,40 @@ describe("PATCH /api/profile — showcase", () => {
     expect(body.error).toBe("claim a handle first");
   });
 
+  it("strips a client-supplied lifetimeXp instead of storing it", async () => {
+    // CRITICAL: lifetimeXp is server-derived. Without stripping it, a client
+    // could (1) PATCH an inflated lifetimeXp here, then (2) send any equip
+    // PATCH — whose guard reads lifetimeXp back via fetchCareerXp /
+    // grandfatheredXp / levelFor — and get every level-gated item, the pin
+    // gate, and the proposals gate for free. Closing step 1 breaks the chain.
+    currentDb.row = {
+      id: "u-1",
+      showcase: { achievementKeys: [], favoriteListId: null, lifetimeXp: 50 },
+    };
+    currentDb.writeResult = { data: { id: "u-1" }, error: null };
+    const res = await patchShowcase({ lifetimeXp: 999999999 });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { showcase: { lifetimeXp?: number } };
+    expect(body.showcase.lifetimeXp).toBe(50);
+    const upd = currentDb.calls.find((c) => c.method === "update")!;
+    expect((upd.args[0] as { showcase: { lifetimeXp?: number } }).showcase.lifetimeXp).toBe(50);
+  });
+
+  it("strips lifetimeXp even riding alongside a legitimate field in the same request", async () => {
+    currentDb.row = {
+      id: "u-1",
+      showcase: { achievementKeys: [], favoriteListId: null, lifetimeXp: 50 },
+    };
+    currentDb.writeResult = { data: { id: "u-1" }, error: null };
+    const res = await patchShowcase({ achievementKeys: ["first_premiere"], lifetimeXp: 999999999 });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      showcase: { achievementKeys: string[]; lifetimeXp?: number };
+    };
+    expect(body.showcase.achievementKeys).toEqual(["first_premiere"]);
+    expect(body.showcase.lifetimeXp).toBe(50);
+  });
+
   it("400 when neither visibility nor showcase is present", async () => {
     currentDb.row = { id: "u-1", showcase: {} };
     const { PATCH } = await import("./route");

@@ -153,6 +153,18 @@ export async function PATCH(request: Request) {
   if (body.showcase !== undefined) {
     if (typeof body.showcase !== "object" || body.showcase === null || Array.isArray(body.showcase))
       return invalid("invalid showcase");
+
+    // lifetimeXp is server-derived and ratcheted only by the profile page's
+    // own server component (src/app/(site)/u/profile/page.tsx), which writes
+    // it via a direct Supabase update that bypasses this API entirely.
+    // mergeShowcase itself still accepts a lifetimeXp patch (that ratchet is
+    // its own tested contract), so it must never see whatever a client sent
+    // here — otherwise a single PATCH could inflate lifetimeXp arbitrarily,
+    // and every level-gated cosmetic, the pin gate, and the proposals gate
+    // all trust the level that number produces.
+    const clientShowcase: Record<string, unknown> = { ...(body.showcase as Record<string, unknown>) };
+    delete clientShowcase.lifetimeXp;
+
     // Current stored value first so a partial patch preserves the other field.
     const { data: row } = await supabase
       .from("profiles")
@@ -162,12 +174,13 @@ export async function PATCH(request: Request) {
     if (!row)
       return NextResponse.json({ error: "claim a handle first" }, { status: 409 });
 
-    // Trust boundary: ownership is recomputed here from the user's own
-    // finished-list rows, never from anything the client sent. A client
-    // could otherwise POST any catalogue id and equip a cosmetic it never
-    // earned, or pin an arbitrary poster as its avatar.
+    // Trust boundary: ownership of catalogue items and avatar posters is
+    // recomputed here from the user's own finished-list rows, never from
+    // anything the client sent. A client could otherwise POST any catalogue
+    // id and equip a cosmetic it never earned, or pin an arbitrary poster as
+    // its avatar.
     const equipPatch = parseEquipped(
-      (body.showcase as { equipped?: unknown } | undefined)?.equipped,
+      (clientShowcase as { equipped?: unknown }).equipped,
     );
     if (equipPatch === null) return invalid("invalid equipped block");
     if (Object.keys(equipPatch).length > 0) {
@@ -225,12 +238,18 @@ export async function PATCH(request: Request) {
       // an unbounded scan of every Marquee completion ever recorded.
       let standing = { firstToMarquee: false, top10Marquee: false, top100Marquee: false };
       if (finishedThemeSlugs.length > 0) {
+        // Ordered oldest-first before the cap: an unordered .limit(10000)
+        // could truncate away the EARLIEST completions of a theme, making a
+        // later completer look like rank 1 and wrongly granting
+        // marquee_pioneer. Ordering means the cap can only drop the latest
+        // (irrelevant to who was first) rather than fail open.
         const { data: themeRowsData } = await supabase
           .from("lists")
           .select("owner_id,theme_slug,created_at")
           .in("theme_slug", finishedThemeSlugs)
           .eq("status", "done")
           .in("visibility", ["unlisted", "public"])
+          .order("created_at", { ascending: true })
           .limit(10000);
         const completions = ((themeRowsData ?? []) as Record<string, unknown>[])
           .filter((r) => typeof r.owner_id === "string" && typeof r.theme_slug === "string")
@@ -269,7 +288,7 @@ export async function PATCH(request: Request) {
 
     const merged = mergeShowcase(
       (row as { showcase?: unknown }).showcase,
-      body.showcase as { achievementKeys?: unknown; favoriteListId?: unknown; equipped?: unknown },
+      clientShowcase as { achievementKeys?: unknown; favoriteListId?: unknown; equipped?: unknown },
     );
     if (!merged) return invalid("invalid showcase");
     if (merged.favoriteListId) {

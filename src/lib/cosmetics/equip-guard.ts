@@ -1,6 +1,7 @@
 // src/lib/cosmetics/equip-guard.ts
+import { itemById } from "./catalogue";
 import { canEquip } from "./ownership";
-import type { Equipped } from "./equipped";
+import { ID_FIELDS, type Equipped } from "./equipped";
 
 /**
  * The write-time half of the trust boundary. Ownership is recomputed on the
@@ -21,10 +22,13 @@ export function validateEquipPatch(
   ownedTmdbIds: Set<number>,
   posterPathByTmdbId?: Map<number, string | null>,
 ): { ok: true } | { ok: false; error: string } {
-  for (const field of ["frame", "background", "overlay", "tagline"] as const) {
+  for (const field of ID_FIELDS) {
     const id = patch[field];
-    if (id === undefined) continue;
-    if (!canEquip(id, owned)) {
+    if (id === undefined || id === null) continue; // null clears the slot — no unlock needed.
+    // canEquip alone doesn't check the item is even FOR this slot, so
+    // { frame: "background.velvet" } would otherwise pass for anyone who
+    // owns that background.
+    if (!canEquip(id, owned) || itemById(id)?.slot !== field) {
       return { ok: false, error: `You have not unlocked "${id}".` };
     }
   }

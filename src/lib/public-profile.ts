@@ -8,7 +8,7 @@ import {
   levelFor,
 } from "./gamification";
 import { reconcileCareerXp, toXpLists } from "./career-xp";
-import { parseEquipped, type Equipped } from "./cosmetics/equipped";
+import { ID_FIELDS, parseEquipped, type Equipped } from "./cosmetics/equipped";
 import {
   chipParticipants,
   type AttributionRow,
@@ -66,6 +66,14 @@ export function parseShowcase(input: unknown): ProfileShowcase | null {
   // malformed one — every other field here tolerates absence the same way.
   const equipped = parseEquipped(o.equipped ?? undefined);
   if (equipped === null) return null;
+  // parseEquipped accepts a literal null on a slot field as mergeShowcase's
+  // "clear this slot" signal — mergeShowcase deletes the key before it's
+  // ever persisted, but a row written some other way (or by an older,
+  // buggier mergeShowcase) could still carry one. Strip it here too, so a
+  // reader never has to treat a stored null as distinct from "absent".
+  for (const field of ID_FIELDS) {
+    if (equipped[field] === null) delete equipped[field];
+  }
   return {
     achievementKeys: keys,
     favoriteListId: fav,
@@ -116,7 +124,14 @@ export function mergeShowcase(
     const next = parseEquipped(patch.equipped);
     if (next === null) return null;
     // Merge rather than replace, so equipping a frame does not clear a tagline.
-    equipped = { ...(equipped ?? {}), ...next };
+    const combined: Equipped = { ...(equipped ?? {}), ...next };
+    // `null` on a slot field is parseEquipped's "clear this slot" signal —
+    // delete the key rather than persisting a literal null, which nothing
+    // downstream (resolveEquipped, ProfileCanvas, the OG card) expects.
+    for (const field of ID_FIELDS) {
+      if (combined[field] === null) delete combined[field];
+    }
+    equipped = combined;
   }
   return {
     achievementKeys,
