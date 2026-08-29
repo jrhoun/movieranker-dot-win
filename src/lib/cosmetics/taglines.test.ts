@@ -186,6 +186,17 @@ describe("resolveTaglineText — the single supported way to get DISPLAY text", 
     expect(resolveTaglineText("tagline.does-not-exist", zero)).toBeUndefined();
   });
 
+  it("no earned line resolves to text before it is earned", () => {
+    // Stronger than the placeholder guard below, which only constrains results
+    // that come back defined — a placeholder-free earned line
+    // ("First through the door.") satisfied it while leaking its real text.
+    // Every earned line must resolve to nothing until it is actually earned,
+    // whether or not it happens to contain a "{count}".
+    for (const t of EARNED_TAGLINES) {
+      expect(resolveTaglineText(t.id, zero), `${t.id} leaked before it was earned`).toBeUndefined();
+    }
+  });
+
   it("never returns a raw template placeholder, for any tagline under any stats", () => {
     // Iterate every id the catalogue knows about, under both a record that
     // qualifies for nothing and one that qualifies for everything. Whatever

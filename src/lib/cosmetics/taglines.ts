@@ -83,6 +83,16 @@ export const EARNED_TAGLINES: TaglineItem[] = [
   },
 ];
 
+/**
+ * Membership set for the earned ids, so `resolveTaglineText` can recognise an
+ * unqualified earned line by WHICH line it is rather than by inspecting its
+ * text. Text is not a reliable signal: `tagline.earned.pioneer` reads "First
+ * through the door." and carries no `{count}` placeholder at all, so a
+ * `text.includes("{")` sniff would hand its real display text to a user who
+ * has not earned it.
+ */
+const EARNED_IDS = new Set(EARNED_TAGLINES.map((t) => t.id));
+
 export const TAGLINES: TaglineItem[] = [
   // The Trailer
   line("trailer.in-a-world", "The Trailer", "In a world…", STARTER),
@@ -196,9 +206,11 @@ export function resolveTaglineText(
 ): string | undefined {
   const earned = earnedTaglines(stats).find((t) => t.id === id);
   if (earned) return earned.text;
-  const item = taglineById(id);
-  if (!item) return undefined;
   // An earned id the user has not qualified for resolves to nothing rather
-  // than to its raw template.
-  return item.text.includes("{") ? undefined : item.text;
+  // than to its catalogue entry. Decided by MEMBERSHIP in EARNED_TAGLINES, not
+  // by looking for a "{" in the text: `tagline.earned.pioneer` has no
+  // placeholder ("First through the door."), so a text sniff would leak its
+  // real display text to someone who has not earned it.
+  if (EARNED_IDS.has(id)) return undefined;
+  return taglineById(id)?.text;
 }
