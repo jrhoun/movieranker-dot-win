@@ -104,6 +104,18 @@ describe("shapePublicProfile", () => {
     expect(shaped.level.level).toBeGreaterThan(levelFor(10).level);
   });
 
+  it("counts the marquee bonus on public themed lists", () => {
+    const six = Array.from({ length: 6 }, (_, i) => ({ title: `m${i}`, poster_path: null }));
+    const plain = shapePublicProfile([list({ list_movies: six })]);
+    const marquee = shapePublicProfile([
+      list({ theme_slug: "secretly-the-same-story", list_movies: six }),
+    ]);
+    // Same six films; the themed one also earns the completion bonus, so a
+    // public profile no longer has to wait on the owner's ratchet to show it.
+    expect(marquee.level.level).toBeGreaterThan(plain.level.level);
+    expect(marquee.moviesRanked).toBe(plain.moviesRanked);
+  });
+
   it("shapes cards with UTC dates and posters", () => {
     const [shaped] = [shapePublicProfile([list({ list_movies: [{ title: "Alien", poster_path: "/a.jpg" }] })])];
     expect(shaped.cards[0]).toEqual({
