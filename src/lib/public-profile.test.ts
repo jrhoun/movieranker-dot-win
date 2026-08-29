@@ -130,3 +130,22 @@ describe("shapePublicProfile", () => {
     expect(shapePublicProfile([])).toEqual({ cards: [], moviesRanked: 0, level: expect.objectContaining({ level: 1 }) });
   });
 });
+
+describe("showcase equipped block", () => {
+  it("round-trips through parse", () => {
+    const parsed = parseShowcase({ achievementKeys: [], favoriteListId: null, equipped: { frame: "frame.brass" } });
+    expect(parsed?.equipped).toEqual({ frame: "frame.brass" });
+  });
+
+  it("rejects a malformed equipped block outright", () => {
+    expect(parseShowcase({ achievementKeys: [], favoriteListId: null, equipped: { frame: 7 } })).toBeNull();
+  });
+
+  it("merging one slot preserves the others", () => {
+    const merged = mergeShowcase(
+      { achievementKeys: [], favoriteListId: null, equipped: { tagline: "tagline.80s.rewind" } },
+      { equipped: { frame: "frame.brass" } },
+    );
+    expect(merged?.equipped).toEqual({ tagline: "tagline.80s.rewind", frame: "frame.brass" });
+  });
+});

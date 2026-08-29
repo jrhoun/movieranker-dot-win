@@ -1,0 +1,55 @@
+import { describe, expect, it } from "vitest";
+import { parseEquipped, resolveEquipped } from "./equipped";
+import { starterFor } from "./catalogue";
+import { ownedItemIds } from "./ownership";
+
+const newUser = () =>
+  ownedItemIds({ userId: "u", level: 1, unlockedAchievementKeys: [], finishedThemeSlugs: [] });
+
+describe("parseEquipped", () => {
+  it("accepts an absent or empty block", () => {
+    expect(parseEquipped(undefined)).toEqual({});
+    expect(parseEquipped({})).toEqual({});
+  });
+
+  it("rejects non-objects", () => {
+    for (const bad of [null, 3, "x", []]) expect(parseEquipped(bad)).toBeNull();
+  });
+
+  it("rejects wrong types for known fields", () => {
+    expect(parseEquipped({ frame: 3 })).toBeNull();
+    expect(parseEquipped({ avatarTmdbId: "155" })).toBeNull();
+    expect(parseEquipped({ avatarTmdbId: 1.5 })).toBeNull();
+  });
+
+  it("keeps only known fields, dropping anything else", () => {
+    const parsed = parseEquipped({ frame: "frame.brass", nope: "x" });
+    expect(parsed).toEqual({ frame: "frame.brass" });
+  });
+});
+
+describe("resolveEquipped", () => {
+  it("falls back to the starter when nothing is equipped", () => {
+    const r = resolveEquipped({}, newUser());
+    expect(r.frame).toBe(starterFor("frame").id);
+    expect(r.background).toBe(starterFor("background").id);
+    expect(r.overlay).toBe(starterFor("overlay").id);
+  });
+
+  it("drops an equipped id the user does not own", () => {
+    // Re-checked at render, not only at write: this is what makes changing an
+    // unlock threshold safe, and what stops a revoked grant still rendering.
+    const r = resolveEquipped({ frame: "frame.neon-cyan" }, newUser());
+    expect(r.frame).toBe(starterFor("frame").id);
+  });
+
+  it("keeps an owned id", () => {
+    const id = starterFor("frame").id;
+    expect(resolveEquipped({ frame: id }, newUser()).frame).toBe(id);
+  });
+
+  it("passes the avatar through untouched — it is validated separately", () => {
+    const r = resolveEquipped({ avatarTmdbId: 155, avatarPosterPath: "/x.jpg" }, newUser());
+    expect(r.avatarTmdbId).toBe(155);
+  });
+});
