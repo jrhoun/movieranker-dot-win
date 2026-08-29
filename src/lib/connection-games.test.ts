@@ -73,13 +73,13 @@ describe("CONNECTION_GAMES authoring rules", () => {
       return [...lengths].sort((a, b) => b - a).indexOf(lengths[0]) + 1;
     });
     const meanRank = ranks.reduce((a, b) => a + b, 0) / ranks.length;
-    expect(meanRank, `answer is too reliably the longest option`).toBeGreaterThan(1.7);
+    expect(meanRank, `answer is too reliably the longest option`).toBeGreaterThan(1.9);
 
     // And no single answer should tower over its distractors, since that is
     // visible even when the average looks healthy.
     const worstMargin = Math.max(
       ...entries.map(([, g]) => g.options[0].length - Math.max(...g.options.slice(1).map((o) => o.length))),
     );
-    expect(worstMargin, "one answer is much longer than any of its distractors").toBeLessThan(12);
+    expect(worstMargin, "one answer is much longer than any of its distractors").toBeLessThan(6);
   });
 });
