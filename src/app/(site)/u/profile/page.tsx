@@ -2,7 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import ClaimHandleCard from "@/components/profile/ClaimHandleCard";
-import Nameplate from "@/components/profile/Nameplate";
+import ProfileCanvas from "@/components/profile/ProfileCanvas";
+import CosmeticPicker, { type PickerItem } from "@/components/profile/CosmeticPicker";
+import AvatarPicker from "@/components/profile/AvatarPicker";
 import LevelProgressionModal from "@/components/profile/LevelProgressionModal";
 import ReferralInviteCard from "@/components/profile/ReferralInviteCard";
 import ShowcaseCard from "@/components/profile/ShowcaseCard";
@@ -22,9 +24,40 @@ import {
   levelFor,
   unlockedAt,
   xpProgress,
+  type AchievementStats,
 } from "@/lib/gamification";
 import { reconcileCareerXp, toXpLists } from "@/lib/career-xp";
 import { marqueeStanding, type ThemeCompletion } from "@/lib/marquee-standing";
+import { ownedItemIds } from "@/lib/cosmetics/ownership";
+import { resolveEquipped } from "@/lib/cosmetics/equipped";
+import { itemsForSlot, SLOTS } from "@/lib/cosmetics/catalogue";
+import { resolveTaglineText } from "@/lib/cosmetics/taglines";
+import type { Slot, TaglineItem } from "@/lib/cosmetics/types";
+
+const SLOT_LABEL: Record<Slot, string> = {
+  frame: "Frame",
+  background: "Background",
+  overlay: "Overlay",
+  tagline: "Tagline",
+};
+
+/**
+ * Labels are resolved here, server-side, never handed to the client as raw
+ * catalogue items: the tagline slot's earned lines carry a literal "{count}"
+ * template (or, for tagline.earned.pioneer, the exact spoiler text a user who
+ * hasn't earned it must not see). resolveTaglineText enforces both; an
+ * earned line the viewer hasn't qualified for falls back to its set name
+ * ("Earned") rather than leaking real text.
+ */
+function pickerItems(slot: Slot, stats: AchievementStats): PickerItem[] {
+  if (slot === "tagline") {
+    return (itemsForSlot("tagline") as TaglineItem[]).map((t) => ({
+      id: t.id,
+      name: resolveTaglineText(t.id, stats) ?? t.set,
+    }));
+  }
+  return itemsForSlot(slot).map((i) => ({ id: i.id, name: i.name }));
+}
 
 interface DbList {
   id: string;
@@ -166,7 +199,7 @@ export default async function MyListsPage() {
     }));
   const standing = marqueeStanding(completions, auth.user.id);
 
-  const achievements = evaluateAchievements({
+  const achievementStats: AchievementStats = {
     doneLists: doneCards.length,
     // Films actually ranked, not XP. Reading XP here meant seven referrals
     // unlocked "ranked a hundred films" for someone who had ranked none.
@@ -176,9 +209,51 @@ export default async function MyListsPage() {
     marqueeWeeks: xpLists.filter((l) => l.done && l.isMarquee).length,
     marqueeConnectionsSolved: solveCount ?? 0,
     ...standing,
-  });
+  };
+  const achievements = evaluateAchievements(achievementStats);
   const level = levelFor(progress.current);
   const { unlocked, locked } = unlockedAt(level.level);
+
+  // Same rows /api/profile's equip validator reads (owner_id + status=done,
+  // oldest first): ownedItemIds replays canister drops in this order, so any
+  // other ordering here could show a picker item as owned that a real equip
+  // request would then 403. Filter-then-sort is equivalent to the
+  // validator's sort-then-filter since sorting never reorders within the
+  // filtered subset.
+  const finishedThemeSlugs = ((lists ?? []) as (DbList & { theme_slug?: string | null })[])
+    .filter(
+      (l): l is DbList & { theme_slug: string } =>
+        l.status === "done" && typeof l.theme_slug === "string" && l.theme_slug.length > 0,
+    )
+    .slice()
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .map((l) => l.theme_slug);
+
+  const ownedCosmetics = ownedItemIds({
+    userId: auth.user.id,
+    level: level.level,
+    unlockedAchievementKeys: achievements.filter((a) => a.unlocked).map((a) => a.key),
+    finishedThemeSlugs,
+  });
+  const canvasEquipped = resolveEquipped(showcase.equipped, ownedCosmetics);
+  const taglineText = canvasEquipped.tagline
+    ? resolveTaglineText(canvasEquipped.tagline, achievementStats)
+    : undefined;
+  const ownedCosmeticIds = [...ownedCosmetics];
+
+  // Avatar picker source: this user's own finished films, built straight from
+  // the raw rows (title/poster_path/tmdb_id travel together per movie) rather
+  // than zipping ListRowData's `posters` against its `movieIds` — those two
+  // arrays are filtered independently and can misalign whenever a row is
+  // missing a tmdb_id.
+  const avatarFilms = ((lists ?? []) as DbList[])
+    .filter((l) => l.status === "done")
+    .flatMap((l) => l.list_movies ?? [])
+    .filter(
+      (m): m is { title: string; poster_path: string | null; tmdb_id: number } =>
+        typeof m.tmdb_id === "number",
+    )
+    .map((m) => ({ tmdbId: m.tmdb_id, title: m.title, posterPath: m.poster_path }));
 
   // Background ratchet: lock in new peak XP so deleting lists later never loses rank
   if (claimed && breakdown.total > (showcase.lifetimeXp ?? 0)) {
@@ -194,9 +269,7 @@ export default async function MyListsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <MarqueeHeading>My Profile & Lists</MarqueeHeading>
-          {claimed && profile?.handle ? (
-            <Nameplate handle={profile.handle} level={progress.level} size="compact" className="mt-1" />
-          ) : (
+          {!claimed && (
             <p className="mt-1 text-xs text-muted">
               Track your ranking progress, achievements, and movie collections.
             </p>
@@ -219,6 +292,23 @@ export default async function MyListsPage() {
           </Link>
         </div>
       </div>
+
+      {/* Rendered as its own block rather than inside the flex header row
+          above: ProfileCanvas is a bordered, padded card, and a row laid out
+          with `justify-between` against MarqueeHeading and the Preview/Settings
+          links would stretch or overflow it — exactly the sideways-scroll
+          failure this feature must not introduce at narrow widths. */}
+      {claimed && profile?.handle && (
+        <div className="mt-4 max-w-sm">
+          <ProfileCanvas
+            handle={profile.handle}
+            level={progress.level}
+            equipped={canvasEquipped}
+            posters={doneCards.flatMap((c) => c.posters).slice(0, 6)}
+            taglineText={taglineText}
+          />
+        </div>
+      )}
 
       {!claimed && (
         <div className="mt-4">
@@ -414,6 +504,39 @@ export default async function MyListsPage() {
           </div>
         </div>
       </div>
+
+      {/* Customise: cosmetics equipped on ProfileCanvas above, one picker per slot. */}
+      {claimed && profile?.handle && (
+        <section
+          aria-labelledby="customise-heading"
+          className="mt-6 rounded-xl bg-surface p-5 ring-1 ring-white/10 shadow-lg"
+        >
+          <h2 id="customise-heading" className="font-display text-sm uppercase tracking-[0.14em] text-gold">
+            Customise
+          </h2>
+          <div className="mt-4 space-y-5">
+            {SLOTS.map((slot) => (
+              <div key={slot}>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-text/80">
+                  {SLOT_LABEL[slot]}
+                </h3>
+                <CosmeticPicker
+                  slot={slot}
+                  items={pickerItems(slot, achievementStats)}
+                  owned={ownedCosmeticIds}
+                  current={canvasEquipped[slot] ?? undefined}
+                />
+              </div>
+            ))}
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-text/80">
+                Avatar
+              </h3>
+              <AvatarPicker films={avatarFilms} current={canvasEquipped.avatarTmdbId} />
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Row 3 (1 Col): All My Lists */}
       <section aria-labelledby="lists-heading" className="mt-8">

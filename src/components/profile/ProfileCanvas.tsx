@@ -63,11 +63,25 @@ export default function ProfileCanvas({
       )}
       {background === "background.spotlight" && avatar && (
         <>
-          <div
-            aria-hidden
-            className="absolute -inset-[25%] z-0 bg-cover bg-center opacity-45 blur-2xl"
-            style={{ backgroundImage: `url(${POSTER}${avatar})` }}
-          />
+          {/*
+            An <img>, never a CSS `url()`: `avatar` can fall back to a poster
+            path pulled from list_movies.poster_path, which /api/lists/[id]
+            stores with no shape validation. Comma-separated multi-background
+            is valid CSS, so an unvalidated value there could smuggle a second
+            `url(...)` and fetch a third-party URL for every viewer of this
+            profile. An <img src> has no such escape hatch.
+            The wrapper carries the -inset-[25%] bleed and clips it; the
+            replaced <img> element sizes against that box via h-full w-full
+            rather than its own intrinsic size.
+          */}
+          <div aria-hidden className="absolute -inset-[25%] z-0 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`${POSTER}${avatar}`}
+              alt=""
+              className="h-full w-full object-cover opacity-45 blur-2xl"
+            />
+          </div>
           <div aria-hidden className="cb-beam absolute inset-0 z-[1]" />
           <div aria-hidden className="cb-vignette absolute inset-0 z-[1]" />
         </>

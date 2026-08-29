@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import Nameplate from "@/components/profile/Nameplate";
+import ProfileCanvas from "@/components/profile/ProfileCanvas";
 import ParticipantChips from "@/components/ParticipantChips";
 import MoviePoster from "@/components/list/MoviePoster";
 import { normalizeHandle } from "@/lib/handles";
 import { evaluateAchievements } from "@/lib/gamification";
 import { marqueeStanding, type ThemeCompletion } from "@/lib/marquee-standing";
+import { ownedItemIds } from "@/lib/cosmetics/ownership";
+import { resolveEquipped } from "@/lib/cosmetics/equipped";
+import { resolveTaglineText } from "@/lib/cosmetics/taglines";
 import {
   EMPTY_SHOWCASE,
   parseShowcase,
@@ -182,16 +185,51 @@ export default async function PublicProfilePage({
     // the badge must count only the ones that were actually cracked.
     .eq("correct", true);
 
+  // Same rows the /api/profile equip validator reads (the owner's own done
+  // lists, oldest first): ownedItemIds replays canister drops in this order,
+  // so any other ordering here could show a cosmetic as owned that a real
+  // equip request would then 403. Filter-then-sort is equivalent to the
+  // validator's sort-then-filter since sorting never reorders within the
+  // filtered subset.
+  const finishedThemeSlugs = ((lists ?? []) as Record<string, unknown>[])
+    .filter(
+      (r) =>
+        r.status === "done" &&
+        typeof r.theme_slug === "string" &&
+        (r.theme_slug as string).length > 0,
+    )
+    .slice()
+    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
+    .map((r) => r.theme_slug as string);
+
   // Unlocked only; cards.length is the public done-list count (shapePublicProfile
   // filters to status=done + visibility=public, so private/unlisted never count).
-  const allAchievements = evaluateAchievements({
+  // marqueeWeeks was missing here before this task: without it, "season_ticket"
+  // (12 finished Marquees) could never unlock on this page, so an equipped
+  // attendance tagline would silently fall back to nothing. Added to match the
+  // /api/profile validator, which does count it (`marqueeWeeks: finishedThemeSlugs.length`).
+  const achievementStats = {
     doneLists: cards.length,
     moviesRanked,
     maxMoviesInSingleList: Math.max(0, ...cards.map((c) => c.posters.length)),
     coCuratedLists: cards.filter((c) => (c.chips?.length ?? 0) > 0).length,
+    marqueeWeeks: finishedThemeSlugs.length,
     marqueeConnectionsSolved: solveCount ?? 0,
     ...standing,
-  }).filter((a) => a.unlocked);
+  };
+  const allAchievements = evaluateAchievements(achievementStats).filter((a) => a.unlocked);
+
+  const ownedCosmetics = ownedItemIds({
+    userId: profile.id,
+    level: level.level,
+    unlockedAchievementKeys: allAchievements.map((a) => a.key),
+    finishedThemeSlugs,
+  });
+  const canvasEquipped = resolveEquipped(showcase.equipped, ownedCosmetics);
+  const taglineText = canvasEquipped.tagline
+    ? resolveTaglineText(canvasEquipped.tagline, achievementStats)
+    : undefined;
+
   // Showcase curation: featured list + pinned achievements first. The favorite
   // must be among the shaped (public done) cards or it is silently omitted.
   const featured = showcase.favoriteListId
@@ -226,7 +264,13 @@ export default async function PublicProfilePage({
         </div>
       )}
       <header>
-        <Nameplate handle={profile.handle} level={level.level} />
+        <ProfileCanvas
+          handle={profile.handle}
+          level={level.level}
+          equipped={canvasEquipped}
+          posters={cards.flatMap((c) => c.posters).slice(0, 6)}
+          taglineText={taglineText}
+        />
         {/* Single-line Level & Rank badge */}
         <div className="mt-2 flex items-center justify-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/15 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-gold ring-1 ring-gold/40 shadow-sm">
