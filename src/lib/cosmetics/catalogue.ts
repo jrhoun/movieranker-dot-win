@@ -2,11 +2,12 @@
 import { BACKGROUNDS } from "./backgrounds";
 import { FRAMES } from "./frames";
 import { OVERLAYS } from "./overlays";
+import { TAGLINES } from "./taglines";
 import type { CosmeticItem, Slot } from "./types";
 
 export const SLOTS: Slot[] = ["frame", "background", "overlay", "tagline"];
 
-export const CATALOGUE: CosmeticItem[] = [...FRAMES, ...BACKGROUNDS, ...OVERLAYS];
+export const CATALOGUE: CosmeticItem[] = [...FRAMES, ...BACKGROUNDS, ...OVERLAYS, ...TAGLINES];
 
 const BY_ID = new Map(CATALOGUE.map((i) => [i.id, i]));
 

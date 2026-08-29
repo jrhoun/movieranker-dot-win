@@ -15,8 +15,7 @@ describe("catalogue integrity", () => {
   });
 
   it("every slot offers at least one starter, so a new profile can be dressed", () => {
-    // Task 3 adds the tagline slot and restores this to the full SLOTS list.
-    for (const slot of SLOTS.filter((s) => s !== "tagline")) {
+    for (const slot of SLOTS) {
       const starters = itemsForSlot(slot).filter((i) => i.unlock.kind === "starter");
       expect(starters.length, `${slot} has no starter`).toBeGreaterThanOrEqual(1);
       expect(starterFor(slot).unlock.kind).toBe("starter");
