@@ -32,6 +32,56 @@ const MARQUEE_LINES: TaglineItem[] = SHORTLIST_THEMES.map((theme) => ({
   rights: "owned",
 }));
 
+/**
+ * Static catalogue entries for earned lines, carrying a literal `{count}`
+ * placeholder where a number is interpolated at call time. These reach
+ * `CATALOGUE`/`TAGLINES` so ownership (derived by iterating `CATALOGUE`) and
+ * equipping can see them like any other `{ kind: "challenge" }` item —
+ * `earnedTaglines` below only fills in the number, it does not invent ids.
+ */
+export const EARNED_TAGLINES: TaglineItem[] = [
+  {
+    id: "tagline.earned.attendance",
+    slot: "tagline",
+    name: "{count} Marquees, and counting.",
+    text: "{count} Marquees, and counting.",
+    set: "Earned",
+    unlock: { kind: "challenge", key: "season_ticket" },
+    rarity: "common",
+    rights: "owned",
+  },
+  {
+    id: "tagline.earned.solver",
+    slot: "tagline",
+    name: "{count} connections, cracked.",
+    text: "{count} connections, cracked.",
+    set: "Earned",
+    unlock: { kind: "challenge", key: "cryptologist" },
+    rarity: "rare",
+    rights: "owned",
+  },
+  {
+    id: "tagline.earned.centurion",
+    slot: "tagline",
+    name: "{count} films ranked. No regrets.",
+    text: "{count} films ranked. No regrets.",
+    set: "Earned",
+    unlock: { kind: "challenge", key: "centurion" },
+    rarity: "rare",
+    rights: "owned",
+  },
+  {
+    id: "tagline.earned.pioneer",
+    slot: "tagline",
+    name: "First through the door.",
+    text: "First through the door.",
+    set: "Earned",
+    unlock: { kind: "challenge", key: "marquee_pioneer" },
+    rarity: "legendary",
+    rights: "owned",
+  },
+];
+
 export const TAGLINES: TaglineItem[] = [
   // The Trailer
   line("trailer.in-a-world", "The Trailer", "In a world…", STARTER),
@@ -78,6 +128,7 @@ export const TAGLINES: TaglineItem[] = [
   line("10s.still-watching", "The 2010s", "Are you still watching?", DROP, "rare"),
 
   ...MARQUEE_LINES,
+  ...EARNED_TAGLINES,
 ];
 
 /** Typed lookup, so callers reach `.text` without narrowing a CosmeticItem. */
@@ -85,36 +136,40 @@ export function taglineById(id: string): TaglineItem | undefined {
   return TAGLINES.find((t) => t.id === id);
 }
 
+function earnedTemplate(id: string): TaglineItem {
+  const template = EARNED_TAGLINES.find((t) => t.id === id);
+  if (!template) throw new Error(`no earned tagline template for "${id}"`);
+  return template;
+}
+
+/** Substitutes the literal `{count}` placeholder with the real number. */
+function withCount(template: TaglineItem, count: number): TaglineItem {
+  const text = template.text.replace("{count}", String(count));
+  return { ...template, name: text, text };
+}
+
 /**
- * Lines drawn from what the user has actually done. Never purchasable and never
- * droppable: the point is that they cannot be obtained any other way.
+ * Lines drawn from what the user has actually done. Derived from
+ * `EARNED_TAGLINES`, so the ids/unlocks/rarities live in exactly one place.
+ * Never purchasable and never droppable: the point is that they cannot be
+ * obtained any other way.
  */
 export function earnedTaglines(stats: AchievementStats): TaglineItem[] {
   const out: TaglineItem[] = [];
-  const earned = (id: string, text: string, key: string, rarity: Rarity): TaglineItem => ({
-    id: `tagline.earned.${id}`,
-    slot: "tagline",
-    name: text,
-    text,
-    set: "Earned",
-    unlock: { kind: "challenge", key },
-    rarity,
-    rights: "owned",
-  });
 
   const weeks = stats.marqueeWeeks ?? 0;
   if (weeks > 0) {
-    out.push(earned("attendance", `${weeks} Marquees, and counting.`, "season_ticket", "common"));
+    out.push(withCount(earnedTemplate("tagline.earned.attendance"), weeks));
   }
   const solved = stats.marqueeConnectionsSolved ?? 0;
   if (solved >= 5) {
-    out.push(earned("solver", `${solved} connections, cracked.`, "cryptologist", "rare"));
+    out.push(withCount(earnedTemplate("tagline.earned.solver"), solved));
   }
   if (stats.moviesRanked >= 100) {
-    out.push(earned("centurion", `${stats.moviesRanked} films ranked. No regrets.`, "centurion", "rare"));
+    out.push(withCount(earnedTemplate("tagline.earned.centurion"), stats.moviesRanked));
   }
   if (stats.firstToMarquee) {
-    out.push(earned("pioneer", "First through the door.", "marquee_pioneer", "legendary"));
+    out.push(earnedTemplate("tagline.earned.pioneer"));
   }
   return out;
 }

@@ -1,7 +1,9 @@
 // src/lib/cosmetics/taglines.test.ts
 import { describe, expect, it } from "vitest";
-import { TAGLINES, earnedTaglines, taglineById } from "./taglines";
+import { EARNED_TAGLINES, TAGLINES, earnedTaglines, taglineById } from "./taglines";
+import { itemById } from "./catalogue";
 import { SHORTLIST_THEMES } from "@/lib/shortlist-themes";
+import { ACHIEVEMENTS } from "@/lib/gamification";
 
 describe("the rights invariant", () => {
   it("no referential line is ever purchasable", () => {
@@ -80,6 +82,42 @@ describe("earnedTaglines", () => {
     const fortyText = forty.find((l) => l.id === "tagline.earned.attendance")?.text;
     expect(nineText).toContain("9");
     expect(fortyText).toContain("40");
+  });
+
+  it("never leaks the {count} placeholder to the UI", () => {
+    const lines = earnedTaglines({
+      ...base,
+      moviesRanked: 500,
+      marqueeWeeks: 52,
+      marqueeConnectionsSolved: 9,
+      firstToMarquee: true,
+    });
+    expect(lines.length).toBeGreaterThan(0);
+    for (const l of lines) {
+      expect(l.text).not.toContain("{count}");
+      expect(l.name).not.toContain("{count}");
+    }
+  });
+});
+
+describe("EARNED_TAGLINES — static catalogue entries backing earned lines", () => {
+  it("reaches CATALOGUE, itemById, and taglineById, so ownership/equip logic can see it", () => {
+    for (const t of EARNED_TAGLINES) {
+      expect(TAGLINES.some((tag) => tag.id === t.id), `${t.id} missing from TAGLINES`).toBe(true);
+      expect(taglineById(t.id)?.id, `${t.id} not reachable via taglineById`).toBe(t.id);
+      expect(itemById(t.id)?.id, `${t.id} not reachable via itemById`).toBe(t.id);
+    }
+  });
+
+  it("every entry is a real, never-purchasable challenge unlock", () => {
+    const achievementKeys = new Set(ACHIEVEMENTS.map((a) => a.key));
+    for (const t of EARNED_TAGLINES) {
+      expect(t.unlock.kind).toBe("challenge");
+      if (t.unlock.kind === "challenge") {
+        expect(achievementKeys.has(t.unlock.key), `unknown achievement key "${t.unlock.key}"`).toBe(true);
+      }
+      expect(t.rights).toBe("owned");
+    }
   });
 });
 
