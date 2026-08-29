@@ -224,11 +224,10 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
             <h1 className="mt-3 text-xl font-medium text-text sm:text-2xl">
               Settling the best movies of all time.
             </h1>
-            <p className="mt-1.5 text-lg text-muted sm:text-xl">
-              <span className="underline decoration-gold decoration-2 underline-offset-4">
-                One list at a time.
-              </span>
-            </p>
+            {/* Gold text rather than a gold underline: underlined body copy that
+                is not a link reads as a broken hyperlink, which is what this
+                looked like sitting under the tagline. */}
+            <p className="mt-1.5 text-lg text-gold/90 sm:text-xl">One list at a time.</p>
             <a
               href="#start"
               className="mt-4 inline-block min-h-11 rounded-full bg-gold px-6 text-sm font-bold leading-[44px] uppercase tracking-wide text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"

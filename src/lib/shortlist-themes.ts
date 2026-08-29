@@ -160,7 +160,7 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "summer-gone-wrong",
     title: "Sunny Days, Dark Turns",
     blurb: "Campfires, boardwalks, and a vacation nobody will ever forget.",
-    movieIds: [578, 9340, 235, 447332, 3597, 530385],
+    movieIds: [578, 9340, 235, 925, 3597, 530385],
   },
   {
     slug: "fast-lanes-high-octane",
@@ -316,7 +316,7 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "espionage-in-the-cold",
     title: "Shadows Behind the Iron Curtain",
     blurb: "Dead drops, coded radio signals, and spies who trust no one.",
-    movieIds: [954, 353081, 36557, 582, 49517, 296098],
+    movieIds: [1669, 341013, 13580, 582, 49517, 296098],
   },
   {
     slug: "midnight-drive",

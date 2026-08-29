@@ -66,7 +66,7 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
       "Every film buries a recognisable actor under prosthetics, latex or heavy wigs",
       "Each lead performance was captured with motion tracking rather than makeup",
       "All six are set in a decade at least thirty years before they were filmed",
-      "Every transformation is explained inside the story as a deliberate disguise",
+      "Every transformation is explained inside the story as a deliberately chosen disguise",
     ],
     correctIndex: 0,
     triviaNote:
@@ -159,9 +159,9 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
 
   "trains-youd-rather-not-miss": {
     connection:
-      "The train as pressure vessel. A sealed, linear space travelling at speed: you cannot get off, you cannot spread out, and whatever you are avoiding is a few carriages away.",
+      "The train as pressure vessel. Every film drives its crisis onto a linear space travelling at speed, where you cannot get off, cannot spread out, and cannot stop what is coming down the line.",
     options: [
-      "Every story takes place aboard a moving train that nobody is able to leave",
+      "Each film builds to a crisis aboard a train that cannot simply be stopped",
       "Each journey is interrupted by the same kind of catastrophic engine failure",
       "All six are set within a single country and on the same rail network",
       "Every train in these films reaches its scheduled destination undamaged",
@@ -191,7 +191,7 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
     options: [
       "Each film is built on a truth deliberately hidden from you until very late",
       "Every protagonist is a professional investigator of one kind or another",
-      "All six were adapted from short stories rather than from original scripts",
+      "All six were adapted from short stories rather than from any original scripts",
       "Each film's deception is fully revealed inside its opening twenty minutes",
     ],
     correctIndex: 0,
@@ -276,7 +276,7 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
       "Open water with nothing solid underfoot is the central, inescapable danger",
       "Each of these films is a dramatisation of a real maritime disaster",
       "Every story is set aboard a commercial passenger ship carrying civilians",
-      "All six take place entirely at sea, without ever once touching dry land",
+      "All six take place entirely out at sea, without ever once touching dry land",
     ],
     correctIndex: 0,
     triviaNote:
@@ -330,7 +330,7 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
       "The indifferent vacuum. Isolation measured in millions of miles, air measured in hours, and an environment with no opinion whatsoever about whether anyone survives it.",
     options: [
       "Space supplies the danger: no air, no rescue, and no second chances at all",
-      "Each crew is undone by a hostile intelligence already aboard their ship",
+      "Each crew is undone by a hostile intelligence that is already aboard their ship",
       "All six are set within the boundaries of our own solar system",
       "Every mission depicted in these films returns home completely intact",
     ],
@@ -457,7 +457,7 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
     options: [
       "Fighting is used to settle a question about the character, not the contest",
       "Every protagonist here is a professional, licensed and ranked boxer",
-      "Each film ends with the protagonist winning a championship title outright",
+      "Each film ends with the protagonist finally winning a championship title outright",
       "All six are set in the same city and in the same working-class district",
     ],
     correctIndex: 0,
@@ -470,7 +470,7 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
       "The reporting is the thriller. Suspense assembled out of sourcing, verification and institutional pressure rather than out of physical danger to the reporter.",
     options: [
       "The suspense is the reporting: sourcing, verifying, and getting it printed",
-      "Every film is set inside the newsroom of a daily metropolitan newspaper",
+      "Every film is set inside the newsroom of a large daily metropolitan newspaper",
       "Each of these stories takes place in the same decade of American history",
       "Every reporter here is working without the approval of any editor at all",
     ],
@@ -537,12 +537,12 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
 
   "creepy-dolls-puppets": {
     connection:
-      "The uncanny valley. Objects and figures built to look almost human — which is precisely the wrong amount of human for anyone to feel comfortable around.",
+      "Things that should be inanimate. Every film turns on something small and manufactured moving under its own will, which is the oldest uncanny trick there is.",
     options: [
-      "Something almost-but-not-quite human moves when it very much should not",
+      "Small, made things that come alive when nobody is supposed to be watching",
       "Every one of these films is set inside a toy factory or a toy shop",
       "Each object here is possessed by the spirit of a specific dead person",
-      "All six were made and marketed for an adult audience exclusively",
+      "All six of these were made and marketed for an adult audience exclusively",
     ],
     correctIndex: 0,
     triviaNote:
@@ -565,10 +565,10 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
 
   "transit-at-30000-feet": {
     connection:
-      "Sealed and airborne. A pressurised vessel with no exit, no help in range, and a floor several miles above anywhere that could help you.",
+      "Airborne jeopardy. Every film puts its emergency in the air, where the ground is a long way down and the options are whatever is already on board.",
     options: [
-      "A sealed craft in flight, with no exit and no help within any reach",
-      "Every one of these films features a hijacking carried out mid-flight",
+      "Every crisis in these films happens in the air, aboard an aircraft in flight",
+      "Every one of these films features an armed hijacking carried out mid-flight",
       "Each aircraft depicted in these films crashes before the story ends",
       "All six take place entirely aboard a single aircraft from start to finish",
     ],
@@ -596,7 +596,7 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
       "Rules that bend. Each film builds a world where space, time or causality behave by association rather than physics, and never apologises for it.",
     options: [
       "Each world runs on association and dream logic rather than physical rules",
-      "Every story is revealed in its final scene to have been somebody's dream",
+      "Every story is revealed in its very final scene to have been somebody's dream",
       "Each protagonist is trying to return to a home they were taken from",
       "All six of these films are animated rather than photographed live",
     ],
@@ -681,7 +681,7 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
     options: [
       "All were made inside the old studio system, with contract cast and crew",
       "Each of these films was produced and released by the very same studio",
-      "Every one of these films was photographed entirely in black and white",
+      "Every one of these films was photographed entirely in black and white stock",
       "All six were adapted from successful Broadway stage productions",
     ],
     correctIndex: 0,
@@ -723,7 +723,7 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
     options: [
       "Covert work where people act on partial information at others' expense",
       "Every protagonist is a career intelligence officer with formal training",
-      "Each of these films is set during the Cold War and its immediate aftermath",
+      "Each of these stories plays out on one side of the Berlin Wall or the other",
       "All six were adapted from espionage novels by their original authors",
     ],
     correctIndex: 0,
@@ -751,7 +751,7 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
     options: [
       "Long conversations in ordinary rooms carry the weight action usually would",
       "Each film opens and closes in exactly the same single location",
-      "Every conversation in these films concerns a serious crime being planned",
+      "Every conversation in these films concerns a serious crime being covered up",
       "All six of these stories take place over the course of a single day",
     ],
     correctIndex: 0,
@@ -765,7 +765,7 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
     options: [
       "Each sits near the top of audience-voted lists of the greatest films made",
       "Every one of these films won the Academy Award for Best Picture",
-      "Each was a commercial disappointment on its original theatrical release",
+      "Each of these was a commercial disappointment on its original theatrical release",
       "All six of these films were released within the same single decade",
     ],
     correctIndex: 0,
