@@ -1,5 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { ImageResponse } from "next/og";
+import { itemById } from "./cosmetics/catalogue";
+import type { Equipped } from "./cosmetics/equipped";
 
 /**
  * Shared primitives for Open Graph cards.
@@ -284,4 +287,375 @@ export function OgCard({ eyebrow, headline, headlineSizePx, subline, children }:
       </div>
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Profile card: puts a user's equipped cosmetics on the /u/[handle] OG image.
+//
+// This is the one card NOT built on top of OgCard. OgCard's shell paints a
+// flat COLORS.bg behind everything; a cosmetic background has to paint
+// full-bleed behind the avatar and headline instead, so this reimplements the
+// shell (bulb strip, centered column, wordmark) with a background layer
+// slotted in underneath.
+//
+// ANIMATED COSMETICS, STATIC CARD: every animated frame/overlay in the
+// catalogue (frame.prism's hue-rotate spin, overlay.grain's jitter,
+// overlay.vhs's rolling highlight, overlay.flicker's opacity pulse,
+// overlay.dust's blinking scratches) is drawn at one representative frame
+// with no @keyframes — this route returns a PNG. Grain and dust become a
+// flat, noise-free tint rather than an attempt at texture: an SVG
+// feTurbulence data-URI background is exactly the kind of thing that could
+// rasterize to nothing, silently, the same failure mode this whole file is
+// built to avoid.
+// ---------------------------------------------------------------------------
+
+/** Ring treatments around the avatar poster. Static equivalents of the `.cf-*` classes in globals.css. */
+const FRAME_STYLE: Record<string, React.CSSProperties> = {
+  "frame.brass": {
+    background: "linear-gradient(145deg,#f0d488,#8a6b1f 45%,#e3c46b)",
+    boxShadow: "0 0 0 2px #5c4512",
+  },
+  "frame.perforation": {
+    backgroundColor: "#15151a",
+    boxShadow: "0 0 0 3px #c9ccd4",
+  },
+  "frame.projector": {
+    background: "linear-gradient(180deg,#fff3cd,#f5c518 40%,#9a6f06)",
+    boxShadow: "0 0 22px 5px rgba(245,197,24,0.65)",
+  },
+  "frame.toxic": {
+    backgroundColor: "#122a10",
+    boxShadow: "0 0 0 2px #7cff4d, 0 0 14px 2px rgba(124,255,77,0.6)",
+  },
+  "frame.neon-cyan": {
+    backgroundColor: "#0b2a2e",
+    boxShadow: "0 0 0 2px #22e0ff, 0 0 14px 2px rgba(34,224,255,0.75)",
+  },
+  "frame.neon-magenta": {
+    backgroundColor: "#2a0b22",
+    boxShadow: "0 0 0 2px #ff3ba7, 0 0 16px 3px rgba(255,59,167,0.7)",
+  },
+  "frame.vhs": {
+    backgroundColor: "#111111",
+    boxShadow: "-3px 0 0 0 #ff2e63, 3px 0 0 0 #21d4fd, 0 0 0 1px #333333",
+  },
+  // Animated in the app (a spinning conic-gradient hue-rotate). Satori's
+  // conic-gradient parser rejects this exact syntax outright — not a silent
+  // blank, a thrown "Failed to parse declaration" that would 500 the whole
+  // route — so the still frame is a linear sweep through the same stops
+  // instead, which reads just as "prism" and is guaranteed to render.
+  "frame.prism": {
+    background: "linear-gradient(135deg,#ff3ba7,#f5c518,#7cff4d,#22e0ff,#9b5cff)",
+    boxShadow: "0 0 16px 2px rgba(155,92,255,0.45)",
+  },
+};
+
+/** Flat, noise-free stand-ins for the animated `.co-*` overlay classes. */
+const OVERLAY_STYLE: Record<string, React.CSSProperties> = {
+  "overlay.grain": { backgroundColor: "rgba(255,241,200,0.10)" },
+  "overlay.dust": { backgroundColor: "rgba(255,255,255,0.05)" },
+  "overlay.flicker": { backgroundColor: "rgba(255,241,200,0.30)" },
+  // co-vhs's scanlines are already static in the app (only its ::after
+  // highlight bar animates), so this one is a faithful still, not a stand-in.
+  "overlay.vhs": {
+    backgroundImage:
+      "repeating-linear-gradient(180deg, rgba(0,0,0,0.34) 0px, rgba(0,0,0,0.34) 1px, transparent 1px, transparent 3px)",
+  },
+};
+
+/**
+ * Full-bleed treatment behind the avatar and headline. Static equivalents of
+ * the `.cb-*` classes: `background.filmstrip` tiles the owner's OWN posters
+ * (never stock art — same rule as the live canvas), `background.spotlight`
+ * blurs one poster behind a beam and vignette, `background.velvet` is a flat
+ * gradient with nothing to fetch. Anything unrecognised degrades to the
+ * filmstrip treatment rather than rendering nothing.
+ */
+function ProfileBackground({
+  backgroundId,
+  posterUrls,
+  avatarUrl,
+}: {
+  backgroundId: string;
+  posterUrls: string[];
+  avatarUrl: string | null;
+}) {
+  if (backgroundId === "background.spotlight" && avatarUrl) {
+    return (
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex" }}>
+        {/* Overscan on fixed pixel offsets, not a percentage inset — Satori's
+            layout is more predictable with absolute lengths here. */}
+        <div
+          style={{
+            position: "absolute",
+            top: "-100px",
+            left: "-100px",
+            right: "-100px",
+            bottom: "-100px",
+            display: "flex",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={avatarUrl}
+            alt=""
+            width={1400}
+            height={830}
+            style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.5, filter: "blur(40px)" }}
+          />
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: "flex",
+            background: "radial-gradient(ellipse 55% 70% at 50% 6%, rgba(245,197,24,0.34), transparent 68%)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: "flex",
+            background: "radial-gradient(ellipse at center, transparent 30%, rgba(10,10,13,0.86) 100%)",
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (backgroundId === "background.velvet") {
+    return (
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: "flex",
+          background: "linear-gradient(180deg,#3a0e13 0%,#220a0e 55%,#170609 100%)",
+        }}
+      />
+    );
+  }
+
+  // background.filmstrip (the starter) and anything unrecognised: the
+  // owner's own posters, dimmed under a scrim, same treatment as a
+  // brand-new profile with art but no drops yet.
+  const tileWidth = posterUrls.length > 0 ? Math.ceil(OG_SIZE.width / posterUrls.length) : 0;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        display: "flex",
+        backgroundColor: COLORS.bg,
+      }}
+    >
+      {posterUrls.length > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: "flex",
+            flexDirection: "row",
+            opacity: 0.3,
+          }}
+        >
+          {posterUrls.map((url, i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={i} src={url} alt="" width={tileWidth} height={OG_SIZE.height} style={{ objectFit: "cover" }} />
+          ))}
+        </div>
+      )}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: "flex",
+          background:
+            "linear-gradient(180deg,#101014 0%,rgba(16,16,20,0.55) 40%,rgba(16,16,20,0.55) 60%,#101014 100%)",
+        }}
+      />
+    </div>
+  );
+}
+
+export interface RenderProfileCardOptions {
+  handle: string;
+  /** Numeric career level, e.g. 27. */
+  level: number;
+  /** The rank title for that level, e.g. "Cinephile" — gamification.ts's `levelFor(...).title`. */
+  rank: string;
+  /**
+   * Frame/background/overlay must already be resolved to real catalogue ids —
+   * this function does not fall back to a starter itself. Callers resolve via
+   * `sanitizeEquipped` (this card's caller, /u/[handle], whose achievement
+   * stats are RLS-limited) or `resolveEquipped` (a caller with the owner's own
+   * full-access stats) — same split the rest of the cosmetics system uses.
+   * `taglineText` is the pre-resolved snapshot; never a raw catalogue `.text`,
+   * which for earned lines is a `{count}` template.
+   */
+  equipped: Required<Pick<Equipped, "frame" | "background" | "overlay">> &
+    Pick<Equipped, "tagline" | "taglineText" | "avatarPosterPath">;
+  /** The owner's own poster paths (raw TMDB paths), best first. Never stock art. */
+  posterPaths: (string | null | undefined)[];
+}
+
+function ProfileCard({ handle, level, rank, equipped, posterPaths }: RenderProfileCardOptions) {
+  const posterUrls = posterPaths
+    .map((p) => posterUrl(p))
+    .filter((u): u is string => u !== null)
+    .slice(0, 6);
+  const avatarPath = equipped.avatarPosterPath ?? posterPaths.find((p) => !!p) ?? null;
+  const avatarUrl = posterUrl(avatarPath);
+
+  // `sanitizeEquipped`/`resolveEquipped` never actually leave these null at
+  // runtime — the fallback here just satisfies the type they still carry
+  // over from the wider `Equipped` shape (see its doc comment) — but the
+  // starter ids are the correct thing to fall back to even if one did.
+  const frameId = equipped.frame ?? "frame.brass";
+  const backgroundId = equipped.background ?? "background.filmstrip";
+  const overlayId = equipped.overlay ?? "overlay.none";
+
+  const frameStyle = FRAME_STYLE[frameId] ?? FRAME_STYLE["frame.brass"];
+  // The one place this card asks the catalogue anything, since every other
+  // visual treatment keys off the id string directly: a legendary frame
+  // (today, only the challenge-gated frame.prism) earns an extra gold glow.
+  const legendaryFrame = itemById(frameId)?.rarity === "legendary";
+  const frameBoxShadow = legendaryFrame
+    ? [frameStyle.boxShadow, "0 0 30px 6px rgba(245,197,24,0.35)"].filter(Boolean).join(", ")
+    : frameStyle.boxShadow;
+  const overlayStyle = OVERLAY_STYLE[overlayId];
+  const taglineText = equipped.taglineText;
+  const handleLine = clampHeadline(`@${handle.toUpperCase()}`);
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: COLORS.bg,
+      }}
+    >
+      <ProfileBackground backgroundId={backgroundId} posterUrls={posterUrls} avatarUrl={avatarUrl} />
+
+      <div
+        style={{ position: "relative", display: "flex", flexDirection: "column", width: "100%", height: "100%" }}
+      >
+        <MarqueeBulbs />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            flexGrow: 1,
+            width: "100%",
+            paddingLeft: "56px",
+            paddingRight: "56px",
+            paddingTop: "18px",
+            paddingBottom: "20px",
+          }}
+        >
+          {avatarUrl && (
+            <div
+              style={{
+                display: "flex",
+                padding: "6px",
+                borderRadius: "12px",
+                ...frameStyle,
+                boxShadow: frameBoxShadow,
+              }}
+            >
+              {/* Poster-shaped, 2:3 — never circular. A round crop cuts off the poster's title. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={avatarUrl} alt="" width={150} height={225} style={{ borderRadius: "8px", objectFit: "cover" }} />
+            </div>
+          )}
+          <div
+            style={{
+              display: "flex",
+              marginTop: avatarUrl ? "18px" : "0",
+              fontSize: "23px",
+              letterSpacing: "0.34em",
+              color: COLORS.muted,
+            }}
+          >
+            {`LEVEL ${level} · ${rank.toUpperCase()}`}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              textAlign: "center",
+              maxWidth: "1040px",
+              marginTop: "8px",
+              fontSize: `${headlineSize(handleLine)}px`,
+              lineHeight: 1,
+              letterSpacing: "0.02em",
+              color: COLORS.gold,
+            }}
+          >
+            {handleLine}
+          </div>
+          {taglineText ? (
+            <div
+              style={{
+                display: "flex",
+                textAlign: "center",
+                maxWidth: "900px",
+                marginTop: "14px",
+                fontSize: "27px",
+                letterSpacing: "0.04em",
+                color: COLORS.text,
+              }}
+            >
+              {/* Straight quotes only — Bebas covers " and ' but not curly “ ”. */}
+              {`"${taglineText}"`}
+            </div>
+          ) : null}
+          <div style={{ display: "flex", marginTop: "22px" }}>
+            <Wordmark />
+          </div>
+        </div>
+      </div>
+
+      {overlayStyle && (
+        <div
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", ...overlayStyle }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Renders the /u/[handle] share card and returns finished PNG bytes.
+ *
+ * Returns raw bytes rather than a `Response`/`ImageResponse` so callers can
+ * decide how to ship it: the opengraph-image route wraps it in a `Response`,
+ * and tests decode the pixels directly.
+ */
+export async function renderProfileCard(options: RenderProfileCardOptions): Promise<Buffer> {
+  const res = new ImageResponse(<ProfileCard {...options} />, OG_RESPONSE_OPTIONS);
+  return Buffer.from(await res.arrayBuffer());
 }

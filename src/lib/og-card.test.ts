@@ -4,6 +4,7 @@ import { inflateSync } from "node:zlib";
 import { createElement as h } from "react";
 import { ImageResponse } from "next/og";
 import { beforeAll, describe, expect, it } from "vitest";
+import { itemsForSlot } from "./cosmetics/catalogue";
 import {
   COLORS,
   OG_RESPONSE_OPTIONS,
@@ -13,6 +14,7 @@ import {
   clampHeadline,
   headlineSize,
   posterUrl,
+  renderProfileCard,
 } from "./og-card";
 
 /**
@@ -298,5 +300,86 @@ describe("card rendering", () => {
         children: h(PosterRow, { posters: [STUB_POSTER, STUB_POSTER, STUB_POSTER] }),
       }),
     );
+  });
+
+  it("renders a profile card with the equipped cosmetics", async () => {
+    // renderProfileCard returns raw PNG bytes directly rather than a React
+    // element for the render()/expectRealCard() helpers above, so its own
+    // pixels are inspected here without going through render().
+    const png = await renderProfileCard({
+      handle: "jrhoun",
+      level: 27,
+      rank: "Cinephile",
+      equipped: {
+        frame: "frame.neon-cyan",
+        background: "background.velvet",
+        overlay: "overlay.grain",
+        tagline: "tagline.80s.rewind",
+        taglineText: "Please rewind before returning.",
+      },
+      posterPaths: ["/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg"],
+    });
+    expect(png.subarray(0, 8).toString("hex"), "profile card should be a PNG").toBe("89504e470d0a1a0a");
+    await writeFile(join(OUT_DIR, "profile.png"), png);
+
+    // Byte size is not a usable proxy: resvg emits a flat fill at ~16KB and a
+    // real card at ~45KB, and Satori fails silently with a blank PNG at HTTP
+    // 200. So this decodes pixels, same as every other card above.
+    const { width, height, colors, inkFraction } = inspect(png);
+    expect({ width, height }).toEqual({ width: OG_SIZE.width, height: OG_SIZE.height });
+    expect(colors, `profile card has only ${colors} distinct colours — it rendered blank`).toBeGreaterThan(32);
+    expect(
+      inkFraction,
+      `profile card covers only ${(inkFraction * 100).toFixed(2)}% of the card`,
+    ).toBeGreaterThan(0.02);
+  });
+});
+
+describe("profile card renders every catalogue frame and background", () => {
+  // A cosmetic can carry CSS Satori rejects outright, not just CSS it quietly
+  // ignores. frame.prism's conic-gradient threw "Failed to parse
+  // declaration" during development — a 500, not the usual silent blank
+  // PNG this file otherwise guards against. Rendering every catalogue id
+  // here (not just the one combination above) is what stops a newly added
+  // frame or background shipping unrenderable; new catalogue entries are
+  // covered automatically since these loop itemsForSlot rather than listing
+  // ids by hand.
+  const posterPaths = ["/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg"];
+
+  async function expectRealProfileCard(name: string, equipped: Parameters<typeof renderProfileCard>[0]["equipped"]) {
+    const png = await renderProfileCard({ handle: "jrhoun", level: 27, rank: "Cinephile", equipped, posterPaths });
+    const { colors, inkFraction } = inspect(png);
+    expect(colors, `${name} has only ${colors} distinct colours — it rendered blank`).toBeGreaterThan(32);
+    expect(inkFraction, `${name} covers only ${(inkFraction * 100).toFixed(2)}% of the card`).toBeGreaterThan(0.02);
+  }
+
+  for (const frame of itemsForSlot("frame")) {
+    it(`renders with ${frame.id}`, async () => {
+      await expectRealProfileCard(frame.id, {
+        frame: frame.id,
+        background: "background.filmstrip",
+        overlay: "overlay.none",
+      });
+    });
+  }
+
+  for (const background of itemsForSlot("background")) {
+    it(`renders with ${background.id}`, async () => {
+      await expectRealProfileCard(background.id, {
+        frame: "frame.brass",
+        background: background.id,
+        overlay: "overlay.none",
+      });
+    });
+  }
+
+  // Overlays are otherwise flat translucent colours (nothing left to parse
+  // wrong); overlay.vhs is the one with real CSS (a repeating-linear-gradient).
+  it("renders with overlay.vhs", async () => {
+    await expectRealProfileCard("overlay.vhs", {
+      frame: "frame.brass",
+      background: "background.filmstrip",
+      overlay: "overlay.vhs",
+    });
   });
 });
