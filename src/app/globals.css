@@ -194,6 +194,62 @@ body {
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
+/* ---- Profile canvas cosmetics -------------------------------------------
+   Treatments over the user's OWN posters, never stock artwork: that is what
+   lets the catalogue grow without commissioning illustration. Every animated
+   rule is switched off under reduced motion at the bottom of this block. */
+
+.cf-brass { background: linear-gradient(145deg,#f0d488,#8a6b1f 45%,#e3c46b); box-shadow: 0 0 0 1px #5c4512; }
+.cf-perforation { background:
+  repeating-linear-gradient(180deg,#c9ccd4 0 6px,#15151a 6px 12px) left/6px 100% no-repeat,
+  repeating-linear-gradient(180deg,#c9ccd4 0 6px,#15151a 6px 12px) right/6px 100% no-repeat,
+  #15151a; padding: 3px 8px; box-shadow: 0 0 0 1px #3a3a44; }
+.cf-projector { background: linear-gradient(180deg,#fff3cd,#f5c518 40%,#9a6f06); box-shadow: 0 0 22px 5px rgba(245,197,24,.65); }
+.cf-toxic { background: #122a10; box-shadow: 0 0 0 2px #7cff4d, 0 0 14px 2px rgba(124,255,77,.6); }
+.cf-neon-cyan { background: #0b2a2e; box-shadow: 0 0 0 2px #22e0ff, 0 0 14px 2px rgba(34,224,255,.75); }
+.cf-neon-magenta { background: #2a0b22; box-shadow: 0 0 0 2px #ff3ba7, 0 0 16px 3px rgba(255,59,167,.7); }
+.cf-vhs { background: #111; box-shadow: -3px 0 0 0 #ff2e63, 3px 0 0 0 #21d4fd, 0 0 0 1px #333; }
+.cf-prism { background: conic-gradient(from 0deg,#ff3ba7,#f5c518,#7cff4d,#22e0ff,#9b5cff,#ff3ba7);
+  animation: cf-spin 6s linear infinite; box-shadow: 0 0 16px 2px rgba(155,92,255,.45); }
+@keyframes cf-spin { to { filter: hue-rotate(360deg); } }
+
+.cb-scrim { background: linear-gradient(180deg,#101014 0%,rgba(16,16,20,.55) 40%,rgba(16,16,20,.55) 60%,#101014 100%); }
+.cb-vignette { background: radial-gradient(ellipse at center, transparent 30%, rgba(10,10,13,.86) 100%); }
+.cb-beam { background: radial-gradient(ellipse 55% 70% at 50% 6%, rgba(245,197,24,.34) 0%, transparent 68%); }
+.cb-velvet { background: linear-gradient(180deg,#3a0e13 0%,#220a0e 55%,#170609 100%); }
+.cb-holes { background-image: radial-gradient(circle, #101014 40%, transparent 41%);
+  background-size: 19px 13px; background-repeat: repeat-x; }
+
+.co-grain {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+  opacity: .16; mix-blend-mode: overlay; animation: co-grain .7s steps(6) infinite; }
+@keyframes co-grain {
+  0%{transform:translate(0,0)} 20%{transform:translate(-4%,3%)} 40%{transform:translate(3%,-4%)}
+  60%{transform:translate(-3%,-3%)} 80%{transform:translate(4%,2%)} 100%{transform:translate(0,0)} }
+
+.co-vhs { background: repeating-linear-gradient(180deg, rgba(0,0,0,.34) 0 1px, transparent 1px 3px); opacity: .85; }
+.co-vhs::after { content:''; position:absolute; left:0; right:0; height:22px;
+  background: linear-gradient(180deg, transparent, rgba(255,255,255,.16) 45%, rgba(120,220,255,.14) 55%, transparent);
+  filter: blur(1px); animation: co-roll 3.4s linear infinite; }
+@keyframes co-roll { from { top:-24px } to { top:104% } }
+
+.co-flicker { background: rgba(255,241,200,.05); animation: co-flick 2.6s steps(1) infinite; }
+@keyframes co-flick {
+  0%,100%{opacity:.30} 8%{opacity:.72} 12%{opacity:.20} 26%{opacity:.55}
+  30%{opacity:.26} 55%{opacity:.62} 60%{opacity:.28} 78%{opacity:.50} }
+
+.co-dust::before, .co-dust::after { content:''; position:absolute; top:-10%; height:120%; width:1px;
+  background: linear-gradient(180deg,transparent,rgba(255,255,255,.55),transparent); }
+.co-dust::before { left:28%; animation: co-scr1 4.1s steps(1) infinite; }
+.co-dust::after { left:71%; width:2px; animation: co-scr2 5.7s steps(1) infinite; }
+@keyframes co-scr1 { 0%,88%{opacity:0} 90%{opacity:.8} 94%{opacity:.5} 96%,100%{opacity:0} }
+@keyframes co-scr2 { 0%,40%{opacity:0} 44%{opacity:.55} 50%{opacity:.3} 56%,100%{opacity:0} }
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-prism, .co-grain, .co-flicker,
+  .co-vhs::after, .co-dust::before, .co-dust::after { animation: none; }
+}
+
 /* Directional Hit & Recoil Matchup Animations */
 /* Left Winner lunges Rightward into opponent */
 .animate-hit-right {
