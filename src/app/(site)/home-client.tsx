@@ -88,15 +88,6 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
         },
         tilt: p.tilt,
       }));
-  // fan caps at 8 posters; surface the rest so visitors know the theme is bigger
-  const overflowCount = liveFan ? tonight.movies.length - fanMovies.length : 0;
-  const scrollToMarquee = () =>
-    document.getElementById("week-marquee")?.scrollIntoView({
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "auto"
-        : "smooth",
-      block: "start",
-    });
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [participants, setParticipants] = useState<string[]>([]);
@@ -278,15 +269,6 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
               );
             })}
           </ul>
-          {overflowCount > 0 && (
-            <button
-              type="button"
-              onClick={scrollToMarquee}
-              className="mt-2 inline-block rounded bg-bg/80 px-3 py-2 text-xs font-medium text-text underline decoration-gold/60 decoration-2 underline-offset-4 transition-colors duration-200 ease-out hover:bg-bg hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-            >
-              +{overflowCount} more in this week&apos;s marquee ↓
-            </button>
-          )}
           {/* The question is the hook and the honest one: it is the same thing
               the puzzle asks at the end, and it only works because the theme is
               withheld above. Two display beats in this hero — the name and the
@@ -325,6 +307,19 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
                   second of two columns, which is the one place a weekly deadline
                   cannot do its job. */}
               <MarqueeCountdown />
+              {/* Social proof belongs where the decision is made. This sat in a
+                  panel a thousand pixels further down, which is nowhere. */}
+              {tonight.settledCount > 0 && (
+                <p className="text-xs text-muted" data-testid="settled-count">
+                  {tonight.settledCount} ranking{tonight.settledCount === 1 ? "" : "s"} already
+                  settled this week
+                </p>
+              )}
+              {tonight.proposedBy && (
+                <p className="text-xs text-muted">
+                  Theme proposed by <span className="font-medium text-gold">@{tonight.proposedBy}</span>
+                </p>
+              )}
               <a
                 href="#start"
                 className="text-xs text-muted underline decoration-white/25 underline-offset-4 transition-colors hover:text-gold hover:decoration-gold focus-visible:outline-2 focus-visible:outline-gold"
@@ -459,15 +454,14 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
           after a full-height marquee panel. They were equal-width columns until
           the marquee became the hero, which left the builder padded out with
           dead space to match a taller neighbour. */}
-      <MarqueeHeading as="h2">Choose your premiere</MarqueeHeading>
+      <MarqueeHeading as="h2">Build your own list</MarqueeHeading>
       <div className="mt-8 flex flex-col">
       {/* Path B: BUILD YOUR OWN LIST — the search panel lives inside this card. */}
       <section
         aria-label="Build your own list"
         className="rounded-lg bg-surface p-5 ring-1 ring-white/10 sm:p-6"
       >
-        <h3 className="font-display text-3xl uppercase leading-none tracking-wide">Build your own list</h3>
-        <p className="mt-1 text-sm text-muted">
+        <p className="text-sm text-muted">
           Search any actor, director, studio — settle anything.
         </p>
         <div id="start" className="mt-4 scroll-mt-6">
@@ -480,85 +474,6 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
         </div>
         <p className="mt-4 text-sm text-muted">…then share your ranked wall.</p>
       </section>
-      {/* Path A: THIS WEEK'S MARQUEE — server-resolved theme + movie details.
-          Posters stay tap-to-add candidates, same tray toggle as the hero fan. */}
-      {tonight.movies.length > 0 && (
-      <section
-        id="week-marquee"
-        aria-label="This week's marquee"
-        className="scroll-mt-6 rounded-lg bg-surface p-5 ring-1 ring-gold/40 sm:p-6"
-      >
-
-        {tonight.userThemeListId && (
-          <div className="mx-auto my-3 flex w-fit items-center gap-2 rounded-full bg-emerald-500/15 px-4 py-1.5 text-sm font-semibold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
-            <span aria-hidden="true" className="text-base font-bold">✓</span>
-            <span>You ranked this week&apos;s marquee</span>
-          </div>
-        )}
-
-        {/* Slimmed to the week's standing plus the way in. The poster strip that
-            used to sit here showed the same six films as the hero fan a screen
-            above, and the theme title and blurb are withheld everywhere on this
-            page — both paraphrase the answer to the connection puzzle. */}
-        <h3 className="mt-2 text-center font-display text-2xl uppercase leading-none tracking-[0.12em] text-gold drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)] sm:text-3xl">
-          This week&apos;s marquee
-        </h3>
-
-        {/* Proposal credit + real community activity (no fake social proof:
-            both lines render only when the data actually exists). */}
-        {tonight.proposedBy && (
-          <p className="mt-1 text-center text-xs text-muted">
-            Proposed by <span className="font-medium text-gold">@{tonight.proposedBy}</span>
-          </p>
-        )}
-        {tonight.settledCount > 0 && (
-          <p className="mt-1 text-center text-xs text-muted" data-testid="settled-count">
-            {tonight.settledCount} ranking{tonight.settledCount === 1 ? "" : "s"} already
-            settled this week
-          </p>
-        )}
-        {tonight.themeSlug && (
-          <div id="rank-tonight" className="mt-5 scroll-mt-6 text-center">
-            {tonight.userThemeListId ? (
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <Link
-                  href={`/l/${tonight.userThemeListId}#community-consensus`}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-full bg-gold px-6 text-sm font-bold uppercase tracking-wide text-bg shadow-lg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
-                >
-                  <span>Show community stats</span>
-                  <span aria-hidden="true" className="text-base">✦</span>
-                </Link>
-                <Link
-                  href={`/l/${tonight.userThemeListId}`}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-full bg-surface-raised px-5 text-sm font-semibold text-text ring-1 ring-white/15 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-                >
-                  <span>View your ranking</span>
-                  <span aria-hidden="true">→</span>
-                </Link>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => start(true)}
-                className="inline-block min-h-11 rounded-full bg-gold px-6 text-sm font-bold uppercase tracking-wide text-bg shadow-lg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
-              >
-                Rank this list 🔒
-              </button>
-            )}
-          </div>
-        )}
-      </section>
-      )}
-      {/* Gold rule with ✦ center between the two premiere paths:
-          horizontal on mobile, vertical rule between columns on desktop.
-          Rendered only when there is a shortlist to separate. */}
-      {tonight.movies.length > 0 && (
-        <div className="my-8 flex items-center gap-3" role="presentation">
-          <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60" />
-          <span aria-hidden="true" className="text-gold">✦</span>
-          <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60" />
-        </div>
-      )}
       </div>
       <CandidateTray
         candidates={candidates}
