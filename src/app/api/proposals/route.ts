@@ -3,7 +3,12 @@ import { nanoid } from "nanoid";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { dbErrorResponse, invalid } from "@/lib/lists-api";
 import { parseProposal } from "@/lib/proposals-api";
-import { levelFor, MIN_PROPOSAL_LEVEL, rankForLevel } from "@/lib/gamification";
+import {
+  grandfatheredXp,
+  levelFor,
+  MIN_PROPOSAL_LEVEL,
+  rankForLevel,
+} from "@/lib/gamification";
 import { fetchCareerXp } from "@/lib/career-xp";
 import {
   LIMITS,
@@ -33,9 +38,13 @@ export async function POST(request: Request) {
     }
   }
 
-  // Derived through the shared helper so this gate agrees with the level the
-  // profile shows the same person.
-  const { total: lifetimeXp } = await fetchCareerXp(supabase, data.user.id, bankedXp);
+  // The banked peak is a floor, so if it already clears the gate there is
+  // nothing to look up. Only someone who has not yet qualified on record pays
+  // for the full derivation, which agrees with the level the profile shows.
+  let lifetimeXp = grandfatheredXp(bankedXp);
+  if (levelFor(lifetimeXp).level < MIN_PROPOSAL_LEVEL) {
+    lifetimeXp = (await fetchCareerXp(supabase, data.user.id, bankedXp)).total;
+  }
   const userLevel = levelFor(lifetimeXp).level;
   if (userLevel < MIN_PROPOSAL_LEVEL) {
     return NextResponse.json(

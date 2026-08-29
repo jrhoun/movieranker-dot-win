@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { invalid } from "@/lib/lists-api";
 import { checkHandle } from "@/lib/handles";
 import { mergeShowcase, type ProfileShowcase } from "@/lib/public-profile";
-import { levelFor, MIN_PIN_LIST_LEVEL } from "@/lib/gamification";
+import { grandfatheredXp, levelFor, MIN_PIN_LIST_LEVEL } from "@/lib/gamification";
 import { fetchCareerXp } from "@/lib/career-xp";
 import { resolveReferrerId } from "@/lib/referrals";
 import {
@@ -161,7 +161,12 @@ export async function PATCH(request: Request) {
       // through the shared helper so this gate cannot drift from the level the
       // profile shows the same person.
       const bankedXp = (row as { showcase?: { lifetimeXp?: number } }).showcase?.lifetimeXp ?? 0;
-      const { total: lifetimeXp } = await fetchCareerXp(supabase, auth.user.id, bankedXp);
+      // The banked peak is a floor, so someone already qualified on record pays
+      // for no lookups at all.
+      let lifetimeXp = grandfatheredXp(bankedXp);
+      if (levelFor(lifetimeXp).level < MIN_PIN_LIST_LEVEL) {
+        lifetimeXp = (await fetchCareerXp(supabase, auth.user.id, bankedXp)).total;
+      }
       const userLevel = levelFor(lifetimeXp).level;
       if (userLevel < MIN_PIN_LIST_LEVEL) {
         return NextResponse.json(

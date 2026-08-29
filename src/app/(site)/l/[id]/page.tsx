@@ -280,11 +280,13 @@ export default async function PublicListPage({
       return {
         xp: reconcileCareerXp(breakdown, bankedXp).total,
         stats: {
-          doneLists: xpLists.length,
+          // Filtered on the mapper's own flag rather than trusting the query
+          // three screens up to stay scoped to finished lists.
+          doneLists: xpLists.filter((l) => l.done).length,
           moviesRanked: countMoviesRanked(xpLists),
           maxMoviesInSingleList: Math.max(0, ...ls.map((l) => l.movieCount)),
-          coCuratedLists: xpLists.filter((l) => l.coCurated).length,
-          marqueeWeeks: xpLists.filter((l) => l.isMarquee).length,
+          coCuratedLists: xpLists.filter((l) => l.done && l.coCurated).length,
+          marqueeWeeks: xpLists.filter((l) => l.done && l.isMarquee).length,
           marqueeConnectionsSolved: solveCount ?? 0,
           ...marqueeStanding(completions, user.id),
         },
