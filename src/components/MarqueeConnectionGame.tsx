@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { shuffledOptions } from "@/lib/connection-options";
 import type { ThemeConnectionGame } from "@/lib/shortlist-themes";
 
@@ -73,15 +73,19 @@ export default function MarqueeConnectionGame({
     }
   });
 
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
   const { selected, revealed } = gameState;
 
+  // showModal() rather than an `open` attribute: only the former puts the
+  // dialog in the top layer, which is what makes it immune to an ancestor's
+  // overflow, transform or stacking context. Escape, the focus trap and the
+  // inert background all come with it, so the old keydown listener is gone.
   useEffect(() => {
-    if (!modalOpen) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setModalOpen(false);
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    const el = dialogRef.current;
+    if (!el) return;
+    if (modalOpen && !el.open) el.showModal();
+    if (!modalOpen && el.open) el.close();
   }, [modalOpen]);
 
   // Display order. Every authored game puts its answer at index 0, so without
@@ -280,21 +284,28 @@ export default function MarqueeConnectionGame({
 
   return (
     <>
-      {card}
-      {modalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Bonus round: the secret connection"
-          onClick={() => setModalOpen(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
-        >
-          <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-xl my-auto">
+      {/* One instance, not two. The card used to be rendered inline AND again
+          inside the overlay, so the same interactive quiz existed twice in the
+          DOM at once. It now lives in exactly one place at a time. */}
+      {!modalOpen && card}
+      <dialog
+        ref={dialogRef}
+        aria-label="Bonus round: the secret connection"
+        // Keeps React in step when the platform closes it — Escape, or the
+        // close() call above.
+        onClose={() => setModalOpen(false)}
+        onClick={(e) => {
+          if (e.target === dialogRef.current) setModalOpen(false);
+        }}
+        className="m-auto w-full max-w-xl bg-transparent p-4 text-left font-sans normal-case tracking-normal text-text backdrop:bg-black/80 backdrop:backdrop-blur-sm"
+      >
+        {modalOpen && (
+          <div className="relative">
             <button
               type="button"
               onClick={() => setModalOpen(false)}
               aria-label="Close"
-              className="absolute -top-2 -right-2 z-10 rounded-full bg-surface-raised p-1.5 text-muted ring-1 ring-white/15 hover:bg-white/10 hover:text-text focus-visible:outline-2 focus-visible:outline-gold transition-colors"
+              className="absolute -top-2 -right-2 z-10 rounded-full bg-surface-raised p-1.5 text-muted ring-1 ring-white/15 transition-colors hover:bg-white/10 hover:text-text focus-visible:outline-2 focus-visible:outline-gold"
             >
               <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                 <path d="M18 6 6 18M6 6l12 12" />
@@ -302,8 +313,8 @@ export default function MarqueeConnectionGame({
             </button>
             {card}
           </div>
-        </div>
-      )}
+        )}
+      </dialog>
     </>
   );
 }
