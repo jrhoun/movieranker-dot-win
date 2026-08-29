@@ -1,3 +1,8 @@
+import { CONNECTION_GAMES, type ThemeConnectionGame } from "./connection-games";
+
+/** Re-exported so existing importers keep working. */
+export type { ThemeConnectionGame };
+
 /**
  * Curated themes for "This Week's Marquee" — code data, not DB rows.
  * The connection to the theme is allowed (encouraged) to be obtuse.
@@ -10,17 +15,6 @@
  * names how a specific film ends bad.) Never name contained films outright;
  * obtuse connections only their viewers decode are the brand.
  */
-export interface ThemeConnectionGame {
-  /** The definitive explanation of the secret link */
-  connection: string;
-  /** 4 multiple choice options */
-  options: string[];
-  /** The 0-based index of the correct option */
-  correctIndex: number;
-  /** Educational/fun trivia note shown after answering */
-  triviaNote?: string;
-}
-
 export interface ShortlistTheme {
   slug: string;
   title: string;
@@ -35,68 +29,24 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     title: "Secretly The Same Story",
     blurb: "A farm boy, a hacker, a wizard, and a boxer walk into a monomyth.",
     movieIds: [11, 603, 671, 1362, 150540, 324857],
-    connectionGame: {
-      connection: "The Hero's Journey (Monomyth): Across disparate genres (sci-fi, fantasy, sports, cyberpunk), each film adheres to Joseph Campbell's 12-stage mythic arc step-for-step.",
-      options: [
-        "Every film follows Joseph Campbell's 12-stage Hero's Journey monomyth beat-for-beat",
-        "All six scripts were written by the same screenwriting collective under pseudonyms",
-        "Each film features a protagonist who loses their mentor in the exact 45th minute",
-        "All six were originally conceived as animated short films",
-      ],
-      correctIndex: 0,
-      triviaNote: "George Lucas famously credited Campbell's 'The Hero with a Thousand Faces' as his direct architectural guide, a template later mirrored in The Matrix, Harry Potter, and Rocky.",
-    },
   },
   {
     slug: "best-hairpieces",
     title: "Best Hairpieces & Prosthetics",
     blurb: "Somewhere under three pounds of latex is a very committed A-lister.",
     movieIds: [854, 888, 12217, 12109, 8904, 453711, 118340],
-    connectionGame: {
-      connection: "Transformative Practical FX: Every film features an iconic, unrecognizable A-list lead actor buried under groundbreaking prosthetic makeup or elaborate wigs.",
-      options: [
-        "Every lead actor is buried under hours of transformative prosthetic makeup or hairpieces",
-        "All six won the BAFTA for Best Original Screenplay",
-        "Each film was shot entirely chronologically to preserve actor stamina",
-        "The directors all cameoed as background extras in heavy wigs",
-      ],
-      correctIndex: 0,
-      triviaNote: "From Gary Oldman's Churchill to Robin Williams' Mrs. Doubtfire, practical makeup transformations have created some of cinema's most indelible character illusions.",
-    },
   },
   {
     slug: "one-location",
     title: "One Room, No Exit",
     blurb: "Nobody leaves until the credits roll. Maximum tension on a single soundstage budget.",
     movieIds: [389, 567, 2108, 15196, 694, 264660],
-    connectionGame: {
-      connection: "Single-Location / Bottle Movies: The entire narrative takes place within the confines of a single room or isolated chamber with zero scene changes.",
-      options: [
-        "The entire story takes place within a single room or isolated interior location",
-        "All six were adapted from one-act off-Broadway plays",
-        "Each film was shot entirely in real time in a single continuous camera take",
-        "Every character in these films is known only by a profession or number",
-      ],
-      correctIndex: 0,
-      triviaNote: "12 Angry Men, Rope, and The Breakfast Club prove that cinematic tension thrives under physical constraints—turning a single room into an intense psychological pressure cooker.",
-    },
   },
   {
     slug: "dads-having-a-bad-one",
     title: "Dads Having A Rough One",
     blurb: "Father's Day is once a year. These dads get two hours of sheer chaos.",
     movieIds: [12, 157336, 238, 8587, 68718, 8358],
-    connectionGame: {
-      connection: "Desperate Fatherhood Under Siege: Each film centers on a father pushed to extraordinary, chaotic lengths across space, time, or the mob to protect or rescue his child.",
-      options: [
-        "Every film centers on a desperate father fighting impossible odds to protect or rescue his child",
-        "All six films premiered on Father's Day weekend at the box office",
-        "Each director dedicated the movie in the end credits to their own father",
-        "None of the protagonists ever speak to their children on-screen",
-      ],
-      correctIndex: 0,
-      triviaNote: "From Interstellar's relativistic tears to Finding Nemo's oceanic odyssey, paternal desperation is one of cinema's most potent emotional engines.",
-    },
   },
   {
     slug: "rain-soaked-cinema",
@@ -343,17 +293,6 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     title: "Thin Air, Vertical Drops",
     blurb: "Crampons slipping, freezing fog, and cliffs with zero safety nets.",
     movieIds: [197, 857, 98, 872585, 157336, 76341],
-    connectionGame: {
-      connection: "Vertical Peril & Lethal Heights: Every film features a defining sequence where characters are suspended in extreme high-altitude vertigo with zero safety nets.",
-      options: [
-        "Every film features a pulse-pounding cliff or high-altitude vertical drop sequence",
-        "All six films were directed by former professional mountaineers",
-        "Each movie won the Academy Award for Best Visual Effects",
-        "None of these films used green screens or CGI for stunt sequences",
-      ],
-      correctIndex: 0,
-      triviaNote: "From high-altitude Himalayan ascents to dizzying vertical canyons, extreme height and gravity have produced cinema's most visceral suspense sequences.",
-    },
   },
   {
     slug: "golden-age-giants",
@@ -406,8 +345,10 @@ export function getThemeConnectionGame(theme: {
   blurb?: string;
   connectionGame?: ThemeConnectionGame;
 }): ThemeConnectionGame {
-  const curated = SHORTLIST_THEMES.find((t) => t.slug === theme.slug);
-  if (curated?.connectionGame) return curated.connectionGame;
+  // Curated quizzes live in connection-games.ts, keyed by slug.
+  const authored = CONNECTION_GAMES[theme.slug];
+  if (authored) return authored;
+  // Community proposals can carry their own game inline.
   if (theme.connectionGame) return theme.connectionGame;
 
   const blurb = theme.blurb || "A shared cinematic atmosphere and thematic DNA.";

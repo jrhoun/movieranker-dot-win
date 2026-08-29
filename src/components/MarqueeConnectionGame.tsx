@@ -15,6 +15,13 @@ interface MarqueeConnectionGameProps {
    * inline instead.
    */
   justFinished?: boolean;
+  /**
+   * The theme title, shown ONLY after the answer is revealed. The page hides it
+   * everywhere else because it paraphrases the answer — so this is the one
+   * place it can safely appear, and it is what tells the player which week they
+   * just cracked.
+   */
+  revealTitle?: string | null;
   onBonusEarned?: (xp: number) => void;
   className?: string;
 }
@@ -37,6 +44,7 @@ export default function MarqueeConnectionGame({
   marqueeNumber,
   game,
   justFinished = false,
+  revealTitle,
   onBonusEarned,
   className = "",
 }: MarqueeConnectionGameProps) {
@@ -250,6 +258,11 @@ export default function MarqueeConnectionGame({
             <p className="font-display text-xs uppercase tracking-widest text-gold">
               The Common Thread
             </p>
+            {revealTitle && (
+              <p className="font-display text-lg uppercase tracking-wide text-text">
+                {revealTitle}
+              </p>
+            )}
             <p className="text-sm sm:text-base font-semibold text-text leading-relaxed">
               {game.connection}
             </p>

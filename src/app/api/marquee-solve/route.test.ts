@@ -85,10 +85,10 @@ describe("isCorrectGuess", () => {
     expect(isCorrectGuess("no-such-theme", 0)).toBe(false);
   });
 
-  it("returns false for a theme that defines no connection game", () => {
-    // Only 5 of 52 themes define connectionGame. The other 47 have no quiz, so
-    // they can never be solved and must not throw when asked.
-    expect(isCorrectGuess("rain-soaked-cinema", 0)).toBe(false);
+  it("accepts every curated theme, now that all of them have a quiz", () => {
+    // Previously only 5 of 52 themes defined a game and the rest could never be
+    // solved. All 52 are authored now, so a real slug must never be rejected.
+    expect(isCorrectGuess("rain-soaked-cinema", 0)).toBe(true);
   });
 
   it("returns true for a real theme's correct index", () => {

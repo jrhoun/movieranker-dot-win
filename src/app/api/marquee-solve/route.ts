@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { LIMITS, rateKey, rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { CONNECTION_GAMES } from "@/lib/connection-games";
 import { SHORTLIST_THEMES } from "@/lib/shortlist-themes";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -42,9 +43,13 @@ export function isValidSolveRequest(
 /** True only when the theme exists, defines a game, and the index matches. */
 export function isCorrectGuess(themeSlug: string, guessIndex: number | null): boolean {
   if (guessIndex === null) return false;
-  const theme = SHORTLIST_THEMES.find((t) => t.slug === themeSlug);
-  if (!theme?.connectionGame) return false;
-  return theme.connectionGame.correctIndex === guessIndex;
+  // The slug must be a real curated theme AND have an authored quiz. Checking
+  // only CONNECTION_GAMES would let an arbitrary posted slug score a point if
+  // the two files ever drifted apart.
+  if (!SHORTLIST_THEMES.some((t) => t.slug === themeSlug)) return false;
+  const game = CONNECTION_GAMES[themeSlug];
+  if (!game) return false;
+  return game.correctIndex === guessIndex;
 }
 
 export async function POST(request: Request) {
