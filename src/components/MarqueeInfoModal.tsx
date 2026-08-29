@@ -84,7 +84,7 @@ export default function MarqueeInfoModal() {
                   </h3>
                   <p className="mt-0.5 text-xs text-muted">
                     Themes rotate at midnight UTC — from neon sci-fi to high-tension single-room
-                    thrillers. Miss one and it is gone.
+                    thrillers. Each set runs for the whole week.
                   </p>
                 </div>
               </div>
