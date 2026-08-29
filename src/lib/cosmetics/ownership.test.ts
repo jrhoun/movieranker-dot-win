@@ -60,10 +60,17 @@ describe("ownedItemIds", () => {
     expect(two.size).toBe(one.size + 1);
   });
 
-  it("drops never duplicate", () => {
-    const weeks = Array.from({ length: 40 }, (_, i) => `w${i}`);
-    const owned = ownedItemIds(stats({ finishedThemeSlugs: weeks }));
-    expect(owned.size).toBe(new Set(owned).size);
+  it("drops never duplicate — the set grows by exactly one per week until the pool runs out", () => {
+    // A duplicate draw would make `owned` lag behind the week count. The previous
+    // version of this test compared a Set's size to a copy of itself, which could
+    // never fail.
+    const droppableCount = CATALOGUE.filter((i) => i.unlock.kind === "drop").length;
+    const base = ownedItemIds(stats()).size;
+    for (let weeks = 1; weeks <= droppableCount + 5; weeks += 1) {
+      const slugs = Array.from({ length: weeks }, (_, i) => `w${i}`);
+      const size = ownedItemIds(stats({ finishedThemeSlugs: slugs })).size;
+      expect(size, `after ${weeks} weeks`).toBe(base + Math.min(weeks, droppableCount));
+    }
   });
 
   it("stops growing once the drop pool is exhausted", () => {
