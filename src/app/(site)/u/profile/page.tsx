@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import ClaimHandleCard from "@/components/profile/ClaimHandleCard";
+import Nameplate from "@/components/profile/Nameplate";
 import LevelProgressionModal from "@/components/profile/LevelProgressionModal";
 import ReferralInviteCard from "@/components/profile/ReferralInviteCard";
 import ShowcaseCard from "@/components/profile/ShowcaseCard";
@@ -15,13 +16,14 @@ import {
   parseShowcase,
 } from "@/lib/public-profile";
 import {
-  LEVELS,
-  calculateTotalXp,
+  calculateXpBreakdown,
+  countMoviesRanked,
   evaluateAchievements,
   levelFor,
   unlockedAt,
   xpProgress,
 } from "@/lib/gamification";
+import { reconcileCareerXp, toXpLists } from "@/lib/career-xp";
 import { marqueeStanding, type ThemeCompletion } from "@/lib/marquee-standing";
 
 interface DbList {
@@ -114,15 +116,37 @@ export default async function MyListsPage() {
     ),
   }));
 
-  // Lifetime XP ratchet: active list count + referral bonuses or stored lifetime XP, whichever is higher.
-  // Deleting a list from your shelf will never reduce your lifetime XP or level.
-  const currentXp = calculateTotalXp({
-    lists: cards.map((c) => ({ movieCount: c.posters.length })),
-    referralCount: referralStats.activeReferrals,
-  });
-  const lifetimeXp = Math.max(currentXp, showcase.lifetimeXp ?? 0);
-  const progress = xpProgress(lifetimeXp);
   const doneCards = cards.filter((c) => c.status === "done");
+
+  // Cracked connections are an XP source, so they must be read before the total
+  // is struck rather than after it.
+  const { count: solveCount } = await supabase
+    .from("marquee_solves")
+    .select("theme_slug", { count: "exact", head: true })
+    .eq("user_id", auth.user.id)
+    // The table records every attempt, including wrong guesses and peeks, so
+    // the badge must count only the ones that were actually cracked.
+    .eq("correct", true);
+
+  // Built from the raw rows rather than the rendered cards, and through the
+  // same mapper the API gates use, so this page cannot drift from them.
+  const xpLists = toXpLists(
+    ((lists ?? []) as (DbList & { theme_slug?: string | null })[]).map((l) => ({
+      status: l.status,
+      theme_slug: l.theme_slug ?? null,
+      participants: l.participants,
+      movieCount: l.list_movies?.length ?? 0,
+    })),
+  );
+  const breakdown = calculateXpBreakdown({
+    lists: xpLists,
+    referralCount: referralStats.activeReferrals,
+    connectionsSolved: solveCount ?? 0,
+  });
+  // Lifetime ratchet: deleting a list from your shelf never reduces your rank.
+  const { total: lifetimeXp } = reconcileCareerXp(breakdown, showcase.lifetimeXp);
+  const progress = xpProgress(lifetimeXp);
+  const moviesRanked = countMoviesRanked(xpLists);
   // Marquee ordering achievements. RLS policy "anyone reads done lists" exposes
   // status='done' + visibility in ('unlisted','public'), and marquee lists are
   // saved public, so this ordering is identical for every viewer.
@@ -141,19 +165,15 @@ export default async function MyListsPage() {
       createdAt: String(r.created_at ?? ""),
     }));
   const standing = marqueeStanding(completions, auth.user.id);
-  const { count: solveCount } = await supabase
-    .from("marquee_solves")
-    .select("theme_slug", { count: "exact", head: true })
-    .eq("user_id", auth.user.id)
-    // The table records every attempt, including wrong guesses and peeks, so
-    // the badge must count only the ones that were actually cracked.
-    .eq("correct", true);
 
   const achievements = evaluateAchievements({
     doneLists: doneCards.length,
-    moviesRanked: progress.current,
+    // Films actually ranked, not XP. Reading XP here meant seven referrals
+    // unlocked "ranked a hundred films" for someone who had ranked none.
+    moviesRanked,
     maxMoviesInSingleList: Math.max(0, ...doneCards.map((c) => c.posters.length)),
-    coCuratedLists: doneCards.filter((c) => (c.chips?.length ?? 0) > 0).length,
+    coCuratedLists: xpLists.filter((l) => l.done && l.coCurated).length,
+    marqueeWeeks: xpLists.filter((l) => l.done && l.isMarquee).length,
     marqueeConnectionsSolved: solveCount ?? 0,
     ...standing,
   });
@@ -161,8 +181,8 @@ export default async function MyListsPage() {
   const { unlocked, locked } = unlockedAt(level.level);
 
   // Background ratchet: lock in new peak XP so deleting lists later never loses rank
-  if (claimed && currentXp > (showcase.lifetimeXp ?? 0)) {
-    const nextShowcase = { ...showcase, lifetimeXp: currentXp };
+  if (claimed && breakdown.total > (showcase.lifetimeXp ?? 0)) {
+    const nextShowcase = { ...showcase, lifetimeXp: breakdown.total };
     void supabase
       .from("profiles")
       .update({ showcase: nextShowcase })
@@ -175,9 +195,7 @@ export default async function MyListsPage() {
         <div>
           <MarqueeHeading>My Profile & Lists</MarqueeHeading>
           {claimed && profile?.handle ? (
-            <p className="mt-1 font-display text-lg uppercase tracking-wider text-gold">
-              @{profile.handle}
-            </p>
+            <Nameplate handle={profile.handle} level={progress.level} size="compact" className="mt-1" />
           ) : (
             <p className="mt-1 text-xs text-muted">
               Track your ranking progress, achievements, and movie collections.
@@ -232,8 +250,8 @@ export default async function MyListsPage() {
               <p className="text-xs text-muted mt-0.5">
                 {progress.next
                   ? progress.prestige > 0
-                    ? `${progress.next.xp - progress.current} more movies to Prestige ${progress.prestige + 1}`
-                    : `${progress.next.xp - progress.current} more movies to Level ${progress.level + 1}`
+                    ? `${progress.next.xp - progress.current} XP to Prestige ${progress.prestige + 1}`
+                    : `${progress.next.xp - progress.current} XP to Level ${progress.level + 1}`
                   : "You hold the highest prestige rank."}
               </p>
             </div>
@@ -242,7 +260,7 @@ export default async function MyListsPage() {
           <dl className="grid grid-cols-2 gap-4 font-mono text-sm sm:w-64">
             <div className="rounded-lg bg-surface-raised p-3 ring-1 ring-white/5 text-center">
               <dt className="text-xs uppercase tracking-wider text-muted">Movies Ranked</dt>
-              <dd className="mt-1 font-display text-2xl text-text tabular-nums">{progress.current}</dd>
+              <dd className="mt-1 font-display text-2xl text-text tabular-nums">{moviesRanked}</dd>
             </div>
             <div className="rounded-lg bg-surface-raised p-3 ring-1 ring-white/5 text-center">
               <dt className="text-xs uppercase tracking-wider text-muted">Lists Created</dt>
@@ -282,7 +300,19 @@ export default async function MyListsPage() {
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-            <LevelProgressionModal currentLevel={level.level} currentXp={lifetimeXp} />
+            <LevelProgressionModal
+              currentLevel={level.level}
+              currentXp={lifetimeXp}
+              breakdown={breakdown}
+              challenges={achievements
+                .filter((a) => a.challenge)
+                .map((a) => ({
+                  name: a.name,
+                  description: a.description,
+                  icon: a.icon,
+                  unlocked: a.unlocked,
+                }))}
+            />
             {referralStats.activeReferrals > 0 && (
               <span className="text-[11px] font-mono text-gold/80 flex items-center gap-1">
                 <span>🎟️</span>
@@ -305,31 +335,43 @@ export default async function MyListsPage() {
               <h2 id="unlocks-heading" className="font-display text-sm uppercase tracking-[0.14em] text-gold">
                 Level Unlocks
               </h2>
-              {locked.length > 0 && (
-                <span className="rounded-full bg-gold/10 px-2 py-0.5 font-display text-[9px] font-bold uppercase tracking-widest text-gold ring-1 ring-gold/30">
-                  Coming Soon
-                </span>
-              )}
+              <span className="font-mono text-[11px] text-muted">
+                {unlocked.length}/{unlocked.length + locked.length}
+              </span>
             </div>
-            <ul className="mt-3 flex flex-wrap gap-2">
+            {/* No blur and no "Coming Soon": every entry here does something, so
+                the honest move is to say what, and let it read as a roadmap. */}
+            <ul className="mt-3 space-y-1.5">
               {[...unlocked, ...locked].map((u) => {
                 const isUnlocked = u.atLevel <= progress.level;
                 return (
                   <li
                     key={u.name}
-                    title={
+                    className={`flex items-start gap-2.5 rounded-lg p-2.5 ring-1 transition-colors ${
                       isUnlocked
-                        ? "Unlocked"
-                        : `Unlocks at ${LEVELS.find((l) => l.level === u.atLevel)?.title}`
-                    }
-                    className={`rounded-full px-3 py-1 text-xs font-medium ring-1 transition-all ${
-                      isUnlocked
-                        ? "bg-gold/10 text-gold ring-gold/40"
-                        : "bg-surface-raised/40 text-muted/60 ring-white/5 filter blur-[2px] opacity-40 select-none"
+                        ? "bg-gold/10 ring-gold/30"
+                        : "bg-surface-raised/40 ring-white/5"
                     }`}
                   >
-                    {isUnlocked && <span aria-hidden="true" className="mr-1">✓</span>}
-                    {u.name}
+                    <span
+                      aria-hidden="true"
+                      className={`mt-px text-xs ${isUnlocked ? "text-gold" : "text-muted/60"}`}
+                    >
+                      {isUnlocked ? "✓" : "○"}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span
+                          className={`text-xs font-semibold ${isUnlocked ? "text-gold" : "text-text/70"}`}
+                        >
+                          {u.name}
+                        </span>
+                        <span className="shrink-0 font-mono text-[10px] text-muted">
+                          Lv {u.atLevel}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] leading-snug text-muted">{u.effect}</p>
+                    </div>
                   </li>
                 );
               })}

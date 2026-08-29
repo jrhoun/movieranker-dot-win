@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { shuffledOptions } from "@/lib/connection-options";
+import { CONNECTION_SOLVE_XP } from "@/lib/gamification";
 import type { ThemeConnectionGame } from "@/lib/shortlist-themes";
 
 interface MarqueeConnectionGameProps {
@@ -185,7 +186,7 @@ export default function MarqueeConnectionGame({
 
         {revealed && isCorrect && (
           <span className="rounded-full bg-gold/20 px-2.5 py-0.5 font-mono text-xs font-bold text-gold ring-1 ring-gold/40 animate-fade-in">
-            +5 XP Solved!
+            +{CONNECTION_SOLVE_XP} XP Solved!
           </span>
         )}
       </div>

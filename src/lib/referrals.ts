@@ -1,5 +1,6 @@
 // Referral & Invite Tracking
-// Users earn +15 XP (3 Career Levels) when an invited friend registers and completes their first ranking.
+// Users earn REFERRAL_XP_BONUS when an invited friend registers and completes
+// their first ranking.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { REFERRAL_XP_BONUS } from "./gamification";

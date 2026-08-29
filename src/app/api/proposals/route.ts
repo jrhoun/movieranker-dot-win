@@ -4,11 +4,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { dbErrorResponse, invalid } from "@/lib/lists-api";
 import { parseProposal } from "@/lib/proposals-api";
 import {
-  calculateTotalXp,
+  grandfatheredXp,
   levelFor,
   MIN_PROPOSAL_LEVEL,
   rankForLevel,
 } from "@/lib/gamification";
+import { fetchCareerXp } from "@/lib/career-xp";
 import {
   LIMITS,
   rateKey,
@@ -29,42 +30,21 @@ export async function POST(request: Request) {
     .eq("id", data.user.id)
     .maybeSingle();
 
-  let lifetimeXp = 0;
+  let bankedXp = 0;
   if (profile?.showcase && typeof profile.showcase === "object") {
     const sc = profile.showcase as Record<string, unknown>;
     if (typeof sc.lifetimeXp === "number") {
-      lifetimeXp = sc.lifetimeXp;
+      bankedXp = sc.lifetimeXp;
     }
   }
 
-  if (lifetimeXp === 0) {
-    const { data: userLists } = await supabase
-      .from("lists")
-      .select("id,list_movies(count)")
-      .eq("owner_id", data.user.id);
-
-    const listIds = (userLists ?? []).map((l) => l.id);
-    const { data: attributions } = listIds.length
-      ? await supabase
-          .from("participant_attributions")
-          .select("user_id")
-          .in("list_id", listIds)
-      : { data: [] };
-
-    const referralCount = (attributions ?? []).filter(
-      (a) => a.user_id && a.user_id !== data.user.id,
-    ).length;
-
-    const count = calculateTotalXp({
-      lists: (userLists ?? []).map((l) => {
-        const c = Array.isArray(l.list_movies) ? l.list_movies[0]?.count ?? 0 : 0;
-        return { movieCount: Number(c) };
-      }),
-      referralCount,
-    });
-    lifetimeXp = Math.max(lifetimeXp, count);
+  // The banked peak is a floor, so if it already clears the gate there is
+  // nothing to look up. Only someone who has not yet qualified on record pays
+  // for the full derivation, which agrees with the level the profile shows.
+  let lifetimeXp = grandfatheredXp(bankedXp);
+  if (levelFor(lifetimeXp).level < MIN_PROPOSAL_LEVEL) {
+    lifetimeXp = (await fetchCareerXp(supabase, data.user.id, bankedXp)).total;
   }
-
   const userLevel = levelFor(lifetimeXp).level;
   if (userLevel < MIN_PROPOSAL_LEVEL) {
     return NextResponse.json(
