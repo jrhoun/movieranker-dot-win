@@ -102,20 +102,17 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
   },
 
   "mountain-peak-peril": {
-    // NOTE: this roster does not match its own title — see the theme audit.
-    // The connection below is written to what is actually true of these six
-    // films, so the quiz is at least not a lie. The roster still wants fixing.
     connection:
-      "The historical-scale epic. Each film is a maximalist swing built on enormous practical production — vast crowds, built environments, and a lone figure measured against forces far larger than himself.",
+      "Lethal height. Every film turns on vertical exposure — rock, ice, or thin air — where a single slip is not survivable and the mountain has no interest either way.",
     options: [
-      "Each is a large-scale epic pitting one figure against overwhelming forces",
-      "All six are adapted from the published memoir of somebody who was there",
-      "Every film is set entirely within the bounds of the twentieth century",
-      "Each was shot without constructed sets, using only real existing locations",
+      "Every film turns on extreme height, where one mistake is not survivable",
+      "All six of these films are dramatisations of events that really happened",
+      "Every one of these stories takes place somewhere in the Himalayas",
+      "Each protagonist is a professional mountaineer by training and by trade",
     ],
     correctIndex: 0,
     triviaNote:
-      "The epic survives because scale reads on camera in a way spectacle alone does not: a real crowd, a real horizon and a real building give an audience something to measure the hero against.",
+      "Altitude does most of the work for free. Above about 8,000 metres the body cannot acclimatise and begins to deteriorate no matter how fit the climber — which is why that band is known as the death zone.",
   },
 
   "rain-soaked-cinema": {
@@ -277,7 +274,7 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
       "Open water. No ground, no shelter, and no rescue within reach — a setting whose entire threat is that there is nothing solid anywhere.",
     options: [
       "Open water with nothing solid underfoot is the central, inescapable danger",
-      "Each film features a vessel that sinks completely before the story ends",
+      "Each of these films is a dramatisation of a real maritime disaster",
       "Every story is set aboard a commercial passenger ship carrying civilians",
       "All six take place entirely at sea, without ever once touching dry land",
     ],
@@ -332,7 +329,7 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
     connection:
       "The indifferent vacuum. Isolation measured in millions of miles, air measured in hours, and an environment with no opinion whatsoever about whether anyone survives it.",
     options: [
-      "The environment is the antagonist: no air, no help, and no malice either",
+      "Space supplies the danger: no air, no rescue, and no second chances at all",
       "Each crew is undone by a hostile intelligence already aboard their ship",
       "All six are set within the boundaries of our own solar system",
       "Every mission depicted in these films returns home completely intact",
@@ -512,9 +509,9 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
 
   "jazz-and-obsession": {
     connection:
-      "Music as the organising subject. Performance drives the story — practice, ensemble, ambition and the cost of getting it right are the plot rather than the backdrop.",
+      "Obsession with performance. Each film is about someone chasing mastery of an art form past the point where it stops being good for them.",
     options: [
-      "Musical performance is the organising subject rather than the soundtrack",
+      "Each is about chasing artistic mastery past the point of personal cost",
       "Every protagonist is a working professional musician by trade and training",
       "Each film's central performance ends in public and humiliating failure",
       "All six are original musicals written directly for the screen",
