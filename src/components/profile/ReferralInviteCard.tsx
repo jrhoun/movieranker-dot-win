@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore, useState } from "react";
 import type { ReferralStats } from "@/lib/referrals";
+import { REFERRAL_XP_BONUS } from "@/lib/gamification";
 
 const emptySubscribe = () => () => {};
 
@@ -77,13 +78,13 @@ export default function ReferralInviteCard({
           <span>Invite Friends</span>
         </h2>
         <span className="rounded-full bg-gold/10 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-gold ring-1 ring-gold/30">
-          +15 XP per friend
+          +{REFERRAL_XP_BONUS} XP per friend
         </span>
       </div>
 
       <p className="mt-3 text-xs leading-relaxed text-muted">
         Refer your friends. When they create an account and finish their first ranking list, you get{" "}
-        <strong className="text-gold font-semibold">+15 XP</strong>.
+        <strong className="text-gold font-semibold">+{REFERRAL_XP_BONUS} XP</strong>.
       </p>
 
       {/* Dedicated full-width URL row */}

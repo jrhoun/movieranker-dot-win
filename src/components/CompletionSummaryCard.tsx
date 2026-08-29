@@ -43,9 +43,9 @@ export default function CompletionSummaryCard({
       <div className="mt-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <p className="font-display text-lg uppercase tracking-wide text-text">
-            {/* A list is worth up to 20 XP and a level costs 5, so one ranking
-                often clears several. Showing the jump is both more honest and
-                more satisfying than announcing "level up" every single time. */}
+            {/* A big ranking can still clear more than one level, and late
+                levels cost enough that it usually clears none. Showing the jump
+                covers both without announcing "level up" every single time. */}
             {summary.leveledUp && (
               <span className="mr-2 text-gold">
                 Level {summary.previousLevel} → {summary.level} ·
