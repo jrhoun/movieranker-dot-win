@@ -58,9 +58,18 @@ export const OG_RESPONSE_OPTIONS = {
   fonts: [{ name: "Bebas", data: DISPLAY_FONT, style: "normal" as const, weight: 400 as const }],
 };
 
-/** Absolute TMDB poster URL. Satori fetches server-side, so CORS never applies. */
+/**
+ * Absolute TMDB poster URL. Satori fetches server-side, so CORS never applies.
+ *
+ * Passes an already-complete URL (an absolute `http(s)` URL, or a `data:` URI
+ * — what tests use for a network-free stub poster) through untouched, rather
+ * than mangling it with the CDN prefix meant for a raw TMDB `poster_path`
+ * like `/abc123.jpg`.
+ */
 export function posterUrl(posterPath: string | null | undefined): string | null {
-  return posterPath ? `https://image.tmdb.org/t/p/w342${posterPath}` : null;
+  if (!posterPath) return null;
+  if (posterPath.startsWith("http") || posterPath.startsWith("data:")) return posterPath;
+  return `https://image.tmdb.org/t/p/w342${posterPath}`;
 }
 
 /**

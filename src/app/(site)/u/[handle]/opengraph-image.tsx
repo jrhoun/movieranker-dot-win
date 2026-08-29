@@ -21,6 +21,22 @@ export const alt = "A movieranker.win profile";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 
+/**
+ * NOT ImageResponse's own default (`public, immutable, max-age=31536000`):
+ * that default is correct for the list/compare cards, whose underlying list
+ * is frozen at status="done", but false for every card this route can
+ * return. A handle that's private or doesn't exist yet, first crawled, then
+ * made public later, must not keep serving the branded fallback from an
+ * edge cache for a year — and the whole point of the real card is that a
+ * user re-equips cosmetics and other people see it, which `immutable` would
+ * also break. Used on both branches below: the fallback (a bare
+ * `ImageResponse`, which sets the immutable default on its own unless
+ * overridden) and the real card (a bare `Response`, which sets no
+ * Cache-Control at all on its own).
+ */
+const CACHE_CONTROL =
+  process.env.NODE_ENV === "development" ? "no-cache, no-store" : "public, max-age=3600, must-revalidate";
+
 interface DbProfile {
   id: string;
   handle: string;
@@ -57,7 +73,9 @@ export default async function Image({ params }: { params: Promise<{ handle: stri
           subline="RANK MOVIES HEAD-TO-HEAD, SOLO OR WITH FRIENDS"
         />
       ),
-      OG_RESPONSE_OPTIONS,
+      // `headers` here overrides ImageResponse's own immutable default — see
+      // the CACHE_CONTROL comment above for why that default is wrong here.
+      { ...OG_RESPONSE_OPTIONS, headers: { "Cache-Control": CACHE_CONTROL } },
     );
   }
 
@@ -101,23 +119,10 @@ export default async function Image({ params }: { params: Promise<{ handle: stri
 
   // `new Uint8Array(png)` rather than the Buffer itself: Node's Buffer and
   // lib.dom's BodyInit disagree on the ArrayBufferLike generic even though a
-  // Buffer is a Uint8Array at runtime.
-  //
-  // NOT ImageResponse's own default (`public, immutable, max-age=31536000`,
-  // which the fallback branch above gets for free): that default is correct
-  // for the list/compare cards, whose underlying list is frozen at
-  // status="done", but false for this one. The whole point of this feature
-  // is that a user re-equips cosmetics and other people see it — `immutable`
-  // would tell an intermediary cache never to revalidate, so an edge cache
-  // could keep serving someone's old frame for a year after they earned and
-  // equipped a new one. A short, revalidatable max-age still avoids
-  // re-rendering on every single crawler fetch without asserting this URL's
-  // content never changes.
+  // Buffer is a Uint8Array at runtime. A bare Response sets no Cache-Control
+  // of its own — unlike the fallback branch's ImageResponse — so it's set
+  // explicitly here too; see the CACHE_CONTROL comment above.
   return new Response(new Uint8Array(png), {
-    headers: {
-      "Content-Type": contentType,
-      "Cache-Control":
-        process.env.NODE_ENV === "development" ? "no-cache, no-store" : "public, max-age=3600, must-revalidate",
-    },
+    headers: { "Content-Type": contentType, "Cache-Control": CACHE_CONTROL },
   });
 }

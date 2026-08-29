@@ -121,6 +121,20 @@ function inspect(png: Buffer) {
   return { width, height, colors: colors.size, inkFraction: offBackground / (width * height) };
 }
 
+/**
+ * The packed RGB int at one pixel. `colors > 32` / `inkFraction > 0.02` prove
+ * a card isn't blank overall, but they say nothing about any one region —
+ * ~38k pixels of antialiased avatar + frame + Bebas text alone clears both,
+ * so a single full-bleed layer (a background, an overlay) painting nothing
+ * would still pass. This is for the sharper question: did THIS specific
+ * layer paint, sampled somewhere only it could have reached.
+ */
+function pixelRgb(png: Buffer, x: number, y: number): number {
+  const { width, pixels } = decodePng(png);
+  const i = (y * width + x) * 4;
+  return (pixels[i] << 16) | (pixels[i + 1] << 8) | pixels[i + 2];
+}
+
 beforeAll(async () => {
   await mkdir(OUT_DIR, { recursive: true });
 });
@@ -177,6 +191,16 @@ describe("posterUrl", () => {
     expect(posterUrl(null)).toBeNull();
     expect(posterUrl(undefined)).toBeNull();
     expect(posterUrl("")).toBeNull();
+  });
+
+  it("passes a data: URI through untouched, since it's already a complete src", () => {
+    // What lets STUB_POSTER stand in for a TMDB poster_path below — without
+    // this, prefixing it with the CDN host would mangle it into garbage.
+    expect(posterUrl(STUB_POSTER)).toBe(STUB_POSTER);
+  });
+
+  it("passes an absolute http(s) URL through untouched", () => {
+    expect(posterUrl("https://example.com/poster.jpg")).toBe("https://example.com/poster.jpg");
   });
 });
 
@@ -306,6 +330,12 @@ describe("card rendering", () => {
     // renderProfileCard returns raw PNG bytes directly rather than a React
     // element for the render()/expectRealCard() helpers above, so its own
     // pixels are inspected here without going through render().
+    //
+    // The one deliberately networked test in this file: a real TMDB
+    // poster_path, exercised end-to-end through posterUrl()'s CDN prefixing.
+    // Every other profile-card test below uses STUB_POSTER (a data: URI,
+    // passed through untouched — see the posterUrl tests above) precisely so
+    // it does NOT depend on egress to image.tmdb.org.
     const png = await renderProfileCard({
       handle: "jrhoun",
       level: 27,
@@ -335,16 +365,20 @@ describe("card rendering", () => {
   });
 });
 
-describe("profile card renders every catalogue frame and background", () => {
+describe("profile card renders every catalogue frame, background and overlay", () => {
   // A cosmetic can carry CSS Satori rejects outright, not just CSS it quietly
   // ignores. frame.prism's conic-gradient threw "Failed to parse
   // declaration" during development — a 500, not the usual silent blank
   // PNG this file otherwise guards against. Rendering every catalogue id
   // here (not just the one combination above) is what stops a newly added
-  // frame or background shipping unrenderable; new catalogue entries are
-  // covered automatically since these loop itemsForSlot rather than listing
-  // ids by hand.
-  const posterPaths = ["/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg"];
+  // frame, background or overlay shipping unrenderable; new catalogue
+  // entries are covered automatically since these loop itemsForSlot rather
+  // than listing ids by hand.
+  //
+  // STUB_POSTER, not a real TMDB path: the one networked case lives in the
+  // test above this describe block; these 13+ don't need egress to render
+  // something meaningful, so they don't take a network dependency.
+  const posterPaths = [STUB_POSTER];
 
   async function expectRealProfileCard(name: string, equipped: Parameters<typeof renderProfileCard>[0]["equipped"]) {
     const png = await renderProfileCard({ handle: "jrhoun", level: 27, rank: "Cinephile", equipped, posterPaths });
@@ -373,13 +407,87 @@ describe("profile card renders every catalogue frame and background", () => {
     });
   }
 
-  // Overlays are otherwise flat translucent colours (nothing left to parse
-  // wrong); overlay.vhs is the one with real CSS (a repeating-linear-gradient).
-  it("renders with overlay.vhs", async () => {
-    await expectRealProfileCard("overlay.vhs", {
-      frame: "frame.brass",
-      background: "background.filmstrip",
-      overlay: "overlay.vhs",
+  // overlay.none has no OVERLAY_STYLE entry and paints nothing on its own —
+  // fine, since the card as a whole is still real (avatar/frame/text). Every
+  // *other* overlay carries real CSS a future addition could get wrong the
+  // same way frame.prism did (overlay.vhs is the one with a gradient today).
+  for (const overlay of itemsForSlot("overlay")) {
+    it(`renders with ${overlay.id}`, async () => {
+      await expectRealProfileCard(overlay.id, {
+        frame: "frame.brass",
+        background: "background.filmstrip",
+        overlay: overlay.id,
+      });
     });
+  }
+});
+
+describe("profile card background treatments actually paint a full-bleed layer", () => {
+  // Why the suite above doesn't already prove this: the avatar + frame ring
+  // + Bebas text alone is ~38k antialiased pixels, comfortably clearing
+  // `colors > 32` / `inkFraction > 0.02` on their own. A full-bleed
+  // background `<div>` that silently fails to size — exactly the `inset: 0`
+  // bug this file hit once (see the report for task 10) — would leave those
+  // thresholds untouched while painting nothing. So instead of the
+  // aggregate thresholds, these sample ONE pixel at the padded content
+  // column's left edge (x=24, inside the 56px left padding, so never
+  // reachable by the centered avatar/eyebrow/headline/tagline/wordmark) and
+  // assert it is not the flat COLORS.bg the ProfileCard root would show
+  // through if the background layer painted nothing.
+  const CORNER_X = 24;
+  const CORNER_Y = 300; // vertical middle; well below the 36px marquee-bulb strip
+  const bg = parseInt(COLORS.bg.slice(1), 16);
+
+  it("background.velvet paints a visible gradient, not the flat root colour", async () => {
+    const png = await renderProfileCard({
+      handle: "jrhoun",
+      level: 27,
+      rank: "Cinephile",
+      equipped: { frame: "frame.brass", background: "background.velvet", overlay: "overlay.none" },
+      posterPaths: [], // no avatar, no poster art — velvet doesn't need either, so this is the leanest case
+    });
+    expect(
+      pixelRgb(png, CORNER_X, CORNER_Y),
+      "sampled pixel matches the flat root colour — the velvet layer painted nothing",
+    ).not.toBe(bg);
+  });
+
+  it("background.spotlight paints a visible treatment, not the flat root colour", async () => {
+    // Unlike velvet, spotlight only activates when an avatar is resolvable
+    // (ProfileBackground falls through to the filmstrip treatment
+    // otherwise) — so this needs a poster, not an empty posterPaths.
+    const png = await renderProfileCard({
+      handle: "jrhoun",
+      level: 27,
+      rank: "Cinephile",
+      equipped: { frame: "frame.brass", background: "background.spotlight", overlay: "overlay.none" },
+      posterPaths: [STUB_POSTER],
+    });
+    expect(
+      pixelRgb(png, CORNER_X, CORNER_Y),
+      "sampled pixel matches the flat root colour — the spotlight layer painted nothing",
+    ).not.toBe(bg);
+  });
+
+  it("background.filmstrip paints the scrim, not the flat root colour", async () => {
+    // No posters, same as the velvet case above — deliberately. With a
+    // poster present, its own tiled <img> alone produces enough of a signal
+    // to pass this assertion even if the scrim div specifically failed to
+    // paint (verified empirically: reverting *only* the scrim div back to
+    // `inset: 0` while leaving the poster row intact still passed a version
+    // of this test that supplied a poster). The scrim is a flat, no-children
+    // div — exactly the shape that silently collapses under `inset: 0` — so
+    // isolating it means giving it nothing else to hide behind.
+    const png = await renderProfileCard({
+      handle: "jrhoun",
+      level: 27,
+      rank: "Cinephile",
+      equipped: { frame: "frame.brass", background: "background.filmstrip", overlay: "overlay.none" },
+      posterPaths: [],
+    });
+    expect(
+      pixelRgb(png, CORNER_X, CORNER_Y),
+      "sampled pixel matches the flat root colour — the filmstrip scrim painted nothing",
+    ).not.toBe(bg);
   });
 });
