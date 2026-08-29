@@ -229,10 +229,16 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
               started. The week is named by its number; the films do the
               inviting. */}
           {liveFan && (
-            <p className="mt-8 flex flex-wrap items-center justify-center gap-2.5 font-display text-sm uppercase tracking-[0.28em] text-gold/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">
-              <span>This week&apos;s marquee · No {marqueeNumber()}</span>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-2.5">
+              {/* A div, not a p: MarqueeInfoModal renders a <dialog>, which is
+                  flow content and cannot legally sit inside a paragraph. The
+                  display styling stays on the label so the dialog does not
+                  inherit uppercase, letter-spacing and a display face from it. */}
+              <span className="font-display text-sm uppercase tracking-[0.28em] text-gold/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">
+                This week&apos;s marquee · No {marqueeNumber()}
+              </span>
               <MarqueeInfoModal />
-            </p>
+            </div>
           )}
           <ul className="mt-4 flex justify-start overflow-x-auto px-4 pt-6 pb-4 sm:justify-center">
             {fanItems.map(({ m, tilt }, i) => {
