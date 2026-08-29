@@ -215,11 +215,16 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
                 h1 below carries the descriptive phrase search engines index. */}
             <p
               role="presentation"
-              className="font-display text-[clamp(2.5rem,11vw,6rem)] uppercase leading-none tracking-widest"
+              /* The wordmark line overflowed the viewport below ~430px: at the
+                 old clamp floor, fifteen Bebas caps plus 0.1em tracking and two
+                 flanking stars measured wider than the screen, so the whole
+                 page scrolled sideways. Tracking is the expensive part on a
+                 narrow screen, so it only opens up once there is room. */
+              className="font-display text-[clamp(2rem,9.5vw,6rem)] uppercase leading-none tracking-wide sm:tracking-widest"
             >
-              <span aria-hidden="true" className="mr-2 align-middle text-gold text-[0.5em]">✦</span>
+              <span aria-hidden="true" className="mr-2 align-middle text-gold text-[0.34em] sm:text-[0.5em]">✦</span>
               <span className="marquee-gold drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)]">movieranker.win</span>
-              <span aria-hidden="true" className="ml-2 align-middle text-gold text-[0.5em]">✦</span>
+              <span aria-hidden="true" className="ml-2 align-middle text-gold text-[0.34em] sm:text-[0.5em]">✦</span>
             </p>
             <h1 className="mt-3 text-xl font-medium text-text sm:text-2xl">
               Rank movies head-to-head. Solo or with friends.
@@ -228,12 +233,69 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
                 is not a link reads as a broken hyperlink, which is what this
                 looked like sitting under the tagline. */}
             <p className="mt-1.5 text-lg text-gold/90 sm:text-xl">One list at a time.</p>
-            <a
-              href="#start"
-              className="mt-4 inline-block min-h-11 rounded-full bg-gold px-6 text-sm font-bold leading-[44px] uppercase tracking-wide text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-            >
-              Start ranking
-            </a>
+            {/* The hero advertises this week's marquee, so its CTA goes to the
+                marquee. It used to point at #start, which is the custom-list
+                search box further down — the posters promised one thing and the
+                button delivered another. The builder is still one click away,
+                as the quiet link underneath. */}
+            {tonight.movies.length > 0 ? (
+              <div className="mt-5 flex flex-col items-center gap-2.5">
+                <div className="flex items-center gap-1.5">
+                  <p className="font-display text-xs uppercase tracking-[0.28em] text-muted">
+                    This week&apos;s marquee
+                  </p>
+                  <MarqueeInfoModal />
+                </div>
+                <p className="font-display text-2xl uppercase leading-none tracking-[0.08em] text-gold drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)] sm:text-3xl">
+                  {tonight.title}
+                </p>
+                {/* One self-explaining line: a first-time visitor has no idea
+                    what a "marquee" is, and the info modal alone was too quiet
+                    to carry that once this became the lead. */}
+                <p className="max-w-sm text-sm leading-relaxed text-text/85">
+                  Six films, one hidden connection, a new set every Monday.
+                </p>
+                {tonight.userThemeListId ? (
+                  <>
+                    <span className="mt-1 inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-4 py-1.5 text-sm font-semibold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/40">
+                      <span aria-hidden="true" className="text-base font-bold">✓</span>
+                      <span>You ranked it</span>
+                    </span>
+                    <Link
+                      href={`/l/${tonight.userThemeListId}`}
+                      className="inline-block min-h-11 rounded-full bg-gold px-6 text-sm font-bold leading-[44px] uppercase tracking-wide text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                    >
+                      See your ranking
+                    </Link>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={scrollToMarquee}
+                    className="mt-1 inline-block min-h-11 cursor-pointer rounded-full bg-gold px-6 text-sm font-bold leading-[44px] uppercase tracking-wide text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                  >
+                    Rank this week&apos;s marquee
+                  </button>
+                )}
+                {/* The clock is the appointment mechanic. It was a small pill
+                    inside the second of two columns, which is the one place a
+                    weekly deadline cannot do its job. */}
+                <MarqueeCountdown />
+                <a
+                  href="#start"
+                  className="text-xs text-muted underline decoration-white/25 underline-offset-4 transition-colors hover:text-gold hover:decoration-gold focus-visible:outline-2 focus-visible:outline-gold"
+                >
+                  or build your own list →
+                </a>
+              </div>
+            ) : (
+              <a
+                href="#start"
+                className="mt-4 inline-block min-h-11 rounded-full bg-gold px-6 text-sm font-bold leading-[44px] uppercase tracking-wide text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+              >
+                Start ranking
+              </a>
+            )}
           </div>
           {/* Fanned marquee of real posters: overlapping, tilted -8°..8°,
               straighten+lift on hover (200ms ease-out; killed by reduced-motion).
@@ -285,11 +347,6 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
             >
               +{overflowCount} more in this week&apos;s marquee ↓
             </button>
-          )}
-          {liveFan && (
-            <p className="mt-5 font-display text-sm uppercase tracking-[0.2em] text-gold drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]">
-              This week&apos;s marquee · {tonight.title}
-            </p>
           )}
         </div>
       </header>
@@ -410,24 +467,15 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
           columns side by side on desktop (custom list LEFT, marquee RIGHT,
           ✦ vertical rule between); stacks at 390px marquee-first (DOM order). */}
       <MarqueeHeading as="h2">Choose your premiere</MarqueeHeading>
-      <div className="mt-8 flex flex-col md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-stretch">
+      <div className="mt-8 flex flex-col">
       {/* Path A: THIS WEEK'S MARQUEE — server-resolved theme + movie details.
           Posters stay tap-to-add candidates, same tray toggle as the hero fan. */}
       {tonight.movies.length > 0 && (
       <section
         id="week-marquee"
         aria-label="This week's marquee"
-        className="scroll-mt-6 rounded-lg bg-surface p-5 ring-1 ring-gold/40 sm:p-6 md:col-start-3 md:row-start-1"
+        className="scroll-mt-6 rounded-lg bg-surface p-5 ring-1 ring-gold/40 sm:p-6"
       >
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5">
-            <p className="font-display text-xs uppercase tracking-[0.2em] text-muted">
-              This week&apos;s marquee
-            </p>
-            <MarqueeInfoModal />
-          </div>
-          <MarqueeCountdown />
-        </div>
 
         {tonight.userThemeListId && (
           <div className="mx-auto my-3 flex w-fit items-center gap-2 rounded-full bg-emerald-500/15 px-4 py-1.5 text-sm font-semibold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
@@ -565,22 +613,16 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
           horizontal on mobile, vertical rule between columns on desktop.
           Rendered only when there is a shortlist to separate. */}
       {tonight.movies.length > 0 && (
-        <div
-          className="my-8 flex items-center gap-3 md:mx-3 md:my-0 md:flex-col"
-          role="presentation"
-        >
-          {/* Spans stay flex-1 on desktop too: in the md:flex-col container
-              they split the column height around ✦ (flex-basis 0), so total
-              content never exceeds the stretched grid row — no overflow. */}
-          <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60 md:min-h-4 md:min-w-0 md:w-px" />
+        <div className="my-8 flex items-center gap-3" role="presentation">
+          <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60" />
           <span aria-hidden="true" className="text-gold">✦</span>
-          <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60 md:min-h-4 md:min-w-0 md:w-px" />
+          <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60" />
         </div>
       )}
       {/* Path B: BUILD YOUR OWN LIST — the search panel lives inside this card. */}
       <section
         aria-label="Build your own list"
-        className="rounded-lg bg-surface p-5 ring-1 ring-white/10 sm:p-6 md:col-start-1 md:row-start-1"
+        className="rounded-lg bg-surface p-5 ring-1 ring-white/10 sm:p-6"
       >
         <h3 className="font-display text-3xl uppercase leading-none tracking-wide">Build your own list</h3>
         <p className="mt-1 text-sm text-muted">
