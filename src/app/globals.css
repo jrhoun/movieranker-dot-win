@@ -186,6 +186,14 @@ body {
 }
 .thin-scrollbar::-webkit-scrollbar-track { background: transparent; }
 
+/* Decorative overflow strips (the marquee poster fan). Windows draws a classic
+   scrollbar with arrow buttons for even a few pixels of overflow, which is far
+   louder than the thing it is scrolling. Safe to hide here because every poster
+   is a focusable button, so Tab still reaches the ones off-screen and touch
+   still swipes — the chrome was the only thing lost. */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* Directional Hit & Recoil Matchup Animations */
 /* Left Winner lunges Rightward into opponent */
 .animate-hit-right {
