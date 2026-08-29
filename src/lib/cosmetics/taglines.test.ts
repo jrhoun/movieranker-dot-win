@@ -1,6 +1,6 @@
 // src/lib/cosmetics/taglines.test.ts
 import { describe, expect, it } from "vitest";
-import { EARNED_TAGLINES, TAGLINES, earnedTaglines, taglineById } from "./taglines";
+import { EARNED_TAGLINES, TAGLINES, earnedTaglines, resolveTaglineText, taglineById } from "./taglines";
 import { itemById } from "./catalogue";
 import { SHORTLIST_THEMES } from "@/lib/shortlist-themes";
 import { ACHIEVEMENTS, evaluateAchievements } from "@/lib/gamification";
@@ -15,6 +15,11 @@ describe("the rights invariant", () => {
       (t) => t.rights === "referential" && t.unlock.kind === "purchase",
     );
     expect(sold.map((t) => t.id)).toEqual([]);
+
+    // Confirm this test actually has a subject — a referential item with no
+    // purchase unlock is a much weaker guarantee than "no referential item
+    // exists at all," which would make the assertion above vacuously true.
+    expect(TAGLINES.some((t) => t.rights === "referential")).toBe(true);
   });
 
   it("every line declares its rights explicitly", () => {
@@ -152,5 +157,47 @@ describe("taglineById", () => {
 
   it("returns undefined for an unknown id", () => {
     expect(taglineById("tagline.does-not-exist")).toBeUndefined();
+  });
+});
+
+describe("resolveTaglineText — the single supported way to get DISPLAY text", () => {
+  const qualified = {
+    doneLists: 60,
+    moviesRanked: 500,
+    marqueeWeeks: 52,
+    marqueeConnectionsSolved: 9,
+    firstToMarquee: true,
+  };
+  const zero = { doneLists: 0, moviesRanked: 0 };
+
+  it("returns interpolated text for a qualified earned line", () => {
+    expect(resolveTaglineText("tagline.earned.attendance", qualified)).toBe("52 Marquees, and counting.");
+  });
+
+  it("returns undefined for an earned line the stats do not qualify for", () => {
+    expect(resolveTaglineText("tagline.earned.attendance", zero)).toBeUndefined();
+  });
+
+  it("returns the plain text for an ordinary line", () => {
+    expect(resolveTaglineText("tagline.trailer.in-a-world", zero)).toBe("In a world…");
+  });
+
+  it("returns undefined for an unknown id", () => {
+    expect(resolveTaglineText("tagline.does-not-exist", zero)).toBeUndefined();
+  });
+
+  it("never returns a raw template placeholder, for any tagline under any stats", () => {
+    // Iterate every id the catalogue knows about, under both a record that
+    // qualifies for nothing and one that qualifies for everything. Whatever
+    // comes back — a real line or undefined — must never be the "{count}..."
+    // template itself.
+    for (const t of TAGLINES) {
+      for (const stats of [zero, qualified]) {
+        const resolved = resolveTaglineText(t.id, stats);
+        if (resolved !== undefined) {
+          expect(resolved, `${t.id} resolved to a raw placeholder`).not.toContain("{");
+        }
+      }
+    }
   });
 });

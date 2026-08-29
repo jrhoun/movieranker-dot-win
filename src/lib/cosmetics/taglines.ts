@@ -1,7 +1,7 @@
 // src/lib/cosmetics/taglines.ts
 import { evaluateAchievements, type AchievementStats } from "@/lib/gamification";
 import { SHORTLIST_THEMES } from "@/lib/shortlist-themes";
-import type { Rarity, TaglineItem, Unlock } from "./types";
+import type { Rarity, Rights, TaglineItem, Unlock } from "./types";
 
 function line(
   id: string,
@@ -9,8 +9,9 @@ function line(
   text: string,
   unlock: Unlock,
   rarity: Rarity = "common",
+  rights: Rights = "owned",
 ): TaglineItem {
-  return { id: `tagline.${id}`, slot: "tagline", name: text, text, set, unlock, rarity, rights: "owned" };
+  return { id: `tagline.${id}`, slot: "tagline", name: text, text, set, unlock, rarity, rights };
 }
 
 const STARTER: Unlock = { kind: "starter" };
@@ -87,7 +88,10 @@ export const TAGLINES: TaglineItem[] = [
   line("trailer.in-a-world", "The Trailer", "In a world…", STARTER),
   line("trailer.this-summer", "The Trailer", "Coming this summer.", STARTER),
   line("trailer.one-last-job", "The Trailer", "One man. One last job.", DROP),
-  line("trailer.personal", "The Trailer", "This time, it's personal.", DROP),
+  // Documented as the marketing tagline of Jaws: The Revenge (1987) — a real
+  // film's copy, not a generic trailer cliché — so it may be a free drop but
+  // never purchasable. See the rights invariant in taglines.test.ts.
+  line("trailer.personal", "The Trailer", "This time, it's personal.", DROP, "common", "referential"),
   line("trailer.unprepared", "The Trailer", "Nothing could prepare them.", DROP),
   line("trailer.never-the-same", "The Trailer", "You'll never look at it the same way again.", DROP, "rare"),
 
@@ -177,4 +181,24 @@ export function earnedTaglines(stats: AchievementStats): TaglineItem[] {
     const u = t.unlock;
     return u.kind === "challenge" && unlocked.has(u.key);
   }).map((t) => interpolate(t, stats));
+}
+
+/**
+ * The single supported way to get a tagline's DISPLAY text.
+ *
+ * Earned lines live in the catalogue carrying a "{count}" placeholder so the
+ * ownership machinery can see them, which means `itemById(id).text` is a
+ * template rather than something you can render. Always resolve through here.
+ */
+export function resolveTaglineText(
+  id: string,
+  stats: AchievementStats,
+): string | undefined {
+  const earned = earnedTaglines(stats).find((t) => t.id === id);
+  if (earned) return earned.text;
+  const item = taglineById(id);
+  if (!item) return undefined;
+  // An earned id the user has not qualified for resolves to nothing rather
+  // than to its raw template.
+  return item.text.includes("{") ? undefined : item.text;
 }
