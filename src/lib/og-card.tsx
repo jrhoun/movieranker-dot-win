@@ -61,15 +61,22 @@ export const OG_RESPONSE_OPTIONS = {
 /**
  * Absolute TMDB poster URL. Satori fetches server-side, so CORS never applies.
  *
- * Passes an already-complete URL (an absolute `http(s)` URL, or a `data:` URI
- * — what tests use for a network-free stub poster) through untouched, rather
- * than mangling it with the CDN prefix meant for a raw TMDB `poster_path`
- * like `/abc123.jpg`.
+ * PREFIX-ONLY, AND THAT IS THE SECURITY BOUNDARY. Never add a pass-through for
+ * values that "already look like a URL": `list_movies.poster_path` is written
+ * verbatim from the client (POST /api/lists validates tmdbId/title/elo/
+ * comparisons/finalRank — never posterPath; see fullMovieRow in lists-api.ts)
+ * and Satori fetches every `<img src>` from the app server. A pass-through
+ * would let a stored `http://169.254.169.254/...` become an outbound request
+ * from the server's network position on every OG render of that user's public
+ * profile — SSRF and internal-reachability probing — with `data:` as a bonus
+ * memory-pressure vector. Pinning the host means the worst a hostile value can
+ * do is 404 on image.tmdb.org.
+ *
+ * Tests that need a network-free stub poster inject finished srcs through
+ * `RenderProfileCardOptions.posterUrls` instead of coming through here.
  */
 export function posterUrl(posterPath: string | null | undefined): string | null {
-  if (!posterPath) return null;
-  if (posterPath.startsWith("http") || posterPath.startsWith("data:")) return posterPath;
-  return `https://image.tmdb.org/t/p/w342${posterPath}`;
+  return posterPath ? `https://image.tmdb.org/t/p/w342${posterPath}` : null;
 }
 
 /**
@@ -94,8 +101,13 @@ export function headlineSize(text: string): number {
  * bottom edge — the same clipping the first draft of this layout shipped. Two
  * lines is what the vertical budget affords, so clamp there.
  *
- * "..." rather than the ellipsis character: Bebas has no U+2026 glyph, and a
- * missing glyph renders as a tofu box.
+ * "..." rather than "…" is a CONSISTENCY choice, not a glyph workaround —
+ * three periods are what the rest of the card copy uses. The vendored
+ * assets/BebasNeue-Regular.ttf does cover U+2026: its cmap maps the codepoint
+ * to gid 370, and loca/glyf give that gid a real 72-byte, 3-contour outline,
+ * so "…" rasterises fine rather than as tofu. (Checked empirically against the
+ * vendored file — do not "fix" a tofu bug here that does not exist. The
+ * starter tagline "In a world…" reaches the profile card raw, and it renders.)
  */
 export function clampHeadline(text: string, max = 118): string {
   return text.length <= max ? text : `${text.slice(0, max - 3).trimEnd()}...`;
@@ -424,6 +436,22 @@ function ProfileBackground({
             background: "radial-gradient(ellipse 55% 70% at 50% 6%, rgba(245,197,24,0.34), transparent 68%)",
           }}
         />
+        {/*
+          DELIBERATELY NOT the same stops as `.cb-vignette` in globals.css, and
+          the divergence is measured, not accidental. That class had to gain a
+          real scrim because a browser follows the spec: `transparent 30%`
+          leaves the centre — where the avatar, nameplate and tagline sit, and
+          where the beam above ADDS light — genuinely clear, so a bright poster
+          washed the page header out. Satori does not follow the spec here. It
+          renders this same declaration close to opaque well inside the 30%
+          stop: measured on this card under a pure-white full-bleed backdrop,
+          the centre band comes out at 26/255 with this gradient and 134/255
+          with it removed. The text is near-white (#ececf1), so 26/255 is
+          already far past AA, and matching globals.css's heavier scrim here
+          only flattened the centre-to-corner falloff from 2.1x to 1.2x — a
+          flat panel where a spotlight is supposed to be. Left as-is on
+          purpose; re-measure before touching it.
+        */}
         <div
           style={{
             position: "absolute",
@@ -525,15 +553,34 @@ export interface RenderProfileCardOptions {
     Pick<Equipped, "tagline" | "taglineText" | "avatarPosterPath">;
   /** The owner's own poster paths (raw TMDB paths), best first. Never stock art. */
   posterPaths: (string | null | undefined)[];
+  /**
+   * TEST-ONLY stub-injection hatch. Finished `<img src>` values, used verbatim
+   * in place of mapping `posterPaths` through `posterUrl`, so a test can render
+   * the card off a `data:` URI with no egress to image.tmdb.org.
+   *
+   * PRODUCTION CALLERS MUST NOT SET THIS. It exists only because `posterUrl` is
+   * deliberately prefix-only (see its doc comment): pinning the TMDB host is
+   * what stops a client-written `poster_path` turning a Satori `<img>` fetch
+   * into server-side request forgery, and this parameter is the seam that lets
+   * the tests keep working without reopening that hole in shipping code.
+   */
+  posterUrls?: string[];
 }
 
-function ProfileCard({ handle, level, rank, equipped, posterPaths }: RenderProfileCardOptions) {
-  const posterUrls = posterPaths
-    .map((p) => posterUrl(p))
-    .filter((u): u is string => u !== null)
-    .slice(0, 6);
-  const avatarPath = equipped.avatarPosterPath ?? posterPaths.find((p) => !!p) ?? null;
-  const avatarUrl = posterUrl(avatarPath);
+function ProfileCard({
+  handle,
+  level,
+  rank,
+  equipped,
+  posterPaths,
+  posterUrls: posterUrlsOverride,
+}: RenderProfileCardOptions) {
+  const posterUrls = (
+    posterUrlsOverride ?? posterPaths.map((p) => posterUrl(p)).filter((u): u is string => u !== null)
+  ).slice(0, 6);
+  // An explicit avatar pick wins; otherwise the best available poster, which is
+  // the first entry of whichever source filled `posterUrls` above.
+  const avatarUrl = posterUrl(equipped.avatarPosterPath) ?? posterUrls[0] ?? null;
 
   // `sanitizeEquipped`/`resolveEquipped` never actually leave these null at
   // runtime — the fallback here just satisfies the type they still carry

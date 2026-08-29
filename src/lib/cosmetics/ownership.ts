@@ -21,6 +21,14 @@ export function ownedItemIds(stats: OwnershipStats, grants: string[] = []): Set<
   const owned = new Set<string>();
   const keys = new Set(stats.unlockedAchievementKeys);
 
+  // The unlock kinds seeded here are all MUTUALLY EXCLUSIVE with `drop` — an
+  // item's `unlock` is one discriminated value, and no level/challenge/marquee
+  // item is also droppable. That is exactly what keeps `droppablePool` stable
+  // as a user levels up: nothing added to `owned` by this loop can ever be
+  // subtracted from the pool the replay below walks, so a user's whole drop
+  // history stays the same on the day they hit level 20 as it was the day
+  // before. Introducing an item that is both level-gated and droppable would
+  // silently rewrite every past draw for everyone who crosses that level.
   for (const item of CATALOGUE) {
     const u = item.unlock;
     if (u.kind === "starter") owned.add(item.id);
@@ -39,6 +47,13 @@ export function ownedItemIds(stats: OwnershipStats, grants: string[] = []): Set<
     if (pick) owned.add(pick.id);
   }
 
+  // MUST STAY BELOW THE REPLAY LOOP. `droppablePool` subtracts what is already
+  // owned, so seeding a granted item before the replay changes the pool every
+  // subsequent draw walks — one purchase would retroactively rewrite that
+  // user's entire drop history, handing them a different set of items than the
+  // ones their profile has been showing. Applying grants after the replay
+  // leaves the derived sequence untouched, which is the whole point of
+  // deriving it. Hoisting this for tidiness is not a refactor.
   for (const id of grants) {
     if (itemById(id)) owned.add(id);
   }

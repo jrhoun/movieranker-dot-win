@@ -15,6 +15,15 @@ function line(
 }
 
 const STARTER: Unlock = { kind: "starter" };
+/**
+ * Every `DROP` line below is APPEND-ONLY. `drawFrom` walks cumulative rarity
+ * weights positionally over the droppable slice of `CATALOGUE`, so a line's
+ * position and rarity in the TAGLINES array are part of what every user has
+ * already drawn. Adding, removing, reordering or re-rarity-ing an existing
+ * `DROP` line retroactively rewrites their whole canister history. Full
+ * explanation on `CATALOGUE` in catalogue.ts. New lines go at the end of their
+ * set; the sets themselves must keep their current order too.
+ */
 const DROP: Unlock = { kind: "drop" };
 
 /**

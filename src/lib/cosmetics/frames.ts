@@ -1,7 +1,14 @@
 // src/lib/cosmetics/frames.ts
 import type { CosmeticItem } from "./types";
 
-/** Rings around the poster avatar. All CSS — see globals.css `.cf-*`. */
+/**
+ * Rings around the poster avatar. All CSS — see globals.css `.cf-*`.
+ *
+ * APPEND-ONLY where `drop` items are concerned: their order and rarity here
+ * feed `drawFrom`'s positional weight walk, so editing an existing one rewrites
+ * every user's past canister history. Full explanation on `CATALOGUE` in
+ * catalogue.ts. Add at the end; do not reorder, delete, or re-rarity.
+ */
 export const FRAMES: CosmeticItem[] = [
   { id: "frame.brass", slot: "frame", name: "Brass", unlock: { kind: "starter" }, rarity: "common" },
   { id: "frame.perforation", slot: "frame", name: "Perforation", unlock: { kind: "starter" }, rarity: "common" },

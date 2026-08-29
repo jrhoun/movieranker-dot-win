@@ -35,9 +35,31 @@ import {
 
 const OUT_DIR = join(process.cwd(), ".og-preview");
 
-/** A 1x1 PNG. Exercises the <img> path with no network dependency. */
+/**
+ * A 1x1 PNG. Exercises the <img> path with no network dependency.
+ *
+ * Reaches the card through `renderProfileCard`'s test-only `posterUrls`
+ * option, NOT through `posterUrl` — that function is deliberately prefix-only
+ * so a client-written `poster_path` cannot aim a server-side Satori fetch
+ * anywhere it likes (see the SSRF test below).
+ */
 const STUB_POSTER =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+/**
+ * A poster-shaped sheet of pure white: the worst case for any scrim, since it
+ * fills the card with #ffffff behind the type. STUB_POSTER above is a
+ * transparent 1x1 and cannot exercise that at all.
+ *
+ * 200x300 rather than 1x1, deliberately: the spotlight background blurs its
+ * poster by 40px, and a 1x1 source blurs away to literally nothing (verified —
+ * the card came out identical with and without it). SVG rather than a base64
+ * PNG only because 200x300 of white is unreadable as base64; an `<img src>`
+ * SVG data URI is rasterised fine by resvg here (unlike the feTurbulence
+ * `background-image` trick og-card.tsx warns about).
+ */
+const BRIGHT_POSTER =
+  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='300'><rect width='200' height='300' fill='%23ffffff'/></svg>";
 
 async function render(name: string, element: React.ReactElement): Promise<Buffer> {
   const res = new ImageResponse(element, OG_RESPONSE_OPTIONS);
@@ -193,14 +215,33 @@ describe("posterUrl", () => {
     expect(posterUrl("")).toBeNull();
   });
 
-  it("passes a data: URI through untouched, since it's already a complete src", () => {
-    // What lets STUB_POSTER stand in for a TMDB poster_path below — without
-    // this, prefixing it with the CDN host would mangle it into garbage.
-    expect(posterUrl(STUB_POSTER)).toBe(STUB_POSTER);
-  });
-
-  it("passes an absolute http(s) URL through untouched", () => {
-    expect(posterUrl("https://example.com/poster.jpg")).toBe("https://example.com/poster.jpg");
+  it("pins the TMDB host even when poster_path already looks like a URL (SSRF)", () => {
+    // REGRESSION GUARD, and the reason this file no longer has a pass-through.
+    //
+    // list_movies.poster_path is written verbatim from the client — POST
+    // /api/lists validates tmdbId, title, elo, comparisons and finalRank, and
+    // nothing at all about posterPath (see fullMovieRow in lists-api.ts) — and
+    // Satori fetches every <img src> from the app server. An earlier revision
+    // returned any value starting with "http" or "data:" untouched, which
+    // meant a user could store `poster_path: "http://169.254.169.254/..."` and
+    // have the server issue that GET on every OG render of their public
+    // profile: arbitrary outbound requests from the server's network position,
+    // internal-reachability probing, and data: URIs as a memory vector.
+    //
+    // Prefixing unconditionally means the worst a hostile value achieves is a
+    // 404 on image.tmdb.org. Do not "restore" the pass-through; tests that need
+    // a network-free stub use renderProfileCard's `posterUrls` option instead.
+    for (const hostile of [
+      "http://169.254.169.254/latest/meta-data/",
+      "https://attacker.example/beacon.png",
+      "data:image/png;base64,AAAA",
+    ]) {
+      expect(posterUrl(hostile)).toBe(`https://image.tmdb.org/t/p/w342${hostile}`);
+      expect(
+        posterUrl(hostile)?.startsWith("https://image.tmdb.org/t/p/w342"),
+        `${hostile} escaped the TMDB host`,
+      ).toBe(true);
+    }
   });
 });
 
@@ -331,11 +372,13 @@ describe("card rendering", () => {
     // element for the render()/expectRealCard() helpers above, so its own
     // pixels are inspected here without going through render().
     //
-    // The one deliberately networked test in this file: a real TMDB
-    // poster_path, exercised end-to-end through posterUrl()'s CDN prefixing.
-    // Every other profile-card test below uses STUB_POSTER (a data: URI,
-    // passed through untouched — see the posterUrl tests above) precisely so
-    // it does NOT depend on egress to image.tmdb.org.
+    // The one deliberately networked test in this file, and the ONLY caller
+    // below that passes `posterPaths`: a real TMDB poster_path, exercised
+    // end-to-end through posterUrl()'s CDN prefixing. Every other profile-card
+    // test injects finished srcs via the test-only `posterUrls` option so it
+    // does NOT depend on egress to image.tmdb.org — posterUrl itself is
+    // prefix-only now and would mangle a data: URI into an unfetchable
+    // image.tmdb.org URL.
     const png = await renderProfileCard({
       handle: "jrhoun",
       level: 27,
@@ -375,13 +418,25 @@ describe("profile card renders every catalogue frame, background and overlay", (
   // entries are covered automatically since these loop itemsForSlot rather
   // than listing ids by hand.
   //
-  // STUB_POSTER, not a real TMDB path: the one networked case lives in the
-  // test above this describe block; these 13+ don't need egress to render
-  // something meaningful, so they don't take a network dependency.
-  const posterPaths = [STUB_POSTER];
+  // STUB_POSTER through the test-only `posterUrls` hatch, not a real TMDB
+  // path: the one networked case lives in the test above this describe block;
+  // these 13+ don't need egress to render something meaningful, so they don't
+  // take a network dependency.
+  const posterUrls = [STUB_POSTER];
 
   async function expectRealProfileCard(name: string, equipped: Parameters<typeof renderProfileCard>[0]["equipped"]) {
-    const png = await renderProfileCard({ handle: "jrhoun", level: 27, rank: "Cinephile", equipped, posterPaths });
+    const png = await renderProfileCard({
+      handle: "jrhoun",
+      level: 27,
+      rank: "Cinephile",
+      equipped,
+      posterPaths: [],
+      posterUrls,
+    });
+    // Written out so a human can eyeball every catalogue treatment, not just
+    // the one `profile.png` combination above — "renders, but illegible" is
+    // still only catchable by looking.
+    await writeFile(join(OUT_DIR, `${name}.png`), png);
     const { colors, inkFraction } = inspect(png);
     expect(colors, `${name} has only ${colors} distinct colours — it rendered blank`).toBeGreaterThan(32);
     expect(inkFraction, `${name} covers only ${(inkFraction * 100).toFixed(2)}% of the card`).toBeGreaterThan(0.02);
@@ -461,7 +516,8 @@ describe("profile card background treatments actually paint a full-bleed layer",
       level: 27,
       rank: "Cinephile",
       equipped: { frame: "frame.brass", background: "background.spotlight", overlay: "overlay.none" },
-      posterPaths: [STUB_POSTER],
+      posterPaths: [],
+      posterUrls: [STUB_POSTER],
     });
     expect(
       pixelRgb(png, CORNER_X, CORNER_Y),
@@ -489,5 +545,93 @@ describe("profile card background treatments actually paint a full-bleed layer",
       pixelRgb(png, CORNER_X, CORNER_Y),
       "sampled pixel matches the flat root colour — the filmstrip scrim painted nothing",
     ).not.toBe(bg);
+  });
+});
+
+/** Mean colour of a rectangle, as [r,g,b]. */
+function meanRgb(png: Buffer, x0: number, y0: number, x1: number, y1: number): [number, number, number] {
+  const { width, pixels } = decodePng(png);
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let n = 0;
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      const i = (y * width + x) * 4;
+      r += pixels[i];
+      g += pixels[i + 1];
+      b += pixels[i + 2];
+      n++;
+    }
+  }
+  return [r / n, g / n, b / n];
+}
+
+/** WCAG 2.x relative luminance / contrast ratio, for sRGB 0-255 triples. */
+function relativeLuminance([r, g, b]: [number, number, number]): number {
+  const lin = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+function contrastRatio(a: [number, number, number], b: [number, number, number]): number {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+describe("background.spotlight stays legible over a bright poster", () => {
+  // The failure guarded here is not a blank card — it is a card that renders
+  // perfectly and cannot be read. The spotlight treatment blurs the user's own
+  // poster full-bleed and lays a beam over it, and its vignette is
+  // `transparent 30%` at the centre: on paper, fully clear exactly where the
+  // avatar, nameplate and tagline sit.
+  //
+  // HONEST SCOPE: this test passes against today's card and would also have
+  // passed before the spotlight work — it is a GUARD, not a regression repro.
+  // The equivalent CSS on the live page (`.cb-vignette`) really does wash out
+  // over a bright poster, but Satori renders the same declaration near-opaque
+  // well inside the 30% stop, so the OG centre measures ~26/255 under a
+  // pure-white backdrop (~134/255 with the gradient removed) — comfortably
+  // legible already. What this catches is someone lightening the vignette to
+  // "match the page", or Satori fixing its gradient interpolation in a version
+  // bump, either of which would silently make the card unreadable.
+  //
+  // Every other test in this file uses a transparent 1x1 stub, which scales to
+  // nothing and can never exercise this at all. BRIGHT_POSTER is the worst
+  // case: a flat white sheet under the whole card. It must stay large enough
+  // to survive the 40px blur — a 1x1 source blurs away to nothing and quietly
+  // turns this back into a test of an empty backdrop.
+  const TAGLINE_TEXT_RGB: [number, number, number] = [0xec, 0xec, 0xf1];
+
+  it("holds AA contrast for the tagline against a pure-white poster", async () => {
+    const png = await renderProfileCard({
+      handle: "jrhoun",
+      level: 27,
+      rank: "Cinephile",
+      equipped: {
+        frame: "frame.brass",
+        background: "background.spotlight",
+        overlay: "overlay.none",
+        tagline: "tagline.trailer.in-a-world",
+        // The starter tagline every user owns, and a live check that Bebas
+        // renders U+2026 rather than tofu (it does — cmap gid 370 has a real
+        // 3-contour outline; see clampHeadline's note in og-card.tsx).
+        taglineText: "In a world…",
+      },
+      posterPaths: [],
+      posterUrls: [BRIGHT_POSTER],
+    });
+    await writeFile(join(OUT_DIR, "spotlight-bright.png"), png);
+
+    // Sampled at the tagline's own vertical band but well left of the glyphs,
+    // so this measures the FIELD the type sits on, not the type.
+    const field = meanRgb(png, 180, 470, 380, 525);
+    const ratio = contrastRatio(field, TAGLINE_TEXT_RGB);
+    expect(
+      ratio,
+      `tagline contrast is only ${ratio.toFixed(2)}:1 against rgb(${field.map((c) => Math.round(c)).join(",")}) — the spotlight scrim is too weak`,
+    ).toBeGreaterThanOrEqual(4.5);
   });
 });

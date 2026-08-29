@@ -7,6 +7,22 @@ import type { CosmeticItem, Slot } from "./types";
 
 export const SLOTS: Slot[] = ["frame", "background", "overlay", "tagline"];
 
+/**
+ * THE DROP ENTRIES ARE APPEND-ONLY, AND SO IS THIS SPREAD ORDER.
+ *
+ * `drawFrom` (canister.ts) walks cumulative rarity weights POSITIONALLY over
+ * `CATALOGUE.filter(i => i.unlock.kind === "drop" && !owned)`, against a seed
+ * derived from (userId, themeSlug). Position in this array is therefore part of
+ * the answer, not an implementation detail. Adding, removing, reordering or
+ * re-rarity-ing any `drop` item — or reordering the four spreads below —
+ * retroactively rewrites what every user drew for every past week.
+ *
+ * The visible damage is not just "a different item": an item a user has been
+ * shown as owned can become unowned, at which point the two profile pages
+ * render them differently (/u/profile resolves against a live redraw while
+ * /u/[handle] reads the stored equipped snapshot). Append new `drop` items to
+ * the END of their slot's list; never renumber what is already there.
+ */
 export const CATALOGUE: CosmeticItem[] = [...FRAMES, ...BACKGROUNDS, ...OVERLAYS, ...TAGLINES];
 
 const BY_ID = new Map(CATALOGUE.map((i) => [i.id, i]));

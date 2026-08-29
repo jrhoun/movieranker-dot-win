@@ -87,11 +87,24 @@ export default async function MyListsPage() {
     profile?.visibility === "public" ? "public" : "private";
   const showcase = parseShowcase(profile?.showcase) ?? EMPTY_SHOWCASE;
 
-  // RLS scopes rows to the owner. Top posters: final_rank first (done lists),
-  // then elo desc (drafts).
+  // Owner-scoped EXPLICITLY — RLS does not do it for us, and cannot. `lists`
+  // carries two PERMISSIVE select policies that OR together (supabase/schema.sql):
+  // "owner all" (auth.uid() = owner_id) and "anyone reads done lists"
+  // (status='done' and visibility in ('unlisted','public')), the latter
+  // recreated unchanged by upgrade-1.sql. An unfiltered select therefore
+  // returns this user's rows PLUS every other user's finished public lists.
+  // That is not merely cosmetic here: these rows feed `breakdown.total`, which
+  // the ratchet at the foot of this function writes irreversibly into
+  // showcase.lifetimeXp — the floor /api/profile uses to gate cosmetics, list
+  // pinning and theme proposals — and `finishedThemeSlugs`, which drives
+  // canister drop replay, so strangers' themes would make the picker offer
+  // drops the write path then 403s. Every sibling owner-scoped query filters
+  // the same way (career-xp.ts, api/profile/route.ts).
+  // Top posters: final_rank first (done lists), then elo desc (drafts).
   const { data: lists } = await supabase
     .from("lists")
     .select("id,title,participants,status,visibility,theme_slug,created_at,list_movies(title,poster_path,tmdb_id)")
+    .eq("owner_id", auth.user.id)
     .order("created_at", { ascending: false })
     .order("final_rank", { foreignTable: "list_movies", ascending: true, nullsFirst: false })
     .order("elo", { foreignTable: "list_movies", ascending: false });

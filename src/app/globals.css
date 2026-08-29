@@ -214,7 +214,25 @@ body {
 @keyframes cf-spin { to { filter: hue-rotate(360deg); } }
 
 .cb-scrim { background: linear-gradient(180deg,#101014 0%,rgba(16,16,20,.55) 40%,rgba(16,16,20,.55) 60%,#101014 100%); }
-.cb-vignette { background: radial-gradient(ellipse at center, transparent 30%, rgba(10,10,13,.86) 100%); }
+/* Spotlight's vignette IS its scrim. The centre must never be transparent:
+   the avatar, nameplate and tagline sit dead centre, `.cb-beam` adds light
+   there, and the blurred poster underneath can be anything — a bright one used
+   to leave muted grey type on a washed-out field. `.cb-scrim` above solves the
+   same problem for filmstrip; this folds the scrim into the vignette so the
+   radial falloff still reads as a spotlight instead of a flat panel. The centre
+   alpha is tuned to land at roughly the same luminance as `.cb-scrim`'s middle
+   band over a white poster (poster at opacity-45 over #0d0d10 ≈ 122; at .62
+   ≈ 52, against .cb-scrim's ≈ 47).
+
+   The OG card's copy of this treatment in src/lib/og-card.tsx keeps the OLD
+   two-stop `transparent 30%` gradient, on purpose. Satori is not a browser and
+   does not follow the spec here: it renders that declaration near-opaque well
+   inside the 30% stop, so the OG centre measured 26/255 under a pure-white
+   full-bleed poster (134/255 with the gradient removed) — already legible,
+   and applying this heavier scrim there only flattened the spotlight. Do not
+   "resync" the two without re-rendering and measuring both. */
+.cb-vignette { background: radial-gradient(ellipse at center,
+  rgba(10,10,13,.62) 0%, rgba(10,10,13,.72) 45%, rgba(10,10,13,.94) 100%); }
 .cb-beam { background: radial-gradient(ellipse 55% 70% at 50% 6%, rgba(245,197,24,.34) 0%, transparent 68%); }
 .cb-velvet { background: linear-gradient(180deg,#3a0e13 0%,#220a0e 55%,#170609 100%); }
 .cb-holes { background-image: radial-gradient(circle, #101014 40%, transparent 41%);
@@ -238,7 +256,16 @@ body {
   0%,100%{opacity:.30} 8%{opacity:.72} 12%{opacity:.20} 26%{opacity:.55}
   30%{opacity:.26} 55%{opacity:.62} 60%{opacity:.28} 78%{opacity:.50} }
 
+/* The base `opacity` is load-bearing and must stay LOW. Both co-scr keyframe
+   sets hold the scratch at 0 for most of the cycle and pin 0% and 100%, so
+   while animating this value is never seen. It is only seen when the animation
+   is off — i.e. under prefers-reduced-motion below. With no base declared the
+   fallback was `opacity:1`: two permanently visible full-strength scratch
+   lines, louder than any frame of the animation, which is the opposite of what
+   reduced motion is for. A faint resting state keeps the equipped cosmetic
+   visible without motion, the same way `.co-flicker` keeps its static tint. */
 .co-dust::before, .co-dust::after { content:''; position:absolute; top:-10%; height:120%; width:1px;
+  opacity: .14;
   background: linear-gradient(180deg,transparent,rgba(255,255,255,.55),transparent); }
 .co-dust::before { left:28%; animation: co-scr1 4.1s steps(1) infinite; }
 .co-dust::after { left:71%; width:2px; animation: co-scr2 5.7s steps(1) infinite; }
