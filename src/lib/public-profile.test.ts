@@ -5,6 +5,7 @@ import {
   shapePublicProfile,
   type DbPublicList,
 } from "./public-profile";
+import { grandfatheredXp, levelFor } from "./gamification";
 
 function list(partial: Partial<DbPublicList>): DbPublicList {
   return {
@@ -84,19 +85,23 @@ describe("shapePublicProfile", () => {
     ];
     const shaped = shapePublicProfile(rows);
     expect(shaped.moviesRanked).toBe(30);
-    expect(shaped.level.level).toBe(7); // Level 7 (30 XP)
+    // 30 films is 30 XP, and levels cost 10 apiece early on.
+    expect(shaped.level.level).toBe(4);
     expect(shaped.level.title).toBe("Theater Usher");
   });
 
-  it("uses lifetimeXp ratchet when stored XP is higher than active public lists", () => {
-    // User had 50 XP lifetime but deleted public lists, leaving only 10 XP active
+  it("ratchets the level on banked XP without inflating the film count", () => {
+    // Banked 50 XP, then deleted public lists, leaving 10 films visible.
     const rows = [
       list({ list_movies: Array.from({ length: 10 }, (_, i) => ({ title: `m${i}`, poster_path: null })) }),
     ];
     const shaped = shapePublicProfile(rows, { achievementKeys: [], favoriteListId: null, lifetimeXp: 50 });
-    expect(shaped.moviesRanked).toBe(50); // Ratchet locks in 50 XP
-    expect(shaped.level.level).toBe(11); // Level 11 · Film Buff
-    expect(shaped.level.title).toBe("Film Buff");
+    // The count is films, not XP. It used to report 50 "movies ranked" for
+    // someone with ten films on show.
+    expect(shaped.moviesRanked).toBe(10);
+    // The level still comes from the banked total, so nothing is lost.
+    expect(shaped.level.level).toBe(levelFor(grandfatheredXp(50)).level);
+    expect(shaped.level.level).toBeGreaterThan(levelFor(10).level);
   });
 
   it("shapes cards with UTC dates and posters", () => {

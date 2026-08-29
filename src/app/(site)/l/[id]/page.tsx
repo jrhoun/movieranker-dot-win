@@ -10,7 +10,9 @@ import ParticipantChips from "@/components/ParticipantChips";
 import ShareButton from "@/components/ShareButton";
 import { withRanks, type ListMovieRow } from "@/lib/list-view";
 import { summariseCompletion, isWorthCelebrating, type CompletionSummary } from "@/lib/completion";
-import { calculateTotalXp, totalMoviesRanked } from "@/lib/gamification";
+import { calculateXpBreakdown, countMoviesRanked } from "@/lib/gamification";
+import { reconcileCareerXp, toXpLists, type CareerListRow } from "@/lib/career-xp";
+import { getReferralStats } from "@/lib/referrals";
 import { marqueeStanding, type ThemeCompletion } from "@/lib/marquee-standing";
 import { chipParticipants } from "@/lib/participants";
 import { SITE_URL } from "@/lib/site";
@@ -213,14 +215,33 @@ export default async function PublicListPage({
       .eq("owner_id", user.id)
       .eq("status", "done");
 
-    const owned = ((ownedRows ?? []) as Record<string, unknown>[]).map((r) => ({
+    // The query above is already scoped to finished lists, so every row here is
+    // done by construction.
+    const owned: ({ id: string } & CareerListRow)[] = (
+      (ownedRows ?? []) as Record<string, unknown>[]
+    ).map((r) => ({
       id: String(r.id),
+      status: "done",
+      theme_slug: (r.theme_slug as string | null) ?? null,
+      participants: r.participants,
       movieCount: Array.isArray(r.list_movies) ? r.list_movies.length : 0,
-      coCurated: Array.isArray(r.participants) && r.participants.length > 0,
-      themeSlug: (r.theme_slug as string | null) ?? null,
-      createdAt: String(r.created_at ?? ""),
     }));
     const before = owned.filter((l) => l.id !== id);
+
+    // Referrals, cracked connections and the lifetime ratchet all feed the
+    // profile's number. This card has to read them too, or it reports a
+    // different level than the profile does minutes later.
+    const [referralStats, { count: solveCount }, { data: profileRow }] = await Promise.all([
+      getReferralStats(supabase, user.id),
+      supabase
+        .from("marquee_solves")
+        .select("theme_slug", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("correct", true),
+      supabase.from("profiles").select("showcase").eq("id", user.id).maybeSingle(),
+    ]);
+    const bankedXp = (profileRow as { showcase?: { lifetimeXp?: number } } | null)?.showcase
+      ?.lifetimeXp;
 
     // Marquee ordering (first to finish a theme, front row, century) is global,
     // so it needs every themed done list — the same read the profile page does.
@@ -249,16 +270,26 @@ export default async function PublicListPage({
         ),
     );
 
-    const snapshot = (ls: typeof owned, completions: ThemeCompletion[]) => ({
-      xp: calculateTotalXp({ lists: ls }),
-      stats: {
-        doneLists: ls.length,
-        moviesRanked: totalMoviesRanked(ls),
-        maxMoviesInSingleList: Math.max(0, ...ls.map((l) => l.movieCount)),
-        coCuratedLists: ls.filter((l) => l.coCurated).length,
-        ...marqueeStanding(completions, user.id),
-      },
-    });
+    const snapshot = (ls: typeof owned, completions: ThemeCompletion[]) => {
+      const xpLists = toXpLists(ls);
+      const breakdown = calculateXpBreakdown({
+        lists: xpLists,
+        referralCount: referralStats.activeReferrals,
+        connectionsSolved: solveCount ?? 0,
+      });
+      return {
+        xp: reconcileCareerXp(breakdown, bankedXp).total,
+        stats: {
+          doneLists: xpLists.length,
+          moviesRanked: countMoviesRanked(xpLists),
+          maxMoviesInSingleList: Math.max(0, ...ls.map((l) => l.movieCount)),
+          coCuratedLists: xpLists.filter((l) => l.coCurated).length,
+          marqueeWeeks: xpLists.filter((l) => l.isMarquee).length,
+          marqueeConnectionsSolved: solveCount ?? 0,
+          ...marqueeStanding(completions, user.id),
+        },
+      };
+    };
 
     const summary = summariseCompletion(
       snapshot(before, completionsBefore),

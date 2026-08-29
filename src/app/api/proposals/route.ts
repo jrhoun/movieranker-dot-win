@@ -3,12 +3,8 @@ import { nanoid } from "nanoid";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { dbErrorResponse, invalid } from "@/lib/lists-api";
 import { parseProposal } from "@/lib/proposals-api";
-import {
-  calculateTotalXp,
-  levelFor,
-  MIN_PROPOSAL_LEVEL,
-  rankForLevel,
-} from "@/lib/gamification";
+import { levelFor, MIN_PROPOSAL_LEVEL, rankForLevel } from "@/lib/gamification";
+import { fetchCareerXp } from "@/lib/career-xp";
 import {
   LIMITS,
   rateKey,
@@ -29,42 +25,17 @@ export async function POST(request: Request) {
     .eq("id", data.user.id)
     .maybeSingle();
 
-  let lifetimeXp = 0;
+  let bankedXp = 0;
   if (profile?.showcase && typeof profile.showcase === "object") {
     const sc = profile.showcase as Record<string, unknown>;
     if (typeof sc.lifetimeXp === "number") {
-      lifetimeXp = sc.lifetimeXp;
+      bankedXp = sc.lifetimeXp;
     }
   }
 
-  if (lifetimeXp === 0) {
-    const { data: userLists } = await supabase
-      .from("lists")
-      .select("id,list_movies(count)")
-      .eq("owner_id", data.user.id);
-
-    const listIds = (userLists ?? []).map((l) => l.id);
-    const { data: attributions } = listIds.length
-      ? await supabase
-          .from("participant_attributions")
-          .select("user_id")
-          .in("list_id", listIds)
-      : { data: [] };
-
-    const referralCount = (attributions ?? []).filter(
-      (a) => a.user_id && a.user_id !== data.user.id,
-    ).length;
-
-    const count = calculateTotalXp({
-      lists: (userLists ?? []).map((l) => {
-        const c = Array.isArray(l.list_movies) ? l.list_movies[0]?.count ?? 0 : 0;
-        return { movieCount: Number(c) };
-      }),
-      referralCount,
-    });
-    lifetimeXp = Math.max(lifetimeXp, count);
-  }
-
+  // Derived through the shared helper so this gate agrees with the level the
+  // profile shows the same person.
+  const { total: lifetimeXp } = await fetchCareerXp(supabase, data.user.id, bankedXp);
   const userLevel = levelFor(lifetimeXp).level;
   if (userLevel < MIN_PROPOSAL_LEVEL) {
     return NextResponse.json(

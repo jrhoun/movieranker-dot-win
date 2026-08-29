@@ -1,6 +1,13 @@
 // Public profile shaping: derives showcase data from a user's PUBLIC done lists.
 // Private/unlisted rows must never leak into stats or the card grid.
-import { ACHIEVEMENTS, type Level, levelFor } from "./gamification";
+import {
+  ACHIEVEMENTS,
+  calculateXpBreakdown,
+  countMoviesRanked,
+  type Level,
+  levelFor,
+} from "./gamification";
+import { reconcileCareerXp, toXpLists } from "./career-xp";
 import {
   chipParticipants,
   type AttributionRow,
@@ -149,8 +156,25 @@ export function shapePublicProfile(
   // (RLS on lists is broader); this JS filter is the actual guarantee — keep it.
   // Defense-in-depth at the trust boundary so stats can't leak via query drift.
   const pub = rows.filter((l) => l.status === "done" && l.visibility === "public");
-  const currentRanked = pub.reduce((n, l) => n + Math.min(l.list_movies?.length ?? 0, 20), 0);
-  const moviesRanked = Math.max(currentRanked, showcase?.lifetimeXp ?? 0);
+
+  // Two different quantities that used to be one. `moviesRanked` is a count of
+  // films; career level is a function of XP. Taking max() across both and then
+  // feeding the result to levelFor() meant a banked XP total was being read as
+  // a number of movies.
+  const publicLists = toXpLists(
+    pub.map((l) => ({
+      status: l.status,
+      participants: l.participants,
+      movieCount: l.list_movies?.length ?? 0,
+    })),
+  );
+  const moviesRanked = countMoviesRanked(publicLists);
+  // Only public lists are visible here, so the banked lifetime total is what
+  // carries a viewer's XP earned from unlisted work, referrals and solves.
+  const { total: careerXp } = reconcileCareerXp(
+    calculateXpBreakdown({ lists: publicLists }),
+    showcase?.lifetimeXp,
+  );
   return {
     cards: pub.map((l) => ({
       id: l.id,
@@ -167,7 +191,7 @@ export function shapePublicProfile(
       })),
     })),
     moviesRanked,
-    level: levelFor(moviesRanked),
+    level: levelFor(careerXp),
   };
 }
 
