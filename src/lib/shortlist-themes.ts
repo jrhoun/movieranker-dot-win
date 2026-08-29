@@ -1,3 +1,8 @@
+import { CONNECTION_GAMES, type ThemeConnectionGame } from "./connection-games";
+
+/** Re-exported so existing importers keep working. */
+export type { ThemeConnectionGame };
+
 /**
  * Curated themes for "This Week's Marquee" — code data, not DB rows.
  * The connection to the theme is allowed (encouraged) to be obtuse.
@@ -10,17 +15,6 @@
  * names how a specific film ends bad.) Never name contained films outright;
  * obtuse connections only their viewers decode are the brand.
  */
-export interface ThemeConnectionGame {
-  /** The definitive explanation of the secret link */
-  connection: string;
-  /** 4 multiple choice options */
-  options: string[];
-  /** The 0-based index of the correct option */
-  correctIndex: number;
-  /** Educational/fun trivia note shown after answering */
-  triviaNote?: string;
-}
-
 export interface ShortlistTheme {
   slug: string;
   title: string;
@@ -34,69 +28,25 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "secretly-same-story",
     title: "Secretly The Same Story",
     blurb: "A farm boy, a hacker, a wizard, and a boxer walk into a monomyth.",
-    movieIds: [11, 603, 671, 1362, 150540, 324857],
-    connectionGame: {
-      connection: "The Hero's Journey (Monomyth): Across disparate genres (sci-fi, fantasy, sports, cyberpunk), each film adheres to Joseph Campbell's 12-stage mythic arc step-for-step.",
-      options: [
-        "Every film follows Joseph Campbell's 12-stage Hero's Journey monomyth beat-for-beat",
-        "All six scripts were written by the same screenwriting collective under pseudonyms",
-        "Each film features a protagonist who loses their mentor in the exact 45th minute",
-        "All six were originally conceived as animated short films",
-      ],
-      correctIndex: 0,
-      triviaNote: "George Lucas famously credited Campbell's 'The Hero with a Thousand Faces' as his direct architectural guide, a template later mirrored in The Matrix, Harry Potter, and Rocky.",
-    },
+    movieIds: [11, 603, 671, 1366, 150540, 324857],
   },
   {
     slug: "best-hairpieces",
     title: "Best Hairpieces & Prosthetics",
     blurb: "Somewhere under three pounds of latex is a very committed A-lister.",
-    movieIds: [854, 888, 12217, 12109, 8904, 453711, 118340],
-    connectionGame: {
-      connection: "Transformative Practical FX: Every film features an iconic, unrecognizable A-list lead actor buried under groundbreaking prosthetic makeup or elaborate wigs.",
-      options: [
-        "Every lead actor is buried under hours of transformative prosthetic makeup or hairpieces",
-        "All six won the BAFTA for Best Original Screenplay",
-        "Each film was shot entirely chronologically to preserve actor stamina",
-        "The directors all cameoed as background extras in heavy wigs",
-      ],
-      correctIndex: 0,
-      triviaNote: "From Gary Oldman's Churchill to Robin Williams' Mrs. Doubtfire, practical makeup transformations have created some of cinema's most indelible character illusions.",
-    },
+    movieIds: [854, 888, 399404, 788, 1955, 7446, 118340],
   },
   {
     slug: "one-location",
     title: "One Room, No Exit",
     blurb: "Nobody leaves until the credits roll. Maximum tension on a single soundstage budget.",
     movieIds: [389, 567, 2108, 15196, 694, 264660],
-    connectionGame: {
-      connection: "Single-Location / Bottle Movies: The entire narrative takes place within the confines of a single room or isolated chamber with zero scene changes.",
-      options: [
-        "The entire story takes place within a single room or isolated interior location",
-        "All six were adapted from one-act off-Broadway plays",
-        "Each film was shot entirely in real time in a single continuous camera take",
-        "Every character in these films is known only by a profession or number",
-      ],
-      correctIndex: 0,
-      triviaNote: "12 Angry Men, Rope, and The Breakfast Club prove that cinematic tension thrives under physical constraints—turning a single room into an intense psychological pressure cooker.",
-    },
   },
   {
     slug: "dads-having-a-bad-one",
     title: "Dads Having A Rough One",
     blurb: "Father's Day is once a year. These dads get two hours of sheer chaos.",
     movieIds: [12, 157336, 238, 8587, 68718, 8358],
-    connectionGame: {
-      connection: "Desperate Fatherhood Under Siege: Each film centers on a father pushed to extraordinary, chaotic lengths across space, time, or the mob to protect or rescue his child.",
-      options: [
-        "Every film centers on a desperate father fighting impossible odds to protect or rescue his child",
-        "All six films premiered on Father's Day weekend at the box office",
-        "Each director dedicated the movie in the end credits to their own father",
-        "None of the protagonists ever speak to their children on-screen",
-      ],
-      correctIndex: 0,
-      triviaNote: "From Interstellar's relativistic tears to Finding Nemo's oceanic odyssey, paternal desperation is one of cinema's most potent emotional engines.",
-    },
   },
   {
     slug: "rain-soaked-cinema",
@@ -120,7 +70,7 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "trains-youd-rather-not-miss",
     title: "Trains With Zero Chill",
     blurb: "High-speed locomotives where absolutely nothing goes according to schedule.",
-    movieIds: [1637, 396535, 610150, 110415, 392044, 954],
+    movieIds: [1637, 396535, 44048, 110415, 392044, 954],
   },
   {
     slug: "sequels-that-beat-the-original",
@@ -168,13 +118,13 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "high-seas-peril",
     title: "Miles of Ocean, No Rescue",
     blurb: "Endless water, rogue waves, and questionable seamanship.",
-    movieIds: [578, 597, 22, 8358, 87827, 8688],
+    movieIds: [578, 597, 22, 8358, 87827, 2133],
   },
   {
     slug: "courtroom-fire",
     title: "Objection Sustained",
     blurb: "Twelve jurors, one witness, and the dramatic monologue of a lifetime.",
-    movieIds: [389, 881, 595, 10377, 8835, 278],
+    movieIds: [389, 881, 595, 10377, 8835, 24226],
   },
   {
     slug: "the-grand-heist",
@@ -186,13 +136,13 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "culinary-meltdowns",
     title: "Order Up, Fire Burning",
     blurb: "Michelin stars, screaming chefs, and kitchen nightmares on high heat.",
-    movieIds: [2062, 593643, 212778, 24803, 392, 680],
+    movieIds: [2062, 593643, 212778, 24803, 392, 295964],
   },
   {
     slug: "space-silence",
     title: "In Orbit, No One Hears You",
     blurb: "Zero gravity, failing oxygen, and millions of miles to the nearest planet.",
-    movieIds: [62, 157336, 124905, 348, 286217, 568],
+    movieIds: [62, 157336, 49047, 348, 286217, 568],
   },
   {
     slug: "unhinged-holidays",
@@ -204,13 +154,13 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "frozen-wastelands",
     title: "Sub-Zero Survival",
     blurb: "Blizzards, frostbite, and temperatures where the truth freezes over.",
-    movieIds: [275, 694, 281957, 110415, 1091, 157336],
+    movieIds: [275, 694, 281957, 110415, 1091, 75174],
   },
   {
     slug: "summer-gone-wrong",
     title: "Sunny Days, Dark Turns",
     blurb: "Campfires, boardwalks, and a vacation nobody will ever forget.",
-    movieIds: [578, 9340, 235, 447332, 480530, 530385],
+    movieIds: [578, 9340, 235, 447332, 3597, 530385],
   },
   {
     slug: "fast-lanes-high-octane",
@@ -234,19 +184,19 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "whodunit-manor",
     title: "The Butler Didn't Do It",
     blurb: "A sprawling estate, an eccentric detective, and everyone with a motive.",
-    movieIds: [546554, 661374, 15196, 392044, 745, 1124],
+    movieIds: [546554, 661374, 15196, 392044, 5279, 505026],
   },
   {
     slug: "suburban-dystopia",
     title: "White Picket Fences, Dark Secrets",
     blurb: "Manicured lawns, neighborhood barbecues, and sinister smiling neighbors.",
-    movieIds: [37165, 419430, 162, 2108, 771, 9377],
+    movieIds: [37165, 419430, 162, 14, 793, 2657],
   },
   {
     slug: "boxing-redemption",
     title: "Down on the Canvas",
     blurb: "Sweat, heart, broken ribs, and one last shot at glory in the ring.",
-    movieIds: [1362, 550, 312221, 59440, 769, 45317],
+    movieIds: [1366, 550, 312221, 59440, 1578, 45317],
   },
   {
     slug: "journalism-truth",
@@ -258,7 +208,7 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "hallway-shootouts",
     title: "One Corridor, Zero Mercy",
     blurb: "Close-quarters combat, unbroken long takes, and infinite choreography.",
-    movieIds: [245891, 603, 278, 155, 16869, 280],
+    movieIds: [245891, 603, 670, 155, 16869, 280],
   },
   {
     slug: "wild-west-standoff",
@@ -270,7 +220,7 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "jazz-and-obsession",
     title: "Tempo, Blood & Brass",
     blurb: "Sheet music flying, sweat dripping, and the dangerous pursuit of perfection.",
-    movieIds: [244786, 313369, 872, 508442, 15121, 1584],
+    movieIds: [244786, 313369, 194662, 508442, 44214, 279],
   },
   {
     slug: "monsters-in-the-mist",
@@ -282,19 +232,19 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "creepy-dolls-puppets",
     title: "Toy Box Nightmares",
     blurb: "Porcelain smiles, glass eyes that follow you, and batteries definitely not included.",
-    movieIds: [10585, 250574, 536554, 862, 927, 4232],
+    movieIds: [10585, 250546, 536554, 862, 927, 14001],
   },
   {
     slug: "high-stakes-gambling",
     title: "All In, Aces High",
     blurb: "Green felt, smokey backrooms, and everything riding on the river card.",
-    movieIds: [36557, 161, 106646, 524, 10229, 473033],
+    movieIds: [36557, 161, 106646, 524, 10220, 473033],
   },
   {
     slug: "transit-at-30000-feet",
     title: "Turbulence & Terror",
     blurb: "Cruising altitude, locked cockpit doors, and nowhere to step outside.",
-    movieIds: [1637, 9772, 568, 954, 361743, 610150],
+    movieIds: [1701, 9772, 9315, 363676, 361743, 225574],
   },
   {
     slug: "coming-of-age-roadtrip",
@@ -342,18 +292,7 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "mountain-peak-peril",
     title: "Thin Air, Vertical Drops",
     blurb: "Crampons slipping, freezing fog, and cliffs with zero safety nets.",
-    movieIds: [197, 857, 98, 872585, 157336, 76341],
-    connectionGame: {
-      connection: "Vertical Peril & Lethal Heights: Every film features a defining sequence where characters are suspended in extreme high-altitude vertigo with zero safety nets.",
-      options: [
-        "Every film features a pulse-pounding cliff or high-altitude vertical drop sequence",
-        "All six films were directed by former professional mountaineers",
-        "Each movie won the Academy Award for Best Visual Effects",
-        "None of these films used green screens or CGI for stunt sequences",
-      ],
-      correctIndex: 0,
-      triviaNote: "From high-altitude Himalayan ascents to dizzying vertical canyons, extreme height and gravity have produced cinema's most visceral suspense sequences.",
-    },
+    movieIds: [9350, 253412, 11678, 44115, 11194, 7305],
   },
   {
     slug: "golden-age-giants",
@@ -377,13 +316,13 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "espionage-in-the-cold",
     title: "Shadows Behind the Iron Curtain",
     blurb: "Dead drops, coded radio signals, and spies who trust no one.",
-    movieIds: [954, 353081, 36557, 16869, 872585, 857],
+    movieIds: [954, 353081, 36557, 582, 49517, 296098],
   },
   {
     slug: "midnight-drive",
     title: "Empty Highways, Glowing Dashboards",
     blurb: "Synths on the stereo, streetlights passing by, and nighttime contemplation.",
-    movieIds: [64690, 339403, 11324, 807, 76341, 155],
+    movieIds: [64690, 339403, 1538, 242582, 210479, 949],
   },
   {
     slug: "diner-conversations",
@@ -406,8 +345,10 @@ export function getThemeConnectionGame(theme: {
   blurb?: string;
   connectionGame?: ThemeConnectionGame;
 }): ThemeConnectionGame {
-  const curated = SHORTLIST_THEMES.find((t) => t.slug === theme.slug);
-  if (curated?.connectionGame) return curated.connectionGame;
+  // Curated quizzes live in connection-games.ts, keyed by slug.
+  const authored = CONNECTION_GAMES[theme.slug];
+  if (authored) return authored;
+  // Community proposals can carry their own game inline.
   if (theme.connectionGame) return theme.connectionGame;
 
   const blurb = theme.blurb || "A shared cinematic atmosphere and thematic DNA.";

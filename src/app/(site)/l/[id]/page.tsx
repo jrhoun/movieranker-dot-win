@@ -100,10 +100,16 @@ function shareUrl(listId: string, refHandle?: string | null): string {
 
 export default async function PublicListPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ finished?: string }>;
 }) {
   const { id } = await params;
+  // Set by the ranking flow's redirect (play-room / SaveGateSheet). Distinguishes
+  // "you just finished this" from "you opened a link", which is the difference
+  // between a congratulations modal and a quiet card further down the page.
+  const justFinished = (await searchParams)?.finished === "1";
   const supabase = await createSupabaseServerClient();
 
   // RLS: public sees only status='done'; owners also see their drafts.
@@ -170,6 +176,20 @@ export default async function PublicListPage({
     ? marqueeNumber(new Date(list.created_at))
     : null;
 
+  // THE SPOILER RULE, on the page itself. For a marquee list, list.title IS the
+  // theme title and the description IS the theme blurb — both paraphrase the
+  // answer to the connection quiz sitting further down the page. A finished
+  // marquee therefore shows its week instead, and the real title is revealed
+  // by the quiz once it has been answered.
+  //
+  // Drafts keep their title: the owner is mid-ranking and chose the theme.
+  const withholdTheme = !!list.theme_slug && list.status === "done";
+  const displayTitle = withholdTheme
+    ? listMarqueeNumber
+      ? `Weekly Marquee #${listMarqueeNumber}`
+      : "Weekly Marquee"
+    : list.title;
+
   // Top three by final rank, for the share text. Rows with a null finalRank
   // (parked films) are excluded — they hold no podium position.
   const sharePodium = rows
@@ -226,15 +246,15 @@ export default async function PublicListPage({
           <div className="min-w-0 flex-1">
             <h1 className="flex items-center gap-2 font-display text-2xl uppercase tracking-wide text-text leading-tight break-words sm:text-3xl">
               <span aria-hidden="true" className="shrink-0 text-gold">✦</span>
-              <span>{list.title}</span>
+              <span>{displayTitle}</span>
             </h1>
           </div>
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             {list.status === "done" && (
-              <CompareModal listId={id} listTitle={list.title} />
+              <CompareModal listId={id} listTitle={displayTitle} />
             )}
             <ShareButton
-              title={list.title}
+              title={displayTitle}
               url={url}
               themeSlug={list.theme_slug}
               marqueeNumber={listMarqueeNumber}
@@ -261,7 +281,7 @@ export default async function PublicListPage({
                 Ranked by <ParticipantChips chips={chips} />
               </p>
             )}
-            {list.description && (
+            {list.description && !withholdTheme && (
               <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-muted">
                 {list.description}
               </p>
@@ -282,7 +302,9 @@ export default async function PublicListPage({
         <section aria-label="Marquee mystery connection" className="mt-12">
           <MarqueeConnectionGame
             themeSlug={list.theme_slug}
-            themeTitle={list.title}
+            marqueeNumber={listMarqueeNumber}
+            justFinished={justFinished}
+            revealTitle={list.title}
             game={getThemeConnectionGame({
               slug: list.theme_slug,
               title: list.title,

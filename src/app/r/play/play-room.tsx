@@ -9,6 +9,7 @@ import MoviePoster from "@/components/list/MoviePoster";
 import ParkedStrip from "@/components/ParkedStrip";
 import SaveGateSheet from "@/components/SaveGateSheet";
 import { PersonIcon } from "@/components/ParticipantChips";
+import { marqueeNumber } from "@/lib/shortlist";
 import { getThemeConnectionGame } from "@/lib/shortlist-themes";
 import {
   closeCallProgress,
@@ -421,7 +422,10 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
 
       const id = initial?.id ?? ((await res.json()) as { id: string }).id;
       clearSession();
-      router.push(status === "done" ? `/l/${id}` : "/u/profile");
+      // ?finished=1 tells the list page this viewer just completed the ranking,
+      // which is what triggers the marquee bonus-round modal. A plain visit to
+      // the same URL must not pop it.
+      router.push(status === "done" ? `/l/${id}?finished=1` : "/u/profile");
     } catch {
       setSavingDirectly(false);
       setSheetStatus(status);
@@ -874,7 +878,10 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
             <div className="w-full max-w-xl mx-auto">
               <MarqueeConnectionGame
                 themeSlug={session.themeSlug}
-                themeTitle={session.title}
+                /* A room in play is always the current week's marquee, so "now"
+                   is the right anchor here — unlike the saved list page, which
+                   must date the number from when the room was made. */
+                marqueeNumber={marqueeNumber()}
                 game={getThemeConnectionGame({ slug: session.themeSlug, title: session.title })}
               />
             </div>

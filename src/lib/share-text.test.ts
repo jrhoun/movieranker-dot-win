@@ -49,7 +49,7 @@ describe("formatShareText — marquee format", () => {
   it("renders the full marquee share exactly", () => {
     expect(formatShareText(MARQUEE_INPUT)).toBe(
       [
-        "MovieRanker ✦ Marquee #1",
+        "MovieRanker ✦ Weekly Marquee #1",
         "",
         "🥇 Darkman",
         "🥈 The Elephant Man",
@@ -84,7 +84,7 @@ describe("formatShareText — marquee format", () => {
   it("omits the connection line entirely when unplayed", () => {
     expect(formatShareText({ ...MARQUEE_INPUT, connection: "unplayed" })).toBe(
       [
-        "MovieRanker ✦ Marquee #1",
+        "MovieRanker ✦ Weekly Marquee #1",
         "",
         "🥇 Darkman",
         "🥈 The Elephant Man",

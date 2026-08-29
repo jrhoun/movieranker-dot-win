@@ -92,7 +92,7 @@ export function formatShareText(input: ShareTextInput): string {
   // 1. Marquee: theme title withheld; the post is the puzzle.
   if (themeSlug) {
     const header = marqueeNumber
-      ? `MovieRanker ✦ Marquee #${marqueeNumber}`
+      ? `MovieRanker ✦ Weekly Marquee #${marqueeNumber}`
       : "MovieRanker ✦ Weekly Marquee";
     const thread =
       typeof totalMovies === "number"

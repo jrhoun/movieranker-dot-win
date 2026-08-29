@@ -97,7 +97,10 @@ export default function SaveGateSheet({
     }
     const id = existingId ?? ((await res.json()) as { id: string }).id;
     clearSession();
-    router.push(status === "done" ? `/l/${id}` : "/u/profile");
+    // ?finished=1 tells the list page this viewer just completed the ranking,
+    // which is what triggers the marquee bonus-round modal. A plain visit to
+    // the same URL must not pop it.
+    router.push(status === "done" ? `/l/${id}?finished=1` : "/u/profile");
   }
 
   const [signedInUser, setSignedInUser] = useState(false);
