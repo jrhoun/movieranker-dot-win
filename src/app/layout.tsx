@@ -24,7 +24,8 @@ const bebas = Bebas_Neue({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "MovieRanker – Head-to-Head Film Tournaments & Rankings",
-  description: "Rank movies with friends, settle debates head-to-head, and build definitive film lists.",
+  description:
+    "Rank movies head-to-head, solo or with friends. A new six-film Marquee every week with a hidden connection. For people who love lists and movies.",
   alternates: { canonical: "/" },
 };
 

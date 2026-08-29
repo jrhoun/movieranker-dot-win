@@ -9,7 +9,8 @@ import { OG_CONTENT_TYPE, OG_RESPONSE_OPTIONS, OG_SIZE, OgCard } from "@/lib/og-
  * previously pasted as a bare URL with no og: tags at all.
  */
 
-export const alt = "MovieRanker — rank movies head-to-head and settle film debates";
+export const alt =
+  "MovieRanker — rank movies head-to-head, solo or with friends, with a new Marquee every week";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 
@@ -17,9 +18,9 @@ export default async function Image() {
   return new ImageResponse(
     (
       <OgCard
-        eyebrow="HEAD-TO-HEAD FILM TOURNAMENTS"
+        eyebrow="FOR PEOPLE WHO LOVE LISTS AND CINEMA"
         headline="MOVIERANKER"
-        subline="SETTLING THE BEST MOVIES OF ALL TIME"
+        subline="RANK MOVIES HEAD-TO-HEAD, SOLO OR WITH FRIENDS"
       />
     ),
     OG_RESPONSE_OPTIONS,

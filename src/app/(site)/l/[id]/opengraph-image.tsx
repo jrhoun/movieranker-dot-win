@@ -43,9 +43,9 @@ export default async function Image({ params }: { params: Promise<{ id: string }
     return new ImageResponse(
       (
         <OgCard
-          eyebrow="HEAD-TO-HEAD FILM TOURNAMENTS"
+          eyebrow="FOR PEOPLE WHO LOVE LISTS AND CINEMA"
           headline="MOVIERANKER"
-          subline="SETTLING THE BEST MOVIES OF ALL TIME"
+          subline="RANK MOVIES HEAD-TO-HEAD, SOLO OR WITH FRIENDS"
         />
       ),
       OG_RESPONSE_OPTIONS,

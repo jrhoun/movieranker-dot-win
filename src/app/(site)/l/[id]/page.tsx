@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import CompareModal from "@/components/list/CompareModal";
+import CompletionSummaryCard from "@/components/CompletionSummaryCard";
 import ListViews from "@/components/list/ListViews";
 import MarqueeConnectionGame from "@/components/MarqueeConnectionGame";
 import MarqueeHeading from "@/components/MarqueeHeading";
@@ -8,6 +9,9 @@ import OwnerControls from "@/components/list/OwnerControls";
 import ParticipantChips from "@/components/ParticipantChips";
 import ShareButton from "@/components/ShareButton";
 import { withRanks, type ListMovieRow } from "@/lib/list-view";
+import { summariseCompletion, isWorthCelebrating, type CompletionSummary } from "@/lib/completion";
+import { calculateTotalXp, totalMoviesRanked } from "@/lib/gamification";
+import { marqueeStanding, type ThemeCompletion } from "@/lib/marquee-standing";
 import { chipParticipants } from "@/lib/participants";
 import { SITE_URL } from "@/lib/site";
 import { marqueeNumber } from "@/lib/shortlist";
@@ -190,6 +194,79 @@ export default async function PublicListPage({
       : "Weekly Marquee"
     : list.title;
 
+  /**
+   * What this ranking just earned, shown only to the person who finished it and
+   * only on the hop straight from the ranking screen.
+   *
+   * Everything is derived by evaluating the same pure functions twice — once on
+   * the owner's totals, once on those totals minus this list — so "new" means
+   * genuinely new without an awards table to keep in sync. See lib/completion.ts.
+   *
+   * The extra reads are deliberate and rare: they run once, for one person, on
+   * the redirect after a save.
+   */
+  let completion: CompletionSummary | null = null;
+  if (justFinished && isOwner && user && list.status === "done") {
+    const { data: ownedRows } = await supabase
+      .from("lists")
+      .select("id,participants,theme_slug,created_at,list_movies(tmdb_id)")
+      .eq("owner_id", user.id)
+      .eq("status", "done");
+
+    const owned = ((ownedRows ?? []) as Record<string, unknown>[]).map((r) => ({
+      id: String(r.id),
+      movieCount: Array.isArray(r.list_movies) ? r.list_movies.length : 0,
+      coCurated: Array.isArray(r.participants) && r.participants.length > 0,
+      themeSlug: (r.theme_slug as string | null) ?? null,
+      createdAt: String(r.created_at ?? ""),
+    }));
+    const before = owned.filter((l) => l.id !== id);
+
+    // Marquee ordering (first to finish a theme, front row, century) is global,
+    // so it needs every themed done list — the same read the profile page does.
+    const { data: themeRows } = await supabase
+      .from("lists")
+      .select("owner_id,theme_slug,created_at")
+      .not("theme_slug", "is", null)
+      .eq("status", "done")
+      .in("visibility", ["unlisted", "public"])
+      .limit(10000);
+    const allCompletions: ThemeCompletion[] = ((themeRows ?? []) as Record<string, unknown>[]).map(
+      (r) => ({
+        ownerId: r.owner_id as string,
+        themeSlug: r.theme_slug as string,
+        createdAt: String(r.created_at ?? ""),
+      }),
+    );
+    // This list has no id in that projection, so it is identified the only way
+    // available: same owner, same theme, same instant.
+    const completionsBefore = allCompletions.filter(
+      (c) =>
+        !(
+          c.ownerId === list.owner_id &&
+          c.themeSlug === list.theme_slug &&
+          c.createdAt === list.created_at
+        ),
+    );
+
+    const snapshot = (ls: typeof owned, completions: ThemeCompletion[]) => ({
+      xp: calculateTotalXp({ lists: ls }),
+      stats: {
+        doneLists: ls.length,
+        moviesRanked: totalMoviesRanked(ls),
+        maxMoviesInSingleList: Math.max(0, ...ls.map((l) => l.movieCount)),
+        coCuratedLists: ls.filter((l) => l.coCurated).length,
+        ...marqueeStanding(completions, user.id),
+      },
+    });
+
+    const summary = summariseCompletion(
+      snapshot(before, completionsBefore),
+      snapshot(owned, allCompletions),
+    );
+    completion = isWorthCelebrating(summary) ? summary : null;
+  }
+
   // Top three by final rank, for the share text. Rows with a null finalRank
   // (parked films) are excluded — they hold no podium position.
   const sharePodium = rows
@@ -297,6 +374,14 @@ export default async function PublicListPage({
           <ListViews movies={withRanks(rows)} />
         )}
       </div>
+
+      {completion && (
+        <section aria-label="Ranking complete" className="mt-10 flex justify-center">
+          <div className="w-full max-w-xl">
+            <CompletionSummaryCard summary={completion} />
+          </div>
+        </section>
+      )}
 
       {list.theme_slug && list.status === "done" && (
         <section aria-label="Marquee mystery connection" className="mt-12">
