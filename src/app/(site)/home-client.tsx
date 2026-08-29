@@ -240,14 +240,14 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
               <MarqueeInfoModal />
             </div>
           )}
-          <ul className="mt-4 flex justify-start overflow-x-auto px-4 pt-6 pb-4 sm:justify-center">
+          <ul className="no-scrollbar mt-4 flex justify-start overflow-x-auto px-4 pt-6 pb-4 sm:justify-center">
             {fanItems.map(({ m, tilt }, i) => {
               const inTray = candidates.some((c) => c.tmdbId === m.tmdbId);
               return (
                 <li
                   key={m.tmdbId}
                   style={{ "--tilt": `${tilt}deg`, zIndex: fanItems.length - Math.abs(i - (fanItems.length - 1) / 2) } as React.CSSProperties}
-                  className="group relative -mx-2 w-[7.2rem] shrink-0 origin-bottom rotate-(--tilt) transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform-gpu hover:z-30 hover:rotate-0 hover:-translate-y-3 hover:scale-105 sm:-mx-3 sm:w-[8.4rem]"
+                  className="group relative -mx-2 w-[7.2rem] shrink-0 origin-bottom rotate-(--tilt) transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform-gpu hover:z-30 hover:rotate-0 hover:-translate-y-3 hover:scale-105 md:-mx-3 md:w-[8.4rem]"
                 >
                   <button
                     type="button"
