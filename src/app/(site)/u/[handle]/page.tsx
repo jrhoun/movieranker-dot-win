@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import MarqueeHeading from "@/components/MarqueeHeading";
+import Nameplate from "@/components/profile/Nameplate";
 import ParticipantChips from "@/components/ParticipantChips";
 import MoviePoster from "@/components/list/MoviePoster";
 import { normalizeHandle } from "@/lib/handles";
@@ -226,7 +226,7 @@ export default async function PublicProfilePage({
         </div>
       )}
       <header>
-        <MarqueeHeading>@{profile.handle}</MarqueeHeading>
+        <Nameplate handle={profile.handle} level={level.level} />
         {/* Single-line Level & Rank badge */}
         <div className="mt-2 flex items-center justify-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/15 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-gold ring-1 ring-gold/40 shadow-sm">
