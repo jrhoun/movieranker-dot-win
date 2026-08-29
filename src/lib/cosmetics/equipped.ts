@@ -1,4 +1,4 @@
-import { starterFor } from "./catalogue";
+import { itemById, starterFor } from "./catalogue";
 import { canEquip } from "./ownership";
 import type { Slot } from "./types";
 
@@ -117,5 +117,41 @@ export function resolveEquipped(
     overlay: pick("overlay", e.overlay),
     // A tagline is optional — no starter is forced on anyone.
     tagline: e.tagline && canEquip(e.tagline, owned) ? e.tagline : undefined,
+  };
+}
+
+/**
+ * What to render when ownership CANNOT be safely re-checked from where the
+ * caller sits — currently only /u/[handle] (see the doc comment at that call
+ * site for why). `resolveEquipped`'s re-check exists to catch a raised
+ * unlock threshold or a revoked grant, which is sound reasoning on a page
+ * with complete stats; on a page whose stats are inherently RLS-limited it
+ * instead produces false negatives — a legitimately equipped, legendary
+ * challenge-gated item silently rendering as the slot's starter for every
+ * visitor. This function skips that check entirely (no `owned` set, no
+ * `canEquip` call) and trusts that the stored id was already validated
+ * against the real owner's full-access stats when it was written by
+ * /api/profile's PATCH handler — the strongest guarantee available here.
+ *
+ * It still validates what THIS caller CAN verify correctly on its own: that
+ * the id still exists in the catalogue and still belongs to the slot it's
+ * stored under, so a stale id (removed or renamed by a later catalogue
+ * change) still degrades to the slot's starter rather than rendering
+ * something wrong or crashing a lookup elsewhere.
+ */
+export function sanitizeEquipped(
+  equipped: Equipped | undefined,
+): Required<Pick<Equipped, "frame" | "background" | "overlay">> & Equipped {
+  const e = equipped ?? {};
+  const validFor = (slot: Slot, id: string | null | undefined) =>
+    id && itemById(id)?.slot === slot ? id : undefined;
+
+  return {
+    ...e,
+    frame: validFor("frame", e.frame) ?? starterFor("frame").id,
+    background: validFor("background", e.background) ?? starterFor("background").id,
+    overlay: validFor("overlay", e.overlay) ?? starterFor("overlay").id,
+    // A tagline is optional — no starter is forced on anyone, same as resolveEquipped.
+    tagline: validFor("tagline", e.tagline),
   };
 }

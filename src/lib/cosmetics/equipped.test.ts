@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseEquipped, resolveEquipped } from "./equipped";
+import { parseEquipped, resolveEquipped, sanitizeEquipped } from "./equipped";
 import { starterFor } from "./catalogue";
 import { ownedItemIds } from "./ownership";
 
@@ -98,5 +98,56 @@ describe("resolveEquipped", () => {
   it("passes the avatar through untouched — it is validated separately", () => {
     const r = resolveEquipped({ avatarTmdbId: 155, avatarPosterPath: "/x.jpg" }, newUser());
     expect(r.avatarTmdbId).toBe(155);
+  });
+});
+
+describe("sanitizeEquipped", () => {
+  it("renders a challenge-gated, legendary item that a limited-stats caller could not derive ownership for", () => {
+    // frame.prism is unlock: {kind: "challenge", key: "cryptologist"} — a
+    // page whose achievement stats are RLS-limited (no visibility into
+    // private lists or another user's marquee_solves) can never prove this
+    // was earned. sanitizeEquipped takes no `owned` set at all: it trusts
+    // /api/profile already validated this against the real owner's full
+    // stats when it was written, which is exactly the point of this fix.
+    const r = sanitizeEquipped({ frame: "frame.prism" });
+    expect(r.frame).toBe("frame.prism");
+  });
+
+  it("still drops a stale id no longer in the catalogue", () => {
+    // A catalogue change (removed/renamed item) is something this function
+    // CAN verify correctly on its own, unlike ownership — falls back to the
+    // slot's starter rather than rendering a dead id.
+    const r = sanitizeEquipped({ frame: "frame.does-not-exist" });
+    expect(r.frame).toBe(starterFor("frame").id);
+  });
+
+  it("drops an id that exists but belongs to a different slot", () => {
+    const r = sanitizeEquipped({ frame: "background.velvet" });
+    expect(r.frame).toBe(starterFor("frame").id);
+  });
+
+  it("falls back to the starter when nothing is equipped", () => {
+    const r = sanitizeEquipped({});
+    expect(r.frame).toBe(starterFor("frame").id);
+    expect(r.background).toBe(starterFor("background").id);
+    expect(r.overlay).toBe(starterFor("overlay").id);
+  });
+
+  it("keeps a valid tagline id and drops a stale one, with no starter forced", () => {
+    expect(sanitizeEquipped({ tagline: "tagline.trailer.in-a-world" }).tagline).toBe(
+      "tagline.trailer.in-a-world",
+    );
+    expect(sanitizeEquipped({ tagline: "tagline.nope" }).tagline).toBeUndefined();
+    expect(sanitizeEquipped({}).tagline).toBeUndefined();
+  });
+
+  it("passes the avatar and taglineText through untouched", () => {
+    const r = sanitizeEquipped({
+      avatarTmdbId: 155,
+      avatarPosterPath: "/x.jpg",
+      taglineText: "104 films ranked. No regrets.",
+    });
+    expect(r.avatarTmdbId).toBe(155);
+    expect(r.taglineText).toBe("104 films ranked. No regrets.");
   });
 });

@@ -7,8 +7,7 @@ import MoviePoster from "@/components/list/MoviePoster";
 import { normalizeHandle } from "@/lib/handles";
 import { evaluateAchievements } from "@/lib/gamification";
 import { marqueeStanding, type ThemeCompletion } from "@/lib/marquee-standing";
-import { ownedItemIds } from "@/lib/cosmetics/ownership";
-import { resolveEquipped } from "@/lib/cosmetics/equipped";
+import { sanitizeEquipped } from "@/lib/cosmetics/equipped";
 import {
   EMPTY_SHOWCASE,
   parseShowcase,
@@ -184,22 +183,15 @@ export default async function PublicProfilePage({
     // the badge must count only the ones that were actually cracked.
     .eq("correct", true);
 
-  // Same rows the /api/profile equip validator reads (the owner's own done
-  // lists, oldest first): ownedItemIds replays canister drops in this order,
-  // so any other ordering here could show a cosmetic as owned that a real
-  // equip request would then 403. Filter-then-sort is equivalent to the
-  // validator's sort-then-filter since sorting never reorders within the
-  // filtered subset.
-  const finishedThemeSlugs = ((lists ?? []) as Record<string, unknown>[])
-    .filter(
-      (r) =>
-        r.status === "done" &&
-        typeof r.theme_slug === "string" &&
-        (r.theme_slug as string).length > 0,
-    )
-    .slice()
-    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
-    .map((r) => r.theme_slug as string);
+  // Finished-Marquee count for achievementStats.marqueeWeeks below — only
+  // the COUNT is read, so unlike the ordered version /api/profile computes
+  // for its own equip validator, no sort is needed here.
+  const finishedThemeCount = ((lists ?? []) as Record<string, unknown>[]).filter(
+    (r) =>
+      r.status === "done" &&
+      typeof r.theme_slug === "string" &&
+      (r.theme_slug as string).length > 0,
+  ).length;
 
   // Unlocked only; cards.length is the public done-list count (shapePublicProfile
   // filters to status=done + visibility=public, so private/unlisted never count).
@@ -212,19 +204,29 @@ export default async function PublicProfilePage({
     moviesRanked,
     maxMoviesInSingleList: Math.max(0, ...cards.map((c) => c.posters.length)),
     coCuratedLists: cards.filter((c) => (c.chips?.length ?? 0) > 0).length,
-    marqueeWeeks: finishedThemeSlugs.length,
+    marqueeWeeks: finishedThemeCount,
     marqueeConnectionsSolved: solveCount ?? 0,
     ...standing,
   };
   const allAchievements = evaluateAchievements(achievementStats).filter((a) => a.unlocked);
 
-  const ownedCosmetics = ownedItemIds({
-    userId: profile.id,
-    level: level.level,
-    unlockedAchievementKeys: allAchievements.map((a) => a.key),
-    finishedThemeSlugs,
-  });
-  const canvasEquipped = resolveEquipped(showcase.equipped, ownedCosmetics);
+  // NOT resolveEquipped: this page's achievement stats above are inherently
+  // RLS-limited (shapePublicProfile counts only public done lists, and
+  // marquee_solves is scoped by RLS to its own reader), so they can never
+  // fully reconstruct ownership of a challenge- or drop-gated item earned
+  // partly through private data. Re-checking ownership here with them would
+  // not catch a stale grant — it would produce FALSE NEGATIVES: a user who
+  // earns the legendary, challenge-gated frame.prism and equips it would see
+  // it themselves, while every other visitor (and the owner on THIS page)
+  // would silently see starter brass instead. /api/profile already validated
+  // the id against the owner's own full-access stats when it was written,
+  // which is the strongest guarantee available here — so this page trusts
+  // that snapshot and only re-checks what it CAN verify correctly on its
+  // own: that the id still exists in the catalogue and still belongs to its
+  // slot (see sanitizeEquipped's doc comment). /u/profile, by contrast, has
+  // complete stats and keeps using resolveEquipped's real ownership check —
+  // this asymmetry is deliberate, not a mismatch to "fix" later.
+  const canvasEquipped = sanitizeEquipped(showcase.equipped);
   // Rendered as the stored SNAPSHOT, never recomputed via resolveTaglineText
   // on this page: this page's achievementStats above is itself RLS-limited
   // (public done lists only, and marquee_solves is scoped to its own reader),
