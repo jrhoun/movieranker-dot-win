@@ -3,9 +3,19 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { invalid } from "@/lib/lists-api";
 import { checkHandle } from "@/lib/handles";
 import { mergeShowcase, type ProfileShowcase } from "@/lib/public-profile";
-import { grandfatheredXp, levelFor, MIN_PIN_LIST_LEVEL } from "@/lib/gamification";
+import {
+  CONNECTION_SOLVE_XP,
+  evaluateAchievements,
+  grandfatheredXp,
+  levelFor,
+  MIN_PIN_LIST_LEVEL,
+} from "@/lib/gamification";
 import { fetchCareerXp } from "@/lib/career-xp";
 import { resolveReferrerId } from "@/lib/referrals";
+import { parseEquipped } from "@/lib/cosmetics/equipped";
+import { validateEquipPatch } from "@/lib/cosmetics/equip-guard";
+import { ownedItemIds } from "@/lib/cosmetics/ownership";
+import { marqueeStanding } from "@/lib/marquee-standing";
 import {
   LIMITS,
   rateKey,
@@ -151,9 +161,115 @@ export async function PATCH(request: Request) {
       .maybeSingle();
     if (!row)
       return NextResponse.json({ error: "claim a handle first" }, { status: 409 });
+
+    // Trust boundary: ownership is recomputed here from the user's own
+    // finished-list rows, never from anything the client sent. A client
+    // could otherwise POST any catalogue id and equip a cosmetic it never
+    // earned, or pin an arbitrary poster as its avatar.
+    const equipPatch = parseEquipped(
+      (body.showcase as { equipped?: unknown } | undefined)?.equipped,
+    );
+    if (equipPatch === null) return invalid("invalid equipped block");
+    if (Object.keys(equipPatch).length > 0) {
+      // Ordered oldest-first: ownedItemIds replays canister drops in
+      // finishedThemeSlugs order, and an unordered query would make the
+      // drop-derived half of `owned` (and therefore a 403) non-deterministic
+      // across identical requests.
+      const { data: doneRowsData } = await supabase
+        .from("lists")
+        .select("theme_slug,status,participants,created_at,list_movies(tmdb_id,poster_path)")
+        .eq("owner_id", auth.user.id)
+        .eq("status", "done")
+        .order("created_at", { ascending: true });
+
+      const doneRows = (doneRowsData ?? []) as {
+        theme_slug?: string | null;
+        participants?: unknown;
+        list_movies?: { tmdb_id: number; poster_path: string | null }[];
+      }[];
+
+      const finishedThemeSlugs = doneRows
+        .map((r) => r.theme_slug)
+        .filter((s): s is string => typeof s === "string" && s.length > 0);
+
+      // Real poster paths for the user's own finished films, so an equipped
+      // avatarPosterPath can be checked against the actual film rather than
+      // trusted at face value.
+      const ownedTmdbIds = new Set<number>();
+      const posterPathByTmdbId = new Map<number, string | null>();
+      let moviesRanked = 0;
+      let maxMoviesInSingleList = 0;
+      for (const r of doneRows) {
+        // Raw count for the totals — countMoviesRanked's definition elsewhere
+        // is list_movies.length, uncapped and unfiltered; a row missing a
+        // tmdb_id must not silently shrink `centurion`'s count.
+        const rawMovies = r.list_movies ?? [];
+        moviesRanked += rawMovies.length;
+        maxMoviesInSingleList = Math.max(maxMoviesInSingleList, rawMovies.length);
+        const movies = rawMovies.filter(
+          (m): m is { tmdb_id: number; poster_path: string | null } =>
+            typeof m.tmdb_id === "number",
+        );
+        for (const m of movies) {
+          ownedTmdbIds.add(m.tmdb_id);
+          posterPathByTmdbId.set(m.tmdb_id, m.poster_path);
+        }
+      }
+      const coCuratedLists = doneRows.filter(
+        (r) => Array.isArray(r.participants) && r.participants.length > 0,
+      ).length;
+
+      // The three ordering achievements (first/top10/top100 on a weekly
+      // Marquee) rank within a theme only, so scoping this cross-user query
+      // to the themes this user actually finished keeps it correct without
+      // an unbounded scan of every Marquee completion ever recorded.
+      let standing = { firstToMarquee: false, top10Marquee: false, top100Marquee: false };
+      if (finishedThemeSlugs.length > 0) {
+        const { data: themeRowsData } = await supabase
+          .from("lists")
+          .select("owner_id,theme_slug,created_at")
+          .in("theme_slug", finishedThemeSlugs)
+          .eq("status", "done")
+          .in("visibility", ["unlisted", "public"])
+          .limit(10000);
+        const completions = ((themeRowsData ?? []) as Record<string, unknown>[])
+          .filter((r) => typeof r.owner_id === "string" && typeof r.theme_slug === "string")
+          .map((r) => ({
+            ownerId: r.owner_id as string,
+            themeSlug: r.theme_slug as string,
+            createdAt: String(r.created_at ?? ""),
+          }));
+        standing = marqueeStanding(completions, auth.user.id);
+      }
+
+      const equipBankedXp = (row as { showcase?: { lifetimeXp?: number } }).showcase?.lifetimeXp ?? 0;
+      const { total, breakdown } = await fetchCareerXp(supabase, auth.user.id, equipBankedXp);
+      const owned = ownedItemIds({
+        userId: auth.user.id,
+        level: levelFor(total).level,
+        unlockedAchievementKeys: evaluateAchievements({
+          doneLists: doneRows.length,
+          moviesRanked,
+          maxMoviesInSingleList,
+          coCuratedLists,
+          marqueeWeeks: finishedThemeSlugs.length,
+          // Recovered from the already-computed XP breakdown rather than a
+          // fresh query: connections XP is solve count * CONNECTION_SOLVE_XP.
+          marqueeConnectionsSolved: breakdown.connections / CONNECTION_SOLVE_XP,
+          ...standing,
+        })
+          .filter((a) => a.unlocked)
+          .map((a) => a.key),
+        finishedThemeSlugs,
+      });
+
+      const check = validateEquipPatch(equipPatch, owned, ownedTmdbIds, posterPathByTmdbId);
+      if (!check.ok) return NextResponse.json({ error: check.error }, { status: 403 });
+    }
+
     const merged = mergeShowcase(
       (row as { showcase?: unknown }).showcase,
-      body.showcase as { achievementKeys?: unknown; favoriteListId?: unknown },
+      body.showcase as { achievementKeys?: unknown; favoriteListId?: unknown; equipped?: unknown },
     );
     if (!merged) return invalid("invalid showcase");
     if (merged.favoriteListId) {

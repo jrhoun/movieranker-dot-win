@@ -148,4 +148,9 @@ describe("showcase equipped block", () => {
     );
     expect(merged?.equipped).toEqual({ tagline: "tagline.80s.rewind", frame: "frame.brass" });
   });
+
+  it("treats a stored equipped: null as absent rather than malformed", () => {
+    expect(parseShowcase({ achievementKeys: [], favoriteListId: null, equipped: null }))
+      .toEqual({ achievementKeys: [], favoriteListId: null });
+  });
 });
