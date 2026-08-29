@@ -45,16 +45,18 @@ const SLOT_LABEL: Record<Slot, string> = {
  * Labels are resolved here, server-side, never handed to the client as raw
  * catalogue items: the tagline slot's earned lines carry a literal "{count}"
  * template (or, for tagline.earned.pioneer, the exact spoiler text a user who
- * hasn't earned it must not see). resolveTaglineText enforces both; an
- * earned line the viewer hasn't qualified for falls back to its set name
- * ("Earned") rather than leaking real text.
+ * hasn't earned it must not see). resolveTaglineText enforces both, and an
+ * earned line the viewer hasn't qualified for is DROPPED from the list
+ * rather than shown with a substitute label: all four earned lines share the
+ * same `set` ("Earned"), so falling back to that would render several
+ * identical, indistinguishable locked chips. A locked earned line has no
+ * button to equip anyway, so omitting it loses nothing.
  */
 function pickerItems(slot: Slot, stats: AchievementStats): PickerItem[] {
   if (slot === "tagline") {
-    return (itemsForSlot("tagline") as TaglineItem[]).map((t) => ({
-      id: t.id,
-      name: resolveTaglineText(t.id, stats) ?? t.set,
-    }));
+    return (itemsForSlot("tagline") as TaglineItem[])
+      .map((t) => ({ id: t.id, name: resolveTaglineText(t.id, stats) }))
+      .filter((t): t is PickerItem => t.name !== undefined);
   }
   return itemsForSlot(slot).map((i) => ({ id: i.id, name: i.name }));
 }
