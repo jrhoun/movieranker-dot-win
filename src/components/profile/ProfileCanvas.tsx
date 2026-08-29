@@ -51,9 +51,9 @@ export default function ProfileCanvas({
       {background === "background.filmstrip" && (
         <>
           <div aria-hidden className="absolute inset-0 z-0 flex items-center gap-1 px-2 opacity-30">
-            {art.map((p) => (
+            {art.map((p, i) => (
               // eslint-disable-next-line @next/next/no-img-element
-              <img key={p.posterPath} src={`${POSTER}${p.posterPath}`} alt="" className="h-full w-auto rounded-sm object-cover" />
+              <img key={`${i}-${p.posterPath}`} src={`${POSTER}${p.posterPath}`} alt="" className="h-full w-auto rounded-sm object-cover" />
             ))}
           </div>
           <div aria-hidden className="cb-scrim absolute inset-0 z-[1]" />
