@@ -19,7 +19,7 @@ import {
   removeCandidates,
   saveStagedDraft,
 } from "@/lib/tray";
-import { tmdbMovieUrl, type TmdbMovieCredit } from "@/lib/tmdb";
+import type { TmdbMovieCredit } from "@/lib/tmdb";
 
 export interface TonightStrip {
   title: string;
@@ -104,7 +104,6 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
   const [confirmResume, setConfirmResume] = useState(false);
   const [savedSession, setSavedSession] = useState<PlaySession | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
-  const marqueeScrollRef = useRef<HTMLUListElement>(null);
   const hydratedRef = useRef(false);
   // which entry point opened the resume confirm: tray "Start" vs "Rank this list"
   const pendingCuratedRef = useRef(false);
@@ -131,11 +130,6 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
     if (!hydratedRef.current) return;
     saveStagedDraft({ title, participants, candidates });
   }, [title, participants, candidates]);
-
-  function scrollMarquee(offset: number) {
-    if (!marqueeScrollRef.current) return;
-    marqueeScrollRef.current.scrollBy({ left: offset, behavior: "smooth" });
-  }
 
   function discardRanking() {
     clearSession();
@@ -300,10 +294,10 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
           {liveFan ? (
             <div className="mt-5 flex flex-col items-center gap-3">
               <p className="font-display text-3xl uppercase leading-none tracking-[0.06em] text-gold drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)] sm:text-4xl">
-                What connects these {tonight.movies.length}?
+                Rank them. Find the connection.
               </p>
               <p className="max-w-sm text-sm leading-relaxed text-text/85">
-                Rank them, then see how your order compares to everyone else&apos;s.
+                Then see how your order compares to everyone else&apos;s.
               </p>
               {tonight.userThemeListId ? (
                 <div className="flex flex-col items-center gap-2.5">
@@ -312,8 +306,8 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
                     <span>You ranked it</span>
                   </span>
                   <Link
-                    href={`/l/${tonight.userThemeListId}`}
-                    className="inline-block min-h-11 rounded-full bg-gold px-6 text-sm font-bold leading-[44px] uppercase tracking-wide text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                    href={`/l/${tonight.userThemeListId}#community-consensus`}
+                    className="inline-block min-h-11 rounded-full bg-gold px-6 text-sm font-bold leading-[44px] uppercase tracking-wide text-bg shadow-lg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
                   >
                     See how you compared
                   </Link>
@@ -321,10 +315,10 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
               ) : (
                 <button
                   type="button"
-                  onClick={scrollToMarquee}
-                  className="inline-block min-h-11 cursor-pointer rounded-full bg-gold px-6 text-sm font-bold leading-[44px] uppercase tracking-wide text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                  onClick={() => start(true)}
+                  className="inline-block min-h-11 cursor-pointer rounded-full bg-gold px-6 text-sm font-bold leading-[44px] uppercase tracking-wide text-bg shadow-lg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
                 >
-                  Rank this week&apos;s marquee
+                  Start ranking
                 </button>
               )}
               {/* The clock is the appointment mechanic; it was buried in the
@@ -502,12 +496,12 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
           </div>
         )}
 
-        {/* Neither the theme title nor its blurb appears here: both paraphrase
-            the answer to the connection puzzle, and this page is where people
-            decide to play. The name is revealed on the list page once the quiz
-            has been answered. */}
-        <h3 className="mt-2 text-center font-display text-3xl uppercase leading-none tracking-[0.12em] text-gold drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)] sm:text-4xl">
-          This week&apos;s line-up
+        {/* Slimmed to the week's standing plus the way in. The poster strip that
+            used to sit here showed the same six films as the hero fan a screen
+            above, and the theme title and blurb are withheld everywhere on this
+            page — both paraphrase the answer to the connection puzzle. */}
+        <h3 className="mt-2 text-center font-display text-2xl uppercase leading-none tracking-[0.12em] text-gold drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)] sm:text-3xl">
+          This week&apos;s marquee
         </h3>
 
         {/* Proposal credit + real community activity (no fake social proof:
@@ -553,82 +547,6 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
             )}
           </div>
         )}
-        {/* Horizontal filmstrip: scroll affordances (snap points, navigation arrows,
-            edge padding) signal more posters off-screen. */}
-        <div className="relative mt-6">
-          <div className="mb-2 flex items-center justify-between px-1">
-            <span className="text-xs font-medium uppercase tracking-wider text-muted">
-              Line-up ({tonight.movies.length} films)
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => scrollMarquee(-260)}
-                aria-label="Scroll left"
-                className="flex size-8 items-center justify-center rounded-full bg-surface-raised text-muted ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-text focus-visible:outline-2 focus-visible:outline-gold"
-              >
-                ‹
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollMarquee(260)}
-                aria-label="Scroll right"
-                className="flex size-8 items-center justify-center rounded-full bg-surface-raised text-muted ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-text focus-visible:outline-2 focus-visible:outline-gold"
-              >
-                ›
-              </button>
-            </div>
-          </div>
-          <ul
-            ref={marqueeScrollRef}
-            className="thin-scrollbar flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pt-1 pb-4 scroll-smooth"
-          >
-            {tonight.movies.map((m) => {
-              const inTray = candidates.some((c) => c.tmdbId === m.tmdbId);
-              return (
-                <li key={m.tmdbId} className="w-24 shrink-0 snap-start sm:w-32">
-                  <button
-                    type="button"
-                    onClick={() => toggleCandidate(m)}
-                    aria-label={`Add ${m.title}${m.releaseYear ? ` (${m.releaseYear})` : ""} to your ranking`}
-                    aria-pressed={inTray}
-                    title={inTray ? "Already on your list — tap to remove" : `Add ${m.title}`}
-                    className="group relative block w-full rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-                  >
-                    <MoviePoster
-                      title={m.title}
-                      posterPath={m.posterPath}
-                      className="shadow-lg transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform-gpu motion-safe:group-hover:-translate-y-2 motion-safe:group-hover:scale-[1.03] group-hover:shadow-[0_12px_24px_rgba(0,0,0,0.65)] group-hover:ring-1 group-hover:ring-gold/60"
-                    />
-                    {inTray && (
-                      <span
-                        aria-hidden
-                        className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-gold text-xs font-bold text-bg shadow"
-                      >
-                        ✓
-                      </span>
-                    )}
-                  </button>
-                  <div className="mt-1 flex items-baseline justify-between gap-1">
-                    <p className={`truncate text-xs ${inTray ? "text-gold" : "text-muted"}`}>
-                      {m.releaseYear}
-                    </p>
-                    <a
-                      href={tmdbMovieUrl(m.tmdbId)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={`View ${m.title} on TMDB (opens in new tab)`}
-                      aria-label={`View ${m.title} on TMDB`}
-                      className="text-[10px] text-muted/80 transition-colors hover:text-gold focus-visible:outline-1 focus-visible:outline-gold"
-                    >
-                      TMDB ↗
-                    </a>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
       </section>
       )}
       {/* Gold rule with ✦ center between the two premiere paths:
