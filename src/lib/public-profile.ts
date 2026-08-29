@@ -127,6 +127,7 @@ export interface DbPublicList {
   id: string;
   title: string;
   participants?: string[] | null;
+  theme_slug?: string | null;
   status: string;
   visibility: string | null;
   created_at: string;
@@ -164,13 +165,17 @@ export function shapePublicProfile(
   const publicLists = toXpLists(
     pub.map((l) => ({
       status: l.status,
+      theme_slug: l.theme_slug ?? null,
       participants: l.participants,
       movieCount: l.list_movies?.length ?? 0,
     })),
   );
   const moviesRanked = countMoviesRanked(publicLists);
-  // Only public lists are visible here, so the banked lifetime total is what
-  // carries a viewer's XP earned from unlisted work, referrals and solves.
+  // Derived from public rows ONLY, and deliberately not from marquee_solves:
+  // RLS scopes that table to the reader, so a visitor counts zero solves where
+  // the owner counts their own. Feeding it in here would make a public level
+  // depend on who is looking. Solves, referrals and unlisted work reach this
+  // page through the banked lifetime total instead.
   const { total: careerXp } = reconcileCareerXp(
     calculateXpBreakdown({ lists: publicLists }),
     showcase?.lifetimeXp,

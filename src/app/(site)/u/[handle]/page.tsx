@@ -117,7 +117,7 @@ export default async function PublicProfilePage({
   // Showcase ONLY public done lists — unlisted stays link-accessible but hidden here.
   const { data: lists } = await supabase
     .from("lists")
-    .select("id,title,participants,status,visibility,created_at,list_movies(title,poster_path)")
+    .select("id,title,participants,theme_slug,status,visibility,created_at,list_movies(title,poster_path)")
     .eq("owner_id", profile.id)
     .order("created_at", { ascending: false })
     // Mirror /u/me: without this, PostgREST join order is unspecified and cards
