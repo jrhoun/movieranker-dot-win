@@ -108,6 +108,42 @@ describe("generated avatars", () => {
     }
   });
 
+  it("opens with a choice that spans every style, not every seed of a few", () => {
+    // The whole reason the starter split counts within each style instead of
+    // slicing the first N: the manifest is grouped style-by-style, so a slice
+    // hands over four complete styles and none of the other two. This fails
+    // for a positional slice and passes for the per-style count, which is
+    // exactly the distinction worth pinning.
+    const styles = new Set(manifest.map((e) => e.style));
+    const starterStyles = new Set(
+      generated
+        .filter((a) => a.unlock.kind === "starter")
+        .map((a) => manifest.find((e) => `avatar.gen.${e.id}` === a.id)!.style),
+    );
+    expect(starterStyles).toEqual(styles);
+  });
+
+  it("leaves something to earn at every stage, and nothing at level 1", () => {
+    const gated = generated.filter((a) => a.unlock.kind === "level");
+    expect(gated.length).toBeGreaterThan(0);
+
+    // Spread, not bunched. If every gated avatar landed inside the first few
+    // levels the tail of the career would have no face left to unlock.
+    const levels = gated
+      .map((a) => (a.unlock.kind === "level" ? a.unlock.level : 0))
+      .sort((x, y) => x - y);
+    expect(new Set(levels).size, "two avatars unlock at the same level").toBe(levels.length);
+    expect(levels[levels.length - 1]).toBeGreaterThanOrEqual(30);
+  });
+
+  it("never calls a starter rare", () => {
+    // Rarity is the word printed on the tile. An item every profile owns on
+    // day one cannot carry it.
+    for (const a of generated) {
+      if (a.unlock.kind === "starter") expect(a.rarity, a.id).toBe("common");
+    }
+  });
+
   it("names read as names, not as filenames", () => {
     // "lorelei reel" is a manifest key; "Lorelei Reel" is a collectible.
     for (const a of generated) {
@@ -120,7 +156,7 @@ describe("generated avatars", () => {
 describe("gradient avatars", () => {
   it("gradient avatar ids are unique and properly namespaced", () => {
     const grads = AVATARS.filter((a) => a.id.startsWith("avatar.grad."));
-    expect(grads.length).toBe(6);
+    expect(grads.length).toBe(18);
     const ids = grads.map((g) => g.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const g of grads) {
@@ -129,15 +165,43 @@ describe("gradient avatars", () => {
     }
   });
 
-  it("starter invariant: at least one starter gradient avatar exists", () => {
+  it("starter invariant: a new profile opens with a wardrobe, not two options", () => {
     // Scoped to gradients, as the name says. It previously filtered ALL of
     // AVATARS, which only matched because gradients were the only entries;
     // adding generated starters made the unscoped version fail for no real
     // reason.
+    //
+    // The exact list is deliberately NOT pinned — naming fourteen ids here
+    // would turn "add a gradient" into "edit a test that asserts nothing about
+    // behaviour". What matters is that the opening set is genuinely a set, and
+    // that the two originals are still in it.
     const starters = AVATARS.filter(
       (a) => a.id.startsWith("avatar.grad.") && a.unlock.kind === "starter",
+    ).map((s) => s.id);
+
+    expect(starters.length).toBeGreaterThanOrEqual(10);
+    expect(starters).toContain("avatar.grad.ember");
+    expect(starters).toContain("avatar.grad.velvet");
+  });
+
+  it("keeps the earned gradients earned", () => {
+    // The counterweight to the test above: opening the wardrobe must not have
+    // quietly handed over the items that are supposed to cost something. These
+    // four are the whole gated set, and cyan/magenta in particular are the
+    // pair that once shipped as canister drops and rewrote 38 of 40 users'
+    // histories — they stay level-gated.
+    const gated = AVATARS.filter(
+      (a) => a.id.startsWith("avatar.grad.") && a.unlock.kind !== "starter",
+    ).map((g) => g.id);
+
+    expect(gated.sort()).toEqual(
+      [
+        "avatar.grad.cyan",
+        "avatar.grad.magenta",
+        "avatar.grad.nitrate",
+        "avatar.grad.toxic",
+      ].sort(),
     );
-    expect(starters.map((s) => s.id)).toEqual(["avatar.grad.ember", "avatar.grad.velvet"]);
   });
 
   it("unlock rules cover level and challenge requirements", () => {

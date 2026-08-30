@@ -7,6 +7,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { itemsForSlot } from "./cosmetics/catalogue";
 import {
   COLORS,
+  GRADIENT_AVATAR_BACKGROUND,
   OG_RESPONSE_OPTIONS,
   OG_SIZE,
   OgCard,
@@ -745,5 +746,49 @@ describe("background.spotlight stays legible over a bright poster", () => {
       ratio,
       `tagline contrast is only ${ratio.toFixed(2)}:1 against rgb(${field.map((c) => Math.round(c)).join(",")}) — the spotlight scrim is too weak`,
     ).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+/**
+ * The share card cannot fail loudly. Satori renders an unknown id as nothing
+ * and still returns HTTP 200, so a gradient added to the catalogue without a
+ * row in og-card's literal map produces a card with no avatar and no error
+ * anywhere — exactly the class of bug that only surfaces when someone posts
+ * their profile and it looks broken.
+ *
+ * Asserted in BOTH directions on purpose: the forward check catches a new
+ * gradient nobody wired up here, and the reverse catches an orphan row left
+ * behind by a removed one, which would otherwise sit here looking
+ * authoritative while matching nothing.
+ */
+describe("gradient avatars reach the share card", () => {
+  const gradientIds = itemsForSlot("avatar")
+    .filter((a) => a.id.startsWith("avatar.grad."))
+    .map((a) => a.id);
+
+  it("covers every gradient avatar in the catalogue", () => {
+    expect(gradientIds.length).toBeGreaterThan(0);
+    for (const id of gradientIds) {
+      expect(
+        GRADIENT_AVATAR_BACKGROUND[id],
+        `${id} has no row in og-card's GRADIENT_AVATAR_BACKGROUND, so it renders as a blank avatar on the share card`,
+      ).toBeTruthy();
+    }
+  });
+
+  it("has no row for an id the catalogue no longer carries", () => {
+    for (const id of Object.keys(GRADIENT_AVATAR_BACKGROUND)) {
+      expect(gradientIds, `${id} is in og-card but not in the catalogue`).toContain(id);
+    }
+  });
+
+  it("states each gradient as literal values Satori can read", () => {
+    // A className or a CSS variable here renders as nothing at all. Every row
+    // must be a literal gradient function with literal hex stops.
+    for (const value of Object.values(GRADIENT_AVATAR_BACKGROUND)) {
+      expect(value).toMatch(/^linear-gradient\(/);
+      expect(value).not.toMatch(/var\(|currentColor/);
+      expect(value).toMatch(/#[0-9a-f]{6}/i);
+    }
   });
 });

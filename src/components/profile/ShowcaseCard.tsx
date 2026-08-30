@@ -137,41 +137,59 @@ export default function ShowcaseCard({
         )}
       </div>
 
-      {/* Locked Trophies Container */}
+      {/* Locked Trophies: COLLAPSED, AND NO LONGER BLURRED.
+
+          This was an always-open grid of blurred tiles badged "Coming Soon" —
+          the exact pattern `unlockLabel` was written to replace, and for the
+          reason recorded there: a collection that hides its contents cannot
+          make anyone want anything. Blurring the description also made the
+          section pure noise, since the description IS the instruction for how
+          to earn the thing.
+
+          So: readable text, honest count, and closed by default. A native
+          <details> because this needs no state, no focus trap and no script —
+          Escape and keyboard toggling come free. */}
       {lockedList.length > 0 && (
-        <div className="mt-5 border-t border-white/5 pt-4">
-          <div className="flex items-center justify-between mb-2.5">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted/70 flex items-center gap-2">
-              <span>Locked Milestones</span>
-              <span className="rounded-full bg-gold/10 px-2 py-0.5 font-display text-[9px] font-bold uppercase tracking-widest text-gold ring-1 ring-gold/30">
-                Coming Soon
+        <details className="group mt-5 border-t border-white/5 pt-4">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-1 py-1 text-xs font-semibold uppercase tracking-wider text-muted/80 transition-colors hover:text-gold focus-visible:outline-2 focus-visible:outline-gold">
+            <span className="flex items-center gap-2">
+              <span aria-hidden="true" className="text-[10px] transition-transform group-open:rotate-90 motion-reduce:transition-none">
+                ▸
               </span>
-            </h3>
-          </div>
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <span>Still to earn</span>
+            </span>
+            <span className="font-mono text-[11px] tabular-nums text-muted">
+              {lockedList.length}
+            </span>
+          </summary>
+
+          <ul className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
             {lockedList.map((a) => (
-              <div
+              <li
                 key={a.key}
-                className="relative overflow-hidden flex items-start gap-3 rounded-xl bg-surface-raised/30 p-3 ring-1 ring-white/5"
+                className="flex items-start gap-3 rounded-xl bg-surface-raised/30 p-3 ring-1 ring-white/5"
               >
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-black/40 text-sm text-muted ring-1 ring-white/5 z-10">
-                  🔒
-                </div>
-                <div className="min-w-0 flex-1 filter blur-[2.5px] opacity-35 select-none">
+                <span
+                  aria-hidden="true"
+                  className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-black/40 text-sm opacity-50 ring-1 ring-white/5"
+                >
+                  {a.icon}
+                </span>
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <h4 className="text-xs font-semibold text-muted truncate">{a.name}</h4>
+                    <h4 className="truncate text-xs font-semibold text-text/70">{a.name}</h4>
                     {a.rarity === "legendary" && (
-                      <span className="rounded bg-white/5 px-1 py-0.2 text-[9px] font-medium uppercase tracking-wider text-muted">
+                      <span className="rounded bg-white/5 px-1 text-[9px] font-medium uppercase tracking-wider text-muted">
                         Legendary
                       </span>
                     )}
                   </div>
-                  <p className="mt-0.5 text-[11px] leading-tight text-muted/80">{a.description}</p>
+                  <p className="mt-0.5 text-[11px] leading-tight text-muted">{a.description}</p>
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
-        </div>
+          </ul>
+        </details>
       )}
 
       {failed && (

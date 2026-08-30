@@ -39,14 +39,20 @@ export default function LevelProgressionModal({
   currentXp,
   breakdown,
   challenges = [],
+  label = "How leveling & XP work →",
+  initialTab = "earn",
 }: {
   currentLevel: number;
   currentXp: number;
   breakdown: XpBreakdown;
   challenges?: { name: string; description: string; icon: string; unlocked: boolean }[];
+  /** Trigger wording, so the same guide can be opened from more than one place. */
+  label?: string;
+  /** Which tab to land on. The unlocks card opens straight to the list it summarises. */
+  initialTab?: "earn" | "ranks";
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const [tab, setTab] = useState<"earn" | "ranks">("earn");
+  const [tab, setTab] = useState<"earn" | "ranks">(initialTab);
   const [open, setOpen] = useState(false);
 
   // showModal() puts the dialog in the top layer, which brings Escape, a focus
@@ -105,7 +111,7 @@ export default function LevelProgressionModal({
         className="inline-flex items-center gap-1.5 text-xs italic text-muted transition-colors duration-200 ease-out hover:text-gold hover:underline decoration-gold/40 underline-offset-2 focus-visible:outline-2 focus-visible:outline-gold"
       >
         <span aria-hidden="true" className="text-gold text-[10px]">✦</span>
-        <span>How leveling &amp; XP work →</span>
+        <span>{label}</span>
       </button>
 
       <dialog
@@ -117,6 +123,10 @@ export default function LevelProgressionModal({
         }}
         className="m-auto w-full max-w-xl bg-transparent p-4 text-left font-sans normal-case tracking-normal text-text backdrop:bg-black/80 backdrop:backdrop-blur-sm"
       >
+        {/* Mounted only while open. The guide is a few hundred nodes and the
+            page now offers two ways in — rendering it unconditionally would
+            have put two hidden copies of it in every profile's DOM. */}
+        {open && (
         <div className="flex max-h-[85vh] flex-col overflow-hidden rounded-2xl border border-gold/30 bg-surface shadow-2xl ring-1 ring-white/10">
           <div className="flex items-start justify-between gap-4 border-b border-white/10 p-4 sm:px-6">
             <div>
@@ -315,6 +325,7 @@ export default function LevelProgressionModal({
             )}
           </div>
         </div>
+        )}
       </dialog>
     </>
   );

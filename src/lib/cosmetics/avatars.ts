@@ -58,9 +58,34 @@ export function syntheticPosterAvatar(id: string): CosmeticItem | undefined {
  * exists, avatars are earned by level and challenge only. `catalogue.test.ts`
  * enforces this.
  */
+/**
+ * ORDERED STARTERS FIRST, THEN BY UNLOCK COST. This array is the display order
+ * in the collection gallery and the customise picker, so a new profile opening
+ * the avatar list sees what it can wear before what it cannot.
+ *
+ * Each of these needs THREE entries to render everywhere, and only two of them
+ * fail loudly:
+ *   1. here, the catalogue;
+ *   2. a `.ca-<name>` rule in globals.css (asserted by avatars.test.ts);
+ *   3. a literal-hex row in og-card.tsx's GRADIENT_AVATAR_BACKGROUND — Satori
+ *      reads no stylesheet, so a gradient missing there renders as an empty
+ *      avatar on the share card at HTTP 200 (asserted by og-card.test.ts).
+ */
 const GRADIENTS: CosmeticItem[] = [
   { id: "avatar.grad.ember", slot: "avatar", name: "Ember", unlock: { kind: "starter" }, rarity: "common" },
   { id: "avatar.grad.velvet", slot: "avatar", name: "Velvet", unlock: { kind: "starter" }, rarity: "common" },
+  { id: "avatar.grad.sepia", slot: "avatar", name: "Sepia", unlock: { kind: "starter" }, rarity: "common" },
+  { id: "avatar.grad.noir", slot: "avatar", name: "Noir", unlock: { kind: "starter" }, rarity: "common" },
+  { id: "avatar.grad.technicolor", slot: "avatar", name: "Technicolor", unlock: { kind: "starter" }, rarity: "common" },
+  { id: "avatar.grad.chroma", slot: "avatar", name: "Chroma", unlock: { kind: "starter" }, rarity: "common" },
+  { id: "avatar.grad.popcorn", slot: "avatar", name: "Popcorn", unlock: { kind: "starter" }, rarity: "common" },
+  { id: "avatar.grad.proscenium", slot: "avatar", name: "Proscenium", unlock: { kind: "starter" }, rarity: "common" },
+  { id: "avatar.grad.matinee", slot: "avatar", name: "Matinee", unlock: { kind: "starter" }, rarity: "common" },
+  { id: "avatar.grad.midnight", slot: "avatar", name: "Midnight", unlock: { kind: "starter" }, rarity: "common" },
+  { id: "avatar.grad.dusk", slot: "avatar", name: "Dusk", unlock: { kind: "starter" }, rarity: "common" },
+  { id: "avatar.grad.celluloid", slot: "avatar", name: "Celluloid", unlock: { kind: "starter" }, rarity: "common" },
+  { id: "avatar.grad.aurora", slot: "avatar", name: "Aurora", unlock: { kind: "starter" }, rarity: "common" },
+  { id: "avatar.grad.ultraviolet", slot: "avatar", name: "Ultraviolet", unlock: { kind: "starter" }, rarity: "common" },
   { id: "avatar.grad.nitrate", slot: "avatar", name: "Nitrate", unlock: { kind: "level", level: 5 }, rarity: "common" },
   { id: "avatar.grad.cyan", slot: "avatar", name: "Cyan", unlock: { kind: "level", level: 10 }, rarity: "rare" },
   { id: "avatar.grad.magenta", slot: "avatar", name: "Magenta", unlock: { kind: "level", level: 20 }, rarity: "rare" },
@@ -106,16 +131,55 @@ const titleCase = (s: string) =>
  * rewrite every user's drop history far more violently than the two that
  * already did it once. They pace by level instead.
  *
- * Three starters so a new profile has real choice on day one, then one every
- * three levels to 65 — the last is reachable well inside the level 100 ceiling.
+ * MOST OF THESE START UNLOCKED, and the split is BY STYLE rather than by
+ * position. Three starters meant a new profile chose between three faces and a
+ * wall of padlocks, and the wall was the first thing it saw — the collection
+ * read as a list of things withheld rather than as a wardrobe.
+ *
+ * Taking the first N of the array instead would have been simpler and wrong:
+ * `manifest.json` is grouped style-by-style, so "the first 16 of 24" is every
+ * seed of the first four styles and none of the last two. The opening choice
+ * would have spanned four looks while claiming to span six. Counting within
+ * each style means every style is represented on day one, whatever the
+ * manifest's length or order turns out to be.
+ *
+ * What is left over is one seed per style, priced across the level range
+ * rather than bunched at the bottom, so something is still worth reaching for
+ * after the gradients have run out. All of it sits inside the level 100
+ * ceiling; `avatars.test.ts` holds that bound.
+ *
+ * NONE ARE DROPPABLE, for the reason spelled out above `GRADIENTS`.
  */
-const GENERATED: CosmeticItem[] = manifest.map((entry, i) => ({
-  id: `avatar.gen.${entry.id}`,
-  slot: "avatar",
-  name: `${titleCase(entry.style)} ${titleCase(entry.seed)}`,
-  unlock: i < 3 ? { kind: "starter" } : { kind: "level", level: 2 + (i - 2) * 3 },
-  rarity: i < 12 ? "common" : "rare",
-}));
+const FREE_SEEDS_PER_STYLE = 3;
+const GATED_LEVEL_STEP = 10;
+
+function generatedAvatars(): CosmeticItem[] {
+  const out: CosmeticItem[] = [];
+  const seenInStyle = new Map<string, number>();
+  let gated = 0;
+
+  for (const entry of manifest) {
+    const nth = seenInStyle.get(entry.style) ?? 0;
+    seenInStyle.set(entry.style, nth + 1);
+    const isStarter = nth < FREE_SEEDS_PER_STYLE;
+    if (!isStarter) gated += 1;
+
+    out.push({
+      id: `avatar.gen.${entry.id}`,
+      slot: "avatar",
+      name: `${titleCase(entry.style)} ${titleCase(entry.seed)}`,
+      unlock: isStarter
+        ? { kind: "starter" }
+        : { kind: "level", level: gated * GATED_LEVEL_STEP },
+      // Keyed off the unlock, not the index. Calling an avatar that every
+      // profile starts with "rare" contradicted the word on its own tile.
+      rarity: isStarter ? "common" : "rare",
+    });
+  }
+  return out;
+}
+
+const GENERATED: CosmeticItem[] = generatedAvatars();
 
 /**
  * Fixed-catalogue avatars: generated art plus the gradients. Poster avatars are

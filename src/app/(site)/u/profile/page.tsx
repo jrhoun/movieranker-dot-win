@@ -221,6 +221,15 @@ export default async function MyListsPage() {
   const level = levelFor(progress.current);
   const { unlocked, locked } = unlockedAt(level.level);
 
+  // The cheapest unlock still ahead. Taken by MINIMUM rather than as locked[0]:
+  // `unlockedAt` filters UNLOCKS and preserves its order, so the first locked
+  // entry is only the next one if that array happens to be sorted by level —
+  // which nothing enforces, and which a later insertion would quietly break.
+  const nextUnlock =
+    locked.length > 0
+      ? locked.reduce((lowest, u) => (u.atLevel < lowest.atLevel ? u : lowest))
+      : null;
+
   // Same rows /api/profile's equip validator reads (owner_id + status=done,
   // oldest first): ownedItemIds replays canister drops in this order, so any
   // other ordering here could show a picker item as owned that a real equip
@@ -458,43 +467,50 @@ export default async function MyListsPage() {
                 {unlocked.length}/{unlocked.length + locked.length}
               </span>
             </div>
-            {/* No blur and no "Coming Soon": every entry here does something, so
-                the honest move is to say what, and let it read as a roadmap. */}
-            <ul className="mt-3 space-y-1.5">
-              {[...unlocked, ...locked].map((u) => {
-                const isUnlocked = u.atLevel <= progress.level;
-                return (
-                  <li
-                    key={u.name}
-                    className={`flex items-start gap-2.5 rounded-lg p-2.5 ring-1 transition-colors ${
-                      isUnlocked
-                        ? "bg-gold/10 ring-gold/30"
-                        : "bg-surface-raised/40 ring-white/5"
-                    }`}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`mt-px text-xs ${isUnlocked ? "text-gold" : "text-muted/60"}`}
-                    >
-                      {isUnlocked ? "✓" : "○"}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span
-                          className={`text-xs font-semibold ${isUnlocked ? "text-gold" : "text-text/70"}`}
-                        >
-                          {u.name}
-                        </span>
-                        <span className="shrink-0 font-mono text-[10px] text-muted">
-                          Lv {u.atLevel}
-                        </span>
-                      </div>
-                      <p className="mt-0.5 text-[11px] leading-snug text-muted">{u.effect}</p>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            {/* THE NEXT ONE, NOT ALL OF THEM. This listed every unlock inline,
+                which was both the tallest block in the column and a verbatim
+                duplicate of the "Ranks & unlocks" tab in the career guide
+                below — the same UNLOCKS array, the same markup, rendered
+                twice on one page. What is actually actionable is the next
+                thing to cross, so that is what this says; the full roadmap is
+                one click away and no longer competes with it.
+
+                Still no blur and no "Coming Soon": the next unlock is named
+                and priced. */}
+            {nextUnlock ? (
+              <div className="mt-3 rounded-lg bg-surface-raised/40 p-3 ring-1 ring-white/5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-[10px] uppercase tracking-wider text-muted">Next up</span>
+                  <span className="shrink-0 font-mono text-[10px] text-muted">
+                    Lv {nextUnlock.atLevel}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs font-semibold text-text">{nextUnlock.name}</p>
+                <p className="mt-0.5 text-[11px] leading-snug text-muted">{nextUnlock.effect}</p>
+              </div>
+            ) : (
+              <p className="mt-3 rounded-lg bg-gold/10 p-3 text-xs text-gold ring-1 ring-gold/30">
+                Every level unlock is yours.
+              </p>
+            )}
+
+            <div className="mt-3">
+              <LevelProgressionModal
+                currentLevel={level.level}
+                currentXp={lifetimeXp}
+                breakdown={breakdown}
+                initialTab="ranks"
+                label="See all level unlocks →"
+                challenges={achievements
+                  .filter((a) => a.challenge)
+                  .map((a) => ({
+                    name: a.name,
+                    description: a.description,
+                    icon: a.icon,
+                    unlocked: a.unlocked,
+                  }))}
+              />
+            </div>
           </section>
 
           <ShowcaseCard achievements={achievements} initialKeys={showcase.achievementKeys} />

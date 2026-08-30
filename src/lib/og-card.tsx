@@ -85,16 +85,34 @@ const GENERATED_AVATAR_URI = new Map<string, string>(
 );
 
 /**
- * Gradient avatars, as inline styles. Kept in step with the `.ca-*` rules in
- * globals.css by a test, because Satori cannot read that stylesheet and a
- * silent divergence here shows up only as a share card that looks wrong.
+ * Gradient avatars, as inline styles, because Satori cannot read globals.css —
+ * it takes no classNames and no stylesheet, only literal values.
+ *
+ * EVERY GRADIENT IN THE CATALOGUE MUST HAVE A ROW HERE. A missing row is not a
+ * caught error: `avatarNode` falls through to a plain surface and the share
+ * card renders at HTTP 200 with the avatar silently absent, which is precisely
+ * the failure nobody reports. `og-card.test.ts` asserts this map covers the
+ * catalogue exactly — in both directions, so an orphan row left behind by a
+ * removed gradient is caught too.
  *
  * Satori's gradient interpolation is measurably not the browser's, so these
  * are verified by rendering, never by assuming they match the page.
  */
-const GRADIENT_AVATAR_BACKGROUND: Record<string, string> = {
+export const GRADIENT_AVATAR_BACKGROUND: Record<string, string> = {
   "avatar.grad.ember": "linear-gradient(145deg,#f5c518,#e5484d 55%,#3a0e13)",
   "avatar.grad.velvet": "linear-gradient(145deg,#3a0e13,#220a0e 60%,#0d0d10)",
+  "avatar.grad.sepia": "linear-gradient(145deg,#d9a86c,#6b4a2a 55%,#2a1a10)",
+  "avatar.grad.noir": "linear-gradient(145deg,#e8e8ec,#5a5a63 50%,#0d0d10)",
+  "avatar.grad.technicolor": "linear-gradient(145deg,#ff4d4d,#ffd24d 45%,#4d9bff)",
+  "avatar.grad.chroma": "linear-gradient(145deg,#2b6cff,#10203f 65%,#0d0d10)",
+  "avatar.grad.popcorn": "linear-gradient(145deg,#ffe08a,#d9a02b 55%,#4a2f0b)",
+  "avatar.grad.proscenium": "linear-gradient(145deg,#b0202e,#5a0f18 60%,#14070a)",
+  "avatar.grad.matinee": "linear-gradient(145deg,#ffd0b0,#d98f6b 50%,#3a5a5e)",
+  "avatar.grad.midnight": "linear-gradient(145deg,#3a4fa8,#16204a 60%,#08080f)",
+  "avatar.grad.dusk": "linear-gradient(145deg,#ff8a3d,#a23c78 55%,#2a1038)",
+  "avatar.grad.celluloid": "linear-gradient(145deg,#f0c07a,#a8763a 55%,#241608)",
+  "avatar.grad.aurora": "linear-gradient(145deg,#35e0c0,#2f7fb8 50%,#4a2a8a)",
+  "avatar.grad.ultraviolet": "linear-gradient(145deg,#a56bff,#3a1d6b 60%,#0d0d10)",
   "avatar.grad.nitrate": "linear-gradient(145deg,#c9ccd4,#7f7f8c 50%,#15151a)",
   "avatar.grad.cyan": "linear-gradient(145deg,#22e0ff,#0b2a2e 70%,#0d0d10)",
   "avatar.grad.magenta": "linear-gradient(145deg,#ff3ba7,#2a0b22 70%,#0d0d10)",
