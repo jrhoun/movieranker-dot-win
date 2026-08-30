@@ -2,6 +2,7 @@
 
 import type { RankedMovie } from "@/lib/ranking";
 import { tmdbMovieUrl } from "@/lib/tmdb";
+import { posterPlaceholderClass } from "@/lib/poster-placeholder";
 
 const POSTER_BASE = "https://image.tmdb.org/t/p/w500";
 
@@ -60,8 +61,12 @@ function Side({
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center p-4 text-center text-sm sm:text-base text-muted">
-              {movie.title}
+            <div
+              className={`flex h-full w-full items-center justify-center p-6 text-center ${posterPlaceholderClass(movie.tmdbId)}`}
+            >
+              <span className="font-display text-xl uppercase leading-tight tracking-wide text-text/90 sm:text-2xl">
+                {movie.title}
+              </span>
             </div>
           )}
         </div>

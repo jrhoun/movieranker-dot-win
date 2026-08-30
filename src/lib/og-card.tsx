@@ -4,6 +4,8 @@ import { ImageResponse } from "next/og";
 import { AVATARS, avatarAssetPath, posterAvatarTmdbId } from "./cosmetics/avatars";
 import { itemById } from "./cosmetics/catalogue";
 import type { Equipped } from "./cosmetics/equipped";
+import { podiumDisplayOrder } from "./list-view";
+import { hashString } from "./seeded-random";
 
 /**
  * Shared primitives for Open Graph cards.
@@ -213,9 +215,83 @@ export function MarqueeBulbs() {
 }
 
 /** Up to three posters, best first. Missing art falls back to a flat block. */
-export function PosterRow({ posters }: { posters: (string | null)[] }) {
+/**
+ * A cache key for a card, derived from what the card actually draws.
+ *
+ * Next serves each `opengraph-image` file at a path carrying a BUILD hash that
+ * is identical for every id in the segment — measured on two live lists, same
+ * query string on both. Origin re-renders every time, but that is beside the
+ * point: a platform that already holds the URL never asks again. Share a
+ * ranking, reorder it, share it again, and the preview keeps the old podium
+ * until an unrelated deploy changes the hash for everyone at once.
+ *
+ * Feeding this to `generateImageMetadata` as the image's `id` puts it in the
+ * URL, so the address changes exactly when the picture changes — and stays put
+ * when it does not, which matters because a key that churned on every request
+ * would throw away the caching that makes previews fast.
+ *
+ * Pass the card's own inputs, not the record's timestamp: editing a
+ * description should not invalidate a card that never showed one.
+ */
+export function cardFingerprint(parts: (string | number | null | undefined)[]): string {
+  return hashString(parts.map((p) => String(p ?? "")).join("|")).toString(36);
+}
+
+/** One poster slot as laid out: which image, at what size. */
+export interface PosterSlot {
+  url: string | null;
+  w: number;
+  h: number;
+}
+
+/**
+ * Where the three posters go and how big each is.
+ *
+ * Pulled out of the JSX so the ordering can be asserted directly. Checking it
+ * through a rendered PNG would mean reading pixel columns, and a test that hard
+ * to write is a test that stops being updated.
+ */
+export function posterRowLayout(
+  posters: (string | null)[],
+  podium: boolean,
+): PosterSlot[] {
   const shown = posters.slice(0, 3);
-  if (shown.length === 0) return null;
+  // Only a full podium can be reordered — two films have no middle, and
+  // raising one of two implies a gap that is not there.
+  const asPodium = podium && shown.length === 3;
+  const ordered = asPodium ? podiumDisplayOrder(shown) : shown;
+  return ordered.map((url, i) => ({
+    url,
+    // After reordering, the winner is the middle slot.
+    w: asPodium && i === 1 ? 208 : 170,
+    h: asPodium && i === 1 ? 312 : 255,
+  }));
+}
+
+export function PosterRow({
+  posters,
+  podium = false,
+}: {
+  posters: (string | null)[];
+  /**
+   * Render as the page's podium rather than a flat row.
+   *
+   * WITHOUT THIS THE CARD AND THE PAGE DISAGREE ABOUT WHICH FILM IS FIRST. The
+   * list page lays its podium out 2nd–1st–3rd (`podiumDisplayOrder`) with the
+   * winner raised in the middle; a flat row is read left-to-right, so the same
+   * three posters put a different film in the leftmost slot. Someone comparing
+   * a link preview against the page it opens sees two different answers to
+   * "who won", which is exactly the confusion this reconciles.
+   *
+   * OFF for the marquee card on purpose: those three posters are a puzzle, not
+   * a ranking, and giving one of them a winner's plinth would assert an order
+   * that card is deliberately not making a claim about.
+   */
+  podium?: boolean;
+}) {
+  const slots = posterRowLayout(posters, podium);
+  if (slots.length === 0) return null;
+
   return (
     <div
       style={{
@@ -226,8 +302,8 @@ export function PosterRow({ posters }: { posters: (string | null)[] }) {
         justifyContent: "center",
       }}
     >
-      {shown.map((url, i) =>
-        url ? (
+      {slots.map(({ url, w, h }, i) => {
+        return url ? (
           // next/image cannot be used here: Satori renders raw <img> and fetches
           // the bytes itself. alt is inert in a PNG but keeps the a11y rule honest.
           // eslint-disable-next-line @next/next/no-img-element
@@ -235,8 +311,8 @@ export function PosterRow({ posters }: { posters: (string | null)[] }) {
             key={i}
             src={url}
             alt=""
-            width={180}
-            height={270}
+            width={w}
+            height={h}
             style={{ borderRadius: "8px", objectFit: "cover" }}
           />
         ) : (
@@ -244,15 +320,15 @@ export function PosterRow({ posters }: { posters: (string | null)[] }) {
             key={i}
             style={{
               display: "flex",
-              width: "180px",
-              height: "270px",
+              width: `${w}px`,
+              height: `${h}px`,
               borderRadius: "8px",
               backgroundColor: COLORS.surfaceRaised,
               border: `2px solid ${COLORS.surface}`,
             }}
           />
-        ),
-      )}
+        );
+      })}
     </div>
   );
 }

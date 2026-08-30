@@ -84,6 +84,7 @@ export default function RowsView({ movies }: { movies: RankedRow[] }) {
                 <MoviePoster
                   title={m.title}
                   posterPath={m.posterPath}
+                  tmdbId={m.tmdbId}
                   className="w-16 min-w-16 sm:w-22 sm:min-w-22 md:w-26 md:min-w-26 lg:w-28 lg:min-w-28 shadow-lg shrink-0"
                 />
               </a>
@@ -172,6 +173,7 @@ export default function RowsView({ movies }: { movies: RankedRow[] }) {
                   <MoviePoster
                     title={m.title}
                     posterPath={m.posterPath}
+                    tmdbId={m.tmdbId}
                     className="w-12 min-w-12 sm:w-14 sm:min-w-14 shrink-0"
                   />
                 </a>

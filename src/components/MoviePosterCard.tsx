@@ -1,6 +1,7 @@
 "use client";
 
 import { tmdbMovieUrl, type TmdbMovieCredit } from "@/lib/tmdb";
+import { posterPlaceholderClass } from "@/lib/poster-placeholder";
 
 export default function MoviePosterCard({
   movie,
@@ -43,8 +44,15 @@ export default function MoviePosterCard({
               className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center p-2 text-center text-xs text-muted">
-              {movie.title}
+            // No art on TMDB — a permanent state for many shorts and festival
+            // films, not a load in progress. Tinted from the film's own id so
+            // the colour survives reordering and matches every other view.
+            <div
+              className={`flex h-full w-full items-center justify-center p-3 text-center ${posterPlaceholderClass(movie.tmdbId ?? movie.title)}`}
+            >
+              <span className="line-clamp-4 font-display text-sm uppercase leading-tight tracking-wide text-text/90">
+                {movie.title}
+              </span>
             </div>
           )}
         </div>

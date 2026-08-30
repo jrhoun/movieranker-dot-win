@@ -1,5 +1,13 @@
 import { ImageResponse } from "next/og";
-import { OG_CONTENT_TYPE, OG_RESPONSE_OPTIONS, OG_SIZE, OgCard, PosterRow, posterUrl } from "@/lib/og-card";
+import {
+  cardFingerprint,
+  OG_CONTENT_TYPE,
+  OG_RESPONSE_OPTIONS,
+  OG_SIZE,
+  OgCard,
+  PosterRow,
+  posterUrl,
+} from "@/lib/og-card";
 import { marqueeNumber } from "@/lib/shortlist";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -29,9 +37,8 @@ interface OgListMovie {
   final_rank: number | null;
 }
 
-export default async function Image({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-
+/** The card's inputs, resolved once so metadata and render cannot disagree. */
+async function loadCard(id: string) {
   const supabase = await createSupabaseServerClient();
   const { data: list } = await supabase
     .from("lists")
@@ -39,18 +46,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
     .eq("id", id)
     .maybeSingle();
 
-  if (!list || list.status !== "done") {
-    return new ImageResponse(
-      (
-        <OgCard
-          eyebrow="FOR PEOPLE WHO LOVE LISTS AND CINEMA"
-          headline="MOVIERANKER"
-          subline="RANK MOVIES HEAD-TO-HEAD, SOLO OR WITH FRIENDS"
-        />
-      ),
-      OG_RESPONSE_OPTIONS,
-    );
-  }
+  if (!list || list.status !== "done") return null;
 
   const movies = (list.list_movies ?? []) as OgListMovie[];
   // Parked films have a null final_rank and hold no podium position.
@@ -66,22 +62,59 @@ export default async function Image({ params }: { params: Promise<{ id: string }
     ? `WEEKLY MARQUEE #${marqueeNumber(new Date(list.created_at as string))}`
     : null;
 
+  return { title: String(list.title), count: movies.length, posters, marquee };
+}
+
+export async function generateImageMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const card = await loadCard(id).catch(() => null);
+  const fingerprint = card
+    ? cardFingerprint([card.marquee, card.title, card.count, ...card.posters])
+    : "default";
+
+  return [{ id: fingerprint, alt, size, contentType }];
+}
+
+export default async function Image({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const card = await loadCard(id);
+
+  if (!card) {
+    return new ImageResponse(
+      (
+        <OgCard
+          eyebrow="FOR PEOPLE WHO LOVE LISTS AND CINEMA"
+          headline="MOVIERANKER"
+          subline="RANK MOVIES HEAD-TO-HEAD, SOLO OR WITH FRIENDS"
+        />
+      ),
+      OG_RESPONSE_OPTIONS,
+    );
+  }
+
   return new ImageResponse(
-    marquee ? (
+    card.marquee ? (
       <OgCard
-        eyebrow={marquee}
+        eyebrow={card.marquee}
         headline="WHAT CONNECTS THESE?"
-        subline={`ONE THREAD RUNS THROUGH ALL ${movies.length}`}
+        subline={`ONE THREAD RUNS THROUGH ALL ${card.count}`}
       >
-        <PosterRow posters={posters} />
+        {/* No podium: these three are a puzzle, not a ranking. */}
+        <PosterRow posters={card.posters} />
       </OgCard>
     ) : (
       <OgCard
         eyebrow="RANKED ON MOVIERANKER"
-        headline={String(list.title).toUpperCase()}
-        subline={`${movies.length} FILMS RANKED HEAD-TO-HEAD`}
+        headline={card.title.toUpperCase()}
+        subline={`${card.count} FILMS RANKED HEAD-TO-HEAD`}
       >
-        <PosterRow posters={posters} />
+        {/* podium: the page raises the winner in the middle, and a flat row
+            here would put a different film leftmost than the page it opens. */}
+        <PosterRow posters={card.posters} podium />
       </OgCard>
     ),
     OG_RESPONSE_OPTIONS,
