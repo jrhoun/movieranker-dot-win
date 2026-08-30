@@ -167,6 +167,16 @@ export async function PATCH(request: Request) {
     const clientShowcase: Record<string, unknown> = { ...(body.showcase as Record<string, unknown>) };
     delete clientShowcase.lifetimeXp;
 
+    // avatarClaims: same trust boundary as lifetimeXp above. `mergeShowcase`
+    // UNIONS claims and never removes one — they are permanent by design — so
+    // a single unchecked PATCH would permanently self-grant the entire poster
+    // library, and `parseAvatarClaims` caps neither the count nor the array
+    // length. The allowance that is supposed to gate this (`claimAllowance`,
+    // derived from level) has no caller yet: claiming lands with the route
+    // work in a later task, which is where this strip gets replaced by a real
+    // check. Until then the field is server-owned and never client-writable.
+    delete clientShowcase.avatarClaims;
+
     // taglineText is server-derived from resolveTaglineText, the same trust
     // boundary as lifetimeXp above: never believe a client-supplied value.
     // Strip it before parseEquipped/validateEquipPatch ever see it, so it
