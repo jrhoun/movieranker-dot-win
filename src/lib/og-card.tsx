@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
+import { AVATARS, avatarAssetPath, posterAvatarTmdbId } from "./cosmetics/avatars";
 import { itemById } from "./cosmetics/catalogue";
 import type { Equipped } from "./cosmetics/equipped";
 
@@ -56,6 +57,48 @@ export const DISPLAY_FONT = await readFile(
 export const OG_RESPONSE_OPTIONS = {
   ...OG_SIZE,
   fonts: [{ name: "Bebas", data: DISPLAY_FONT, style: "normal" as const, weight: 400 as const }],
+};
+
+/**
+ * Generated avatars as data URIs, read once at module scope like the font
+ * above.
+ *
+ * Satori does not resolve a same-origin relative path — `/avatars/x.svg` is
+ * simply not fetched, and a failed image is one of the ways this renderer
+ * returns a BLANK PNG at HTTP 200 rather than erroring. Inlining removes the
+ * fetch entirely, which also keeps the card's render free of network I/O.
+ *
+ * All 24 are ~200KB total and the set is fixed at build time, so preloading is
+ * cheaper than threading async reads into a synchronous component tree.
+ */
+const GENERATED_AVATAR_URI = new Map<string, string>(
+  await Promise.all(
+    AVATARS.filter((a) => a.id.startsWith("avatar.gen.")).map(
+      async (a): Promise<[string, string]> => [
+        a.id,
+        `data:image/svg+xml;base64,${(
+          await readFile(join(process.cwd(), "public", avatarAssetPath(a.id)))
+        ).toString("base64")}`,
+      ],
+    ),
+  ),
+);
+
+/**
+ * Gradient avatars, as inline styles. Kept in step with the `.ca-*` rules in
+ * globals.css by a test, because Satori cannot read that stylesheet and a
+ * silent divergence here shows up only as a share card that looks wrong.
+ *
+ * Satori's gradient interpolation is measurably not the browser's, so these
+ * are verified by rendering, never by assuming they match the page.
+ */
+const GRADIENT_AVATAR_BACKGROUND: Record<string, string> = {
+  "avatar.grad.ember": "linear-gradient(145deg,#f5c518,#e5484d 55%,#3a0e13)",
+  "avatar.grad.velvet": "linear-gradient(145deg,#3a0e13,#220a0e 60%,#0d0d10)",
+  "avatar.grad.nitrate": "linear-gradient(145deg,#c9ccd4,#7f7f8c 50%,#15151a)",
+  "avatar.grad.cyan": "linear-gradient(145deg,#22e0ff,#0b2a2e 70%,#0d0d10)",
+  "avatar.grad.magenta": "linear-gradient(145deg,#ff3ba7,#2a0b22 70%,#0d0d10)",
+  "avatar.grad.toxic": "linear-gradient(145deg,#7cff4d,#122a10 70%,#0d0d10)",
 };
 
 /**
@@ -550,7 +593,7 @@ export interface RenderProfileCardOptions {
    * which for earned lines is a `{count}` template.
    */
   equipped: Required<Pick<Equipped, "frame" | "background" | "overlay">> &
-    Pick<Equipped, "tagline" | "taglineText" | "avatarPosterPath">;
+    Pick<Equipped, "tagline" | "taglineText" | "avatarPosterPath" | "avatar">;
   /** The owner's own poster paths (raw TMDB paths), best first. Never stock art. */
   posterPaths: (string | null | undefined)[];
   /**
@@ -581,6 +624,24 @@ function ProfileCard({
   // An explicit avatar pick wins; otherwise the best available poster, which is
   // the first entry of whichever source filled `posterUrls` above.
   const avatarUrl = posterUrl(equipped.avatarPosterPath) ?? posterUrls[0] ?? null;
+
+  /**
+   * Which of the three avatar kinds to draw. A gradient is a styled box rather
+   * than an image, so this is a tagged union instead of just a URL — Satori has
+   * no stylesheet to consult and cannot resolve a `.ca-*` class.
+   */
+  const avatarId = equipped.avatar ?? null;
+  const generatedUri = avatarId ? GENERATED_AVATAR_URI.get(avatarId) : undefined;
+  const gradientBackground = avatarId ? GRADIENT_AVATAR_BACKGROUND[avatarId] : undefined;
+  const avatarArt: { kind: "image"; src: string } | { kind: "gradient"; background: string } | null =
+    generatedUri
+      ? { kind: "image", src: generatedUri }
+      : gradientBackground
+        ? { kind: "gradient", background: gradientBackground }
+        : // A poster avatar, or the legacy pair from before the slot existed.
+          avatarUrl && (avatarId === null || posterAvatarTmdbId(avatarId) !== null)
+          ? { kind: "image", src: avatarUrl }
+          : null;
 
   // `sanitizeEquipped`/`resolveEquipped` never actually leave these null at
   // runtime — the fallback here just satisfies the type they still carry
@@ -633,7 +694,7 @@ function ProfileCard({
             paddingBottom: "20px",
           }}
         >
-          {avatarUrl && (
+          {avatarArt && (
             <div
               style={{
                 display: "flex",
@@ -644,14 +705,26 @@ function ProfileCard({
               }}
             >
               {/* Poster-shaped, 2:3 — never circular. A round crop cuts off the poster's title. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={avatarUrl} alt="" width={150} height={225} style={{ borderRadius: "8px", objectFit: "cover" }} />
+              {avatarArt.kind === "image" ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarArt.src} alt="" width={150} height={225} style={{ borderRadius: "8px", objectFit: "cover" }} />
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    width: "150px",
+                    height: "225px",
+                    borderRadius: "8px",
+                    backgroundImage: avatarArt.background,
+                  }}
+                />
+              )}
             </div>
           )}
           <div
             style={{
               display: "flex",
-              marginTop: avatarUrl ? "18px" : "0",
+              marginTop: avatarArt ? "18px" : "0",
               fontSize: "23px",
               letterSpacing: "0.34em",
               color: COLORS.muted,

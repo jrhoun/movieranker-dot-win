@@ -225,6 +225,20 @@ body {
 .ca-magenta { background: linear-gradient(145deg,#ff3ba7,#2a0b22 70%,#0d0d10); }
 .ca-toxic   { background: linear-gradient(145deg,#7cff4d,#122a10 70%,#0d0d10); }
 
+/* ---- Background previews ----------------------------------------------
+   Stand-ins for the collection gallery ONLY. A real background is composited
+   from several layers (poster art, a scrim, sprocket holes, a beam) that
+   cannot be reproduced in a 36px chip, so these approximate the look in a
+   single class. Named `cbp-` rather than `cb-` precisely so they can never be
+   mistaken for the classes the profile itself paints with. */
+.cbp-filmstrip {
+  background:
+    repeating-linear-gradient(90deg,#1a1a20 0 6px,#0d0d10 6px 8px),
+    linear-gradient(180deg,#2a2a33,#0d0d10);
+}
+.cbp-spotlight { background: radial-gradient(120% 80% at 50% 0%,#f5c51833,#0d0d10 70%); }
+.cbp-velvet    { background: linear-gradient(145deg,#3a0e13,#220a0e 60%,#0d0d10); }
+
 .cb-scrim { background: linear-gradient(180deg,#101014 0%,rgba(16,16,20,.55) 40%,rgba(16,16,20,.55) 60%,#101014 100%); }
 /* Spotlight's vignette IS its scrim. The centre must never be transparent:
    the avatar, nameplate and tagline sit dead centre, `.cb-beam` adds light
