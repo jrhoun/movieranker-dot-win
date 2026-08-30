@@ -157,6 +157,14 @@ function pixelRgb(png: Buffer, x: number, y: number): number {
   return (pixels[i] << 16) | (pixels[i + 1] << 8) | pixels[i + 2];
 }
 
+/**
+ * Top edge of the avatar box on a profile card, measured from a render rather
+ * than derived from the layout: the marquee strip, padding and frame inset all
+ * contribute, and a sample taken outside the box would silently measure the
+ * card's background instead of the avatar.
+ */
+const AVATAR_TOP_Y = 113;
+
 beforeAll(async () => {
   await mkdir(OUT_DIR, { recursive: true });
 });
@@ -604,6 +612,110 @@ describe("background.spotlight stays legible over a bright poster", () => {
   // to survive the 40px blur — a 1x1 source blurs away to nothing and quietly
   // turns this back into a test of an empty backdrop.
   const TAGLINE_TEXT_RGB: [number, number, number] = [0xec, 0xec, 0xf1];
+
+  it("draws each of the three avatar kinds, and draws them differently", async () => {
+    // NOT an inkFraction/colours check. The card already contains posters, a
+    // frame and Bebas type, so "more than 32 colours" passes whether or not
+    // the avatar painted a single pixel — it would measure the rest of the
+    // card. The sharper question is whether swapping ONLY the avatar id
+    // changes the output, which is false exactly when a kind fails to render.
+    // No avatarPosterPath: that would go through `posterUrl` and make Satori
+    // fetch image.tmdb.org for real. The poster kind draws posterUrls[0]
+    // instead, which is the network-free stub.
+    const draw = async (name: string, avatar: string | undefined) => {
+      const png = await renderProfileCard({
+        handle: "jrhoun",
+        level: 27,
+        rank: "Cinephile",
+        equipped: {
+          frame: "frame.brass",
+          background: "background.velvet",
+          overlay: "overlay.none",
+          avatar,
+        },
+        posterPaths: [],
+        posterUrls: [STUB_POSTER],
+      });
+      // Written out because "rendered, but wrong" is only catchable by looking
+      // — and Satori's gradient interpolation is measurably not the browser's.
+      await writeFile(join(OUT_DIR, `${name}.png`), png);
+      return png;
+    };
+
+    const kinds: Record<string, string> = {
+      "avatar-generated": "avatar.gen.lorelei-reel",
+      "avatar-gradient": "avatar.grad.ember",
+      "avatar-poster": "avatar.poster.155",
+    };
+    const rendered = new Map<string, Buffer>();
+    for (const [name, avatar] of Object.entries(kinds)) {
+      rendered.set(name, await draw(name, avatar));
+    }
+
+    // THE LOAD-BEARING COMPARISON. Pairwise difference alone is not enough:
+    // an avatar kind that fails to render draws NOTHING, and "nothing" is
+    // still different from the other two, so a broken kind slips through. This
+    // baseline is a card whose avatar id resolves to no art at all — every
+    // real kind must differ from it, which is false exactly when that kind
+    // silently rendered nothing. (Verified by mutation: skipping the generated
+    // branch passes the pairwise check and fails this one.)
+    const blank = await draw("avatar-unrenderable", "avatar.gen.does-not-exist");
+    for (const [name, png] of rendered) {
+      expect(
+        png.equals(blank),
+        `${name} is identical to a card with no avatar — that kind rendered nothing`,
+      ).toBe(false);
+    }
+
+    const names = [...rendered.keys()];
+    for (const a of names) {
+      for (const b of names) {
+        if (a >= b) continue;
+        expect(
+          rendered.get(a)!.equals(rendered.get(b)!),
+          `${a} and ${b} produced byte-identical cards — two kinds drew the same thing`,
+        ).toBe(false);
+      }
+    }
+
+    // Omitting the slot entirely must still draw the poster, because profiles
+    // written before the avatar slot existed carry only avatarPosterPath /
+    // avatarTmdbId. Identical to the poster kind is the CORRECT result here,
+    // and asserting it keeps that legacy path from being dropped silently.
+    expect(
+      (await draw("avatar-legacy", undefined)).equals(rendered.get("avatar-poster")!),
+      "omitting the avatar slot no longer falls back to the stored poster",
+    ).toBe(true);
+  });
+
+  it("renders a gradient avatar as a gradient, not a flat block", async () => {
+    // Satori has no stylesheet, so a gradient avatar is an inline
+    // backgroundImage. If that string is ever wrong, Satori does not throw —
+    // it paints nothing and the frame wraps an empty box. Sampling two points
+    // down the avatar's own vertical axis catches both that and a gradient
+    // that collapsed to one flat colour.
+    const png = await renderProfileCard({
+      handle: "jrhoun",
+      level: 27,
+      rank: "Cinephile",
+      equipped: {
+        frame: "frame.brass",
+        background: "background.velvet",
+        overlay: "overlay.none",
+        avatar: "avatar.grad.ember",
+      },
+      posterPaths: [],
+      posterUrls: [STUB_POSTER],
+    });
+    await writeFile(join(OUT_DIR, "avatar-gradient-only.png"), png);
+
+    const top = pixelRgb(png, 600, AVATAR_TOP_Y + 20);
+    const bottom = pixelRgb(png, 600, AVATAR_TOP_Y + 190);
+    expect(
+      top,
+      "the gradient avatar's top and bottom sample the same colour — it rendered flat or not at all",
+    ).not.toBe(bottom);
+  });
 
   it("holds AA contrast for the tagline against a pure-white poster", async () => {
     const png = await renderProfileCard({

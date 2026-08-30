@@ -95,6 +95,26 @@ describe("resolveEquipped", () => {
     expect(resolveEquipped({ frame: id }, newUser()).frame).toBe(id);
   });
 
+  it("falls back to the starter for an avatar the user does not own", () => {
+    // A poster avatar is owned only via a CLAIM, so an unclaimed one must not
+    // render — otherwise the claim allowance would be advisory.
+    const r = resolveEquipped({ avatar: "avatar.poster.155" }, newUser());
+    expect(r.avatar).toBe(starterFor("avatar").id);
+  });
+
+  it("keeps an avatar the user has claimed", () => {
+    const owned = ownedItemIds({
+      userId: "u",
+      level: 1,
+      unlockedAchievementKeys: [],
+      finishedThemeSlugs: [],
+      avatarClaims: [155],
+    });
+    expect(resolveEquipped({ avatar: "avatar.poster.155" }, owned).avatar).toBe(
+      "avatar.poster.155",
+    );
+  });
+
   it("passes the avatar through untouched — it is validated separately", () => {
     const r = resolveEquipped({ avatarTmdbId: 155, avatarPosterPath: "/x.jpg" }, newUser());
     expect(r.avatarTmdbId).toBe(155);

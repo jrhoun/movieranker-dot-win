@@ -1,6 +1,6 @@
 // src/lib/cosmetics/equip-guard.test.ts
 import { describe, expect, it } from "vitest";
-import { validateEquipPatch } from "./equip-guard";
+import { validateClaims, validateEquipPatch } from "./equip-guard";
 import { starterFor } from "./catalogue";
 import { ownedItemIds } from "./ownership";
 
@@ -117,5 +117,73 @@ describe("validateEquipPatch avatarPosterPath", () => {
       mapWithNullPoster,
     );
     expect(r.ok).toBe(false);
+  });
+});
+
+describe("validateClaims", () => {
+  const ownedFilms = new Set([155, 550, 27205]);
+
+  it("accepts claims for films the user finished ranking, within allowance", () => {
+    expect(validateClaims([155, 550], ownedFilms, 3)).toEqual({ ok: true });
+  });
+
+  it("refuses a film the user never ranked", () => {
+    // The whole point of a poster avatar is that it is a film you ranked.
+    expect(validateClaims([999999], ownedFilms, 3).ok).toBe(false);
+  });
+
+  it("refuses more claims than the allowance", () => {
+    expect(validateClaims([155, 550, 27205], ownedFilms, 2).ok).toBe(false);
+  });
+
+  it("accepts exactly the allowance", () => {
+    expect(validateClaims([155, 550], ownedFilms, 2)).toEqual({ ok: true });
+  });
+
+  it("accepts an empty claim list against a zero allowance", () => {
+    expect(validateClaims([], ownedFilms, 0)).toEqual({ ok: true });
+  });
+});
+
+describe("equipping an avatar", () => {
+  const noClaims = ownedItemIds({
+    userId: "u",
+    level: 1,
+    unlockedAchievementKeys: [],
+    finishedThemeSlugs: [],
+  });
+  const withClaim = ownedItemIds({
+    userId: "u",
+    level: 1,
+    unlockedAchievementKeys: [],
+    finishedThemeSlugs: [],
+    avatarClaims: [155],
+  });
+
+  it("refuses a poster avatar that was never claimed", () => {
+    // Ranking the film is necessary but NOT sufficient — 155 is in `films`
+    // here and still refused, because the claim is what spends the allowance.
+    expect(validateEquipPatch({ avatar: "avatar.poster.155" }, noClaims, films).ok).toBe(false);
+  });
+
+  it("accepts a claimed poster avatar", () => {
+    expect(validateEquipPatch({ avatar: "avatar.poster.155" }, withClaim, films)).toEqual({
+      ok: true,
+    });
+  });
+
+  it("refuses a frame id in the avatar field", () => {
+    // The slot-correspondence check, which the synthetic id gets for free.
+    expect(validateEquipPatch({ avatar: "frame.brass" }, noClaims, films).ok).toBe(false);
+  });
+
+  it("accepts a starter gradient avatar", () => {
+    expect(validateEquipPatch({ avatar: starterFor("avatar").id }, noClaims, films)).toEqual({
+      ok: true,
+    });
+  });
+
+  it("allows clearing the avatar slot", () => {
+    expect(validateEquipPatch({ avatar: null }, noClaims, films)).toEqual({ ok: true });
   });
 });

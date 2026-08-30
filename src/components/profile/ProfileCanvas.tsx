@@ -1,25 +1,37 @@
 import Nameplate from "./Nameplate";
+import { avatarAssetPath, posterAvatarTmdbId } from "@/lib/cosmetics/avatars";
+import { FRAME_CLASS, gradientAvatarClass, OVERLAY_CLASS } from "@/lib/cosmetics/classes";
 import type { Equipped } from "@/lib/cosmetics/equipped";
 
-const FRAME_CLASS: Record<string, string> = {
-  "frame.brass": "cf-brass",
-  "frame.perforation": "cf-perforation",
-  "frame.projector": "cf-projector",
-  "frame.toxic": "cf-toxic",
-  "frame.neon-cyan": "cf-neon-cyan",
-  "frame.neon-magenta": "cf-neon-magenta",
-  "frame.vhs": "cf-vhs",
-  "frame.prism": "cf-prism",
-};
-
-const OVERLAY_CLASS: Record<string, string> = {
-  "overlay.grain": "co-grain",
-  "overlay.vhs": "co-vhs",
-  "overlay.flicker": "co-flicker",
-  "overlay.dust": "co-dust",
-};
-
 const POSTER = "https://image.tmdb.org/t/p/w342";
+
+const AVATAR_BOX = "block h-[117px] w-[78px] rounded-sm";
+
+/**
+ * The three kinds of avatar, all drawn into the same 2:3 box.
+ *
+ * A poster avatar falls back to the user's own first poster when no path is
+ * stored, and to a plain surface when they have no art at all — the frame is
+ * always painted, so an empty box beats a broken image.
+ */
+function AvatarArt({ id, posterPath }: { id: string | null; posterPath: string | null }) {
+  if (id?.startsWith("avatar.gen.")) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={avatarAssetPath(id)} alt="" className={`${AVATAR_BOX} bg-white object-cover`} />;
+  }
+
+  const gradient = id ? gradientAvatarClass(id) : undefined;
+  if (gradient) return <span aria-hidden className={`${AVATAR_BOX} ${gradient}`} />;
+
+  // A poster avatar, or the legacy avatarTmdbId/avatarPosterPath pair from
+  // before the slot existed — both render from the stored poster path.
+  if (posterPath && (id === null || posterAvatarTmdbId(id) !== null)) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={`${POSTER}${posterPath}`} alt="" className={`${AVATAR_BOX} object-cover`} />;
+  }
+
+  return <span aria-hidden className={`${AVATAR_BOX} bg-surface-raised`} />;
+}
 
 export default function ProfileCanvas({
   handle,
@@ -44,7 +56,13 @@ export default function ProfileCanvas({
   const overlayClass = OVERLAY_CLASS[equipped.overlay ?? ""];
   const background = equipped.background ?? "background.filmstrip";
   const art = posters.filter((p) => p.posterPath).slice(0, 6);
-  const avatar = equipped.avatarPosterPath ?? art[0]?.posterPath ?? null;
+  /**
+   * The poster wash behind `background.spotlight`, and the art for a poster
+   * avatar. Kept separate from the avatar SLOT below: the spotlight still
+   * wants a poster to bleed even when the equipped avatar is a gradient.
+   */
+  const avatarPoster = equipped.avatarPosterPath ?? art[0]?.posterPath ?? null;
+  const avatarId = equipped.avatar ?? null;
 
   return (
     <div className="relative isolate overflow-hidden rounded-2xl border border-white/10">
@@ -61,7 +79,7 @@ export default function ProfileCanvas({
           <div aria-hidden className="cb-holes absolute inset-x-0 bottom-0 z-[1] h-3" />
         </>
       )}
-      {background === "background.spotlight" && avatar && (
+      {background === "background.spotlight" && avatarPoster && (
         <>
           {/*
             An <img>, never a CSS `url()`: `avatar` can fall back to a poster
@@ -77,7 +95,7 @@ export default function ProfileCanvas({
           <div aria-hidden className="absolute -inset-[25%] z-0 overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={`${POSTER}${avatar}`}
+              src={`${POSTER}${avatarPoster}`}
               alt=""
               className="h-full w-full object-cover opacity-45 blur-2xl"
             />
@@ -89,18 +107,15 @@ export default function ProfileCanvas({
       {background === "background.velvet" && <div aria-hidden className="cb-velvet absolute inset-0 z-0" />}
 
       <div className="relative z-[2] flex flex-col items-center gap-3 px-6 py-8">
-        {avatar && (
-          // Poster-shaped, never cropped to a circle: posters set their title in
-          // the lower third and a round crop destroys it.
-          <span className={`inline-block rounded-md p-[3px] leading-none ${frameClass}`}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`${POSTER}${avatar}`}
-              alt=""
-              className="block h-[117px] w-[78px] rounded-sm object-cover"
-            />
-          </span>
-        )}
+        {/*
+          Poster-shaped for all three kinds, never cropped to a circle: posters
+          set their title in the lower third and a round crop destroys it. The
+          identical box also means the frame fits the same whichever kind is
+          equipped.
+        */}
+        <span className={`inline-block rounded-md p-[3px] leading-none ${frameClass}`}>
+          <AvatarArt id={avatarId} posterPath={avatarPoster} />
+        </span>
         <Nameplate handle={handle} level={level} size="compact" />
         {taglineText && (
           <p className="max-w-[28ch] text-center text-xs italic text-muted">

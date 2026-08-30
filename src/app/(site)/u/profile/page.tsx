@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import ClaimHandleCard from "@/components/profile/ClaimHandleCard";
 import ProfileCanvas from "@/components/profile/ProfileCanvas";
-import CosmeticPicker, { type PickerItem } from "@/components/profile/CosmeticPicker";
-import AvatarPicker from "@/components/profile/AvatarPicker";
+import CustomiseModal from "@/components/profile/CustomiseModal";
+import CollectionGallery from "@/components/profile/CollectionGallery";
 import LevelProgressionModal from "@/components/profile/LevelProgressionModal";
 import ReferralInviteCard from "@/components/profile/ReferralInviteCard";
 import ShowcaseCard from "@/components/profile/ShowcaseCard";
@@ -30,39 +30,27 @@ import { reconcileCareerXp, toXpLists } from "@/lib/career-xp";
 import { marqueeStanding, type ThemeCompletion } from "@/lib/marquee-standing";
 import { ownedItemIds } from "@/lib/cosmetics/ownership";
 import { resolveEquipped } from "@/lib/cosmetics/equipped";
-import { itemsForSlot, SLOTS } from "@/lib/cosmetics/catalogue";
+import { itemsForSlot } from "@/lib/cosmetics/catalogue";
 import { resolveTaglineText } from "@/lib/cosmetics/taglines";
-import type { Slot, TaglineItem } from "@/lib/cosmetics/types";
-
-const COSMETIC_SLOTS = SLOTS.filter(
-  (s): s is "frame" | "background" | "overlay" | "tagline" => s !== "avatar",
-);
-
-const SLOT_LABEL: Record<"frame" | "background" | "overlay" | "tagline", string> = {
-  frame: "Frame",
-  background: "Background",
-  overlay: "Overlay",
-  tagline: "Tagline",
-};
+import type { TaglineItem } from "@/lib/cosmetics/types";
 
 /**
- * Labels are resolved here, server-side, never handed to the client as raw
- * catalogue items: the tagline slot's earned lines carry a literal "{count}"
- * template (or, for tagline.earned.pioneer, the exact spoiler text a user who
- * hasn't earned it must not see). resolveTaglineText enforces both, and an
- * earned line the viewer hasn't qualified for is DROPPED from the list
- * rather than shown with a substitute label: all four earned lines share the
- * same `set` ("Earned"), so falling back to that would render several
- * identical, indistinguishable locked chips. A locked earned line has no
- * button to equip anyway, so omitting it loses nothing.
+ * Tagline display text, resolved here server-side and never left to the
+ * client: earned lines carry a literal "{count}" template, and
+ * tagline.earned.pioneer's raw `.text` is the exact spoiler a user who hasn't
+ * earned it must not see. `resolveTaglineText` enforces both, returning
+ * undefined for a line the viewer hasn't qualified for — those are simply
+ * absent from this map, so the gallery and the modal show the item's NAME and
+ * its unlock path instead of its text. That keeps a locked line visible
+ * (never blurred, never "Coming Soon") without spoiling it.
  */
-function pickerItems(slot: Slot, stats: AchievementStats): PickerItem[] {
-  if (slot === "tagline") {
-    return (itemsForSlot("tagline") as TaglineItem[])
-      .map((t) => ({ id: t.id, name: resolveTaglineText(t.id, stats) }))
-      .filter((t): t is PickerItem => t.name !== undefined);
+function taglineTextMap(stats: AchievementStats): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const t of itemsForSlot("tagline") as TaglineItem[]) {
+    const text = resolveTaglineText(t.id, stats);
+    if (text !== undefined) out[t.id] = text;
   }
-  return itemsForSlot(slot).map((i) => ({ id: i.id, name: i.name }));
+  return out;
 }
 
 interface DbList {
@@ -263,13 +251,17 @@ export default async function MyListsPage() {
   // equip time, from these same achievementStats.
   const taglineText = showcase.equipped?.taglineText ?? undefined;
   const ownedCosmeticIds = [...ownedCosmetics];
+  // Shared by the canvas above and the modal's live preview, so the draft is
+  // previewed against exactly the art the real profile shows.
+  const canvasPosters = doneCards.flatMap((c) => c.posters).slice(0, 6);
+  const taglineTexts = taglineTextMap(achievementStats);
 
   // Avatar picker source: this user's own finished films, built straight from
   // the raw rows (title/poster_path/tmdb_id travel together per movie) rather
   // than zipping ListRowData's `posters` against its `movieIds` — those two
   // arrays are filtered independently and can misalign whenever a row is
   // missing a tmdb_id. Deduplicated by tmdbId (the same film can appear in
-  // several finished lists, and AvatarPicker keys its chips on tmdbId — an
+  // several finished lists, and the avatar grid keys on tmdbId — an
   // unfiltered flatMap would produce duplicate React keys and a repeated
   // visible chip), keeping the first occurrence unless it lacked a poster
   // and a later one has one. Capped at a generous but bounded size for the
@@ -337,7 +329,7 @@ export default async function MyListsPage() {
             handle={profile.handle}
             level={progress.level}
             equipped={canvasEquipped}
-            posters={doneCards.flatMap((c) => c.posters).slice(0, 6)}
+            posters={canvasPosters}
             taglineText={taglineText}
           />
         </div>
@@ -538,36 +530,42 @@ export default async function MyListsPage() {
         </div>
       </div>
 
-      {/* Customise: cosmetics equipped on ProfileCanvas above, one picker per slot. */}
+      {/*
+        Customise + collection. One button opens a modal that previews the
+        whole draft live and saves once, replacing the five inline pickers
+        that each saved on every click and never refreshed the canvas above.
+        The gallery below it is the browsable half: everything in the game,
+        owned or not, with the specific path to each locked item.
+      */}
       {claimed && profile?.handle && (
         <section
           aria-labelledby="customise-heading"
           className="mt-6 rounded-xl bg-surface p-5 ring-1 ring-white/10 shadow-lg"
         >
-          <h2 id="customise-heading" className="font-display text-sm uppercase tracking-[0.14em] text-gold">
-            Customise
-          </h2>
-          <div className="mt-4 space-y-5">
-            {COSMETIC_SLOTS.map((slot) => (
-              <div key={slot}>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-text/80">
-                  {SLOT_LABEL[slot]}
-                </h3>
-                <CosmeticPicker
-                  slot={slot}
-                  items={pickerItems(slot, achievementStats)}
-                  owned={ownedCosmeticIds}
-                  current={canvasEquipped[slot] ?? undefined}
-                />
-              </div>
-            ))}
-            <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-text/80">
-                Avatar
-              </h3>
-              <AvatarPicker films={avatarFilms} current={canvasEquipped.avatarTmdbId} />
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2
+              id="customise-heading"
+              className="font-display text-sm uppercase tracking-[0.14em] text-gold"
+            >
+              Collection
+            </h2>
+            <CustomiseModal
+              handle={profile.handle}
+              level={progress.level}
+              equipped={canvasEquipped}
+              owned={ownedCosmeticIds}
+              posters={canvasPosters}
+              claims={showcase.avatarClaims ?? []}
+              films={avatarFilms}
+              taglineTexts={taglineTexts}
+            />
           </div>
+          <CollectionGallery
+            owned={ownedCosmeticIds}
+            claims={showcase.avatarClaims ?? []}
+            films={avatarFilms}
+            taglineTexts={taglineTexts}
+          />
         </section>
       )}
 

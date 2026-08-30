@@ -1,0 +1,146 @@
+[
+  {
+    "id": "lorelei-reel",
+    "style": "lorelei",
+    "seed": "reel",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "lorelei-usher",
+    "style": "lorelei",
+    "seed": "usher",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "lorelei-matinee",
+    "style": "lorelei",
+    "seed": "matinee",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "lorelei-double-feature",
+    "style": "lorelei",
+    "seed": "double-feature",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "notionists-reel",
+    "style": "notionists",
+    "seed": "reel",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "notionists-usher",
+    "style": "notionists",
+    "seed": "usher",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "notionists-matinee",
+    "style": "notionists",
+    "seed": "matinee",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "notionists-double-feature",
+    "style": "notionists",
+    "seed": "double-feature",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "open-peeps-reel",
+    "style": "open-peeps",
+    "seed": "reel",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "open-peeps-usher",
+    "style": "open-peeps",
+    "seed": "usher",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "open-peeps-matinee",
+    "style": "open-peeps",
+    "seed": "matinee",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "open-peeps-double-feature",
+    "style": "open-peeps",
+    "seed": "double-feature",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "pixel-art-reel",
+    "style": "pixel-art",
+    "seed": "reel",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "pixel-art-usher",
+    "style": "pixel-art",
+    "seed": "usher",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "pixel-art-matinee",
+    "style": "pixel-art",
+    "seed": "matinee",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "pixel-art-double-feature",
+    "style": "pixel-art",
+    "seed": "double-feature",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "shapes-reel",
+    "style": "shapes",
+    "seed": "reel",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "shapes-usher",
+    "style": "shapes",
+    "seed": "usher",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "shapes-matinee",
+    "style": "shapes",
+    "seed": "matinee",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "shapes-double-feature",
+    "style": "shapes",
+    "seed": "double-feature",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "thumbs-reel",
+    "style": "thumbs",
+    "seed": "reel",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "thumbs-usher",
+    "style": "thumbs",
+    "seed": "usher",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "thumbs-matinee",
+    "style": "thumbs",
+    "seed": "matinee",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "thumbs-double-feature",
+    "style": "thumbs",
+    "seed": "double-feature",
+    "license": "CC0-1.0"
+  }
+]
