@@ -17,6 +17,7 @@ interface Proposal {
   status: string;
   createdAt: string;
   proposerHandle: string | null;
+  scheduledWeek: number | null;
   films: ProposalFilm[];
 }
 
@@ -122,11 +123,84 @@ function Dashboard({ data }: { data: StatsResponse | null }) {
   );
 }
 
+interface WeekInfo {
+  currentWeek: number;
+  currentMarqueeNumber: number;
+  scheduling: boolean;
+}
+
+/**
+ * Weeks are stored as an ISO-week index counted from 1970 (~2956), which is the
+ * number the rotation actually runs on but reads as noise to a person. The
+ * marquee number — 1 at launch, +1 each Monday — is what the site shows
+ * everywhere else, so scheduling is expressed in those terms and converted here.
+ */
+function marqueeLabel(week: number, info: WeekInfo): string {
+  const n = info.currentMarqueeNumber + (week - info.currentWeek);
+  if (week === info.currentWeek) return `Marquee ${n} · this week`;
+  if (week === info.currentWeek + 1) return `Marquee ${n} · next week`;
+  return `Marquee ${n}`;
+}
+
+function statusLine(p: Proposal, info: WeekInfo | null): string {
+  if (p.scheduledWeek === null) return "Approved · not scheduled";
+  if (!info) return "Approved · scheduled";
+  return p.scheduledWeek === info.currentWeek
+    ? "Approved · ON THE MARQUEE NOW"
+    : `Approved · ${marqueeLabel(p.scheduledWeek, info)}`;
+}
+
+/**
+ * Assigning a week is what actually puts a theme on the marquee — approving
+ * only says it is good enough to run. Only future weeks (and the current one)
+ * are offered, because the past cannot be rescheduled; the route refuses it
+ * too, so this is convenience rather than the check itself.
+ */
+function ScheduleControl({
+  proposal,
+  weekInfo,
+  disabled,
+  onSchedule,
+}: {
+  proposal: Proposal;
+  weekInfo: WeekInfo;
+  disabled: boolean;
+  onSchedule: (id: string, week: number | null) => void;
+}) {
+  const weeks = Array.from({ length: 12 }, (_, i) => weekInfo.currentWeek + i);
+  return (
+    <span className="flex items-center gap-1">
+      <label className="sr-only" htmlFor={`week-${proposal.id}`}>
+        Week for {proposal.title}
+      </label>
+      <select
+        id={`week-${proposal.id}`}
+        value={proposal.scheduledWeek ?? ""}
+        disabled={disabled}
+        onChange={(e) => onSchedule(proposal.id, e.target.value === "" ? null : Number(e.target.value))}
+        className="min-h-11 rounded bg-surface-raised px-2 text-xs text-text ring-1 ring-white/10 focus-visible:outline-2 focus-visible:outline-accent"
+      >
+        <option value="">Not scheduled</option>
+        {weeks.map((w) => (
+          <option key={w} value={w}>
+            {marqueeLabel(w, weekInfo)}
+          </option>
+        ))}
+      </select>
+    </span>
+  );
+}
+
 export default function AdminPage() {
   const [proposals, setProposals] = useState<Proposal[] | null>(null);
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [weekInfo, setWeekInfo] = useState<{
+    currentWeek: number;
+    currentMarqueeNumber: number;
+    scheduling: boolean;
+  } | null>(null);
 
   async function load() {
     const res = await fetch("/api/admin/proposals");
@@ -135,8 +209,37 @@ export default function AdminPage() {
       setProposals([]);
       return;
     }
-    const json = (await res.json()) as { proposals?: Proposal[] };
+    const json = (await res.json()) as {
+      proposals?: Proposal[];
+      currentWeek?: number;
+      currentMarqueeNumber?: number;
+      scheduling?: boolean;
+    };
     setProposals(json.proposals ?? []);
+    setWeekInfo({
+      currentWeek: json.currentWeek ?? 0,
+      currentMarqueeNumber: json.currentMarqueeNumber ?? 1,
+      // False until upgrade-3.sql is run: the control is hidden rather than
+      // offered in a state where it cannot work.
+      scheduling: json.scheduling ?? false,
+    });
+  }
+
+  async function schedule(id: string, scheduledWeek: number | null) {
+    setBusyId(id);
+    setError(null);
+    const res = await fetch("/api/admin/proposals", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, scheduledWeek }),
+    });
+    setBusyId(null);
+    if (!res.ok) {
+      const msg = (await res.json().catch(() => null)) as { error?: string } | null;
+      setError(msg?.error ?? `Could not schedule that (${res.status}).`);
+      return;
+    }
+    void load();
   }
 
   async function loadStats() {
@@ -266,23 +369,33 @@ export default function AdminPage() {
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium">{p.title}</span>
                       <span className="text-[11px] text-muted">
-                        {p.status === "approved" ? "Approved · live in the shortlist" : "Rejected"}
+                        {p.status === "approved" ? statusLine(p, weekInfo) : "Rejected"}
                         {p.proposerHandle ? ` · @${p.proposerHandle}` : ""}
                       </span>
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => void decide(p.id, "pending")}
-                      disabled={busyId === p.id}
-                      className={`${btn} bg-surface-raised text-text ring-1 ring-white/10 hover:bg-white/10`}
-                      title={
-                        p.status === "approved"
-                          ? "Returns this to the queue and removes it from the live shortlist"
-                          : "Returns this to the queue"
-                      }
-                    >
-                      Undo
-                    </button>
+                    <span className="flex flex-wrap gap-2">
+                      {p.status === "approved" && weekInfo?.scheduling && (
+                        <ScheduleControl
+                          proposal={p}
+                          weekInfo={weekInfo}
+                          disabled={busyId === p.id}
+                          onSchedule={schedule}
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void decide(p.id, "pending")}
+                        disabled={busyId === p.id}
+                        className={`${btn} bg-surface-raised text-text ring-1 ring-white/10 hover:bg-white/10`}
+                        title={
+                          p.status === "approved"
+                            ? "Returns this to the queue and releases any week it holds"
+                            : "Returns this to the queue"
+                        }
+                      >
+                        Undo
+                      </button>
+                    </span>
                   </li>
                 ))}
               </ul>

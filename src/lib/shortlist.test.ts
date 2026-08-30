@@ -75,6 +75,9 @@ describe("pickTonightsEntry", () => {
 });
 
 describe("tonightsShortlist", () => {
+  /** An arbitrary week index the fixture proposal claims. */
+  const SCHEDULED_WEEK = 7;
+
   const proposals = [
     {
       slug: "community-x",
@@ -84,6 +87,9 @@ describe("tonightsShortlist", () => {
       source: "community" as const,
       proposalId: "x",
       proposedBy: "cinephile92",
+      // Scheduled for a specific week: an approved proposal no longer joins
+      // the rotation, it claims one week.
+      scheduledWeek: SCHEDULED_WEEK,
     },
   ];
 
@@ -98,17 +104,41 @@ describe("tonightsShortlist", () => {
     expect(monB).not.toBe(monA);
   });
 
-  it("includes approved community proposals in the rotation pool", () => {
-    const total = SHORTLIST_THEMES.length + proposals.length;
-    let sawCommunity = false;
-    for (let i = 0; i < total; i++) {
-      const picked = tonightsShortlist(proposals, d(i * WEEK))!;
-      if (picked.source === "community") {
-        sawCommunity = true;
-        expect(picked.slug).toBe("community-x");
-      }
+  it("runs a scheduled community theme in exactly its own week", () => {
+    const picked = tonightsShortlist(proposals, d(SCHEDULED_WEEK * WEEK))!;
+    expect(picked.source).toBe("community");
+    expect(picked.slug).toBe("community-x");
+  });
+
+  it("never runs a community theme in a week it was not scheduled for", () => {
+    for (let i = 0; i < 40; i++) {
+      if (i === SCHEDULED_WEEK) continue;
+      expect(tonightsShortlist(proposals, d(i * WEEK))!.source, `week ${i}`).toBe("curated");
     }
-    expect(sawCommunity).toBe(true);
+  });
+
+  it("never runs an approved-but-unscheduled proposal at all", () => {
+    // Approving is a judgement about quality; scheduling is a decision about
+    // when. An approved theme with no week must stay off the marquee.
+    const unscheduled = proposals.map((p) => ({ ...p, scheduledWeek: null }));
+    for (let i = 0; i < 60; i++) {
+      expect(tonightsShortlist(unscheduled, d(i * WEEK))!.source, `week ${i}`).toBe("curated");
+    }
+  });
+
+  it("APPROVING A PROPOSAL DOES NOT CHANGE ANY OTHER WEEK", () => {
+    // The bug this design replaces: the pool was [...curated, ...approved] and
+    // the pick was `pool[week % pool.length]`, so one approval re-mapped every
+    // week — including the one already running. A user mid-way through the
+    // week would have seen the theme swap under them, and the theme_slug on
+    // their list would have stopped matching the live theme.
+    for (let i = 0; i < 60; i++) {
+      if (i === SCHEDULED_WEEK) continue;
+      expect(
+        tonightsShortlist(proposals, d(i * WEEK))!.slug,
+        `week ${i} moved when a proposal was scheduled`,
+      ).toBe(tonightsShortlist([], d(i * WEEK))!.slug);
+    }
   });
 
   it("cycles back to the same theme after a full rotation", () => {
@@ -124,7 +154,7 @@ describe("tonightsShortlist", () => {
       expect(picked!.proposedBy).toBeNull();
     }
     // and at least one curated day exists across the rotation
-    const curated = Array.from({ length: SHORTLIST_THEMES.length + proposals.length }, (_, i) =>
+    const curated = Array.from({ length: SHORTLIST_THEMES.length }, (_, i) =>
       tonightsShortlist(proposals, d(i * WEEK)),
     ).filter((t) => t!.source === "curated");
     expect(curated.length).toBeGreaterThan(0);
@@ -135,17 +165,10 @@ describe("tonightsShortlist", () => {
   });
 
   it("tags community picks with their proposal id and proposer handle", () => {
-    const total = SHORTLIST_THEMES.length + proposals.length;
-    let sawCommunity = false;
-    for (let i = 0; i < total; i++) {
-      const picked = tonightsShortlist(proposals, d(i * WEEK))!;
-      if (picked.source === "community") {
-        sawCommunity = true;
-        expect(picked.proposalId).toBe("x");
-        expect(picked.proposedBy).toBe("cinephile92");
-      }
-    }
-    expect(sawCommunity).toBe(true);
+    const picked = tonightsShortlist(proposals, d(SCHEDULED_WEEK * WEEK))!;
+    expect(picked.source).toBe("community");
+    expect(picked.proposalId).toBe("x");
+    expect(picked.proposedBy).toBe("cinephile92");
   });
 });
 

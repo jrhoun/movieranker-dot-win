@@ -15,6 +15,11 @@ export type ShortlistEntry = ShortlistTheme & {
   proposalId: string | null;
   /** Proposer's public profile handle, when known; never a private handle. */
   proposedBy: string | null;
+  /**
+   * ISO-week index (from `weeksSinceUtcEpoch`) this theme runs in, or null for
+   * approved-but-unscheduled. Curated entries are always null — they rotate.
+   */
+  scheduledWeek: number | null;
 };
 
 /** Whole UTC days since 1970-01-01 — stable regardless of local timezone. */
@@ -63,21 +68,47 @@ export function pickTonightsEntry<T>(pool: T[], weekIndex: number): T | undefine
   return pool[((weekIndex % pool.length) + pool.length) % pool.length];
 }
 
-/** Curated themes first, approved community proposals appended. Pure. */
+/**
+ * This week's theme: a scheduled community proposal if one claims this week,
+ * otherwise the curated rotation.
+ *
+ * THE CURATED ROTATION IS INDEXED ON ITS OWN FIXED-LENGTH ARRAY, AND MUST STAY
+ * THAT WAY. This previously picked from `[...curated, ...approvedProposals]`,
+ * so approving a proposal changed `pool.length` and re-mapped every week to a
+ * different theme — including the one already running. Measured: one approval
+ * changed the live theme mid-week and all twelve of the next twelve weeks.
+ *
+ * The damage is not cosmetic. Someone part-way through ranking this week's
+ * Marquee would watch the theme swap under them, and the `theme_slug` stamped
+ * on their list would stop matching the live theme — which marquee completion,
+ * the weekly connection quiz and several achievements all key on.
+ *
+ * So a community theme now runs in exactly the week it was scheduled for, and
+ * an unscheduled one never runs. Approving is a judgement about quality;
+ * scheduling is a decision about when. Keeping them separate is what stops one
+ * from silently doing the other's job.
+ */
 export function tonightsShortlist(
   proposals: ShortlistEntry[],
   date: Date = new Date(),
 ): ShortlistEntry | undefined {
-  const pool = [
-    ...SHORTLIST_THEMES.map((t) => ({
+  const week = weeksSinceUtcEpoch(date);
+  // A schedule collision would be a data error (the unique index in
+  // upgrade-3.sql forbids it); taking the first is a defined outcome rather
+  // than an arbitrary one.
+  const scheduled = proposals.find((p) => p.scheduledWeek === week);
+  if (scheduled) return scheduled;
+
+  return pickTonightsEntry(
+    SHORTLIST_THEMES.map((t) => ({
       ...t,
       source: "curated" as const,
       proposalId: null,
       proposedBy: null,
+      scheduledWeek: null,
     })),
-    ...proposals,
-  ];
-  return pickTonightsEntry(pool, weeksSinceUtcEpoch(date));
+    week,
+  );
 }
 
 /** Shared anon client for public reads (RLS-scoped); null when unconfigured. */
@@ -96,10 +127,24 @@ export const getApprovedProposals = unstable_cache(
     try {
       // Anon read relies on RLS "anyone reads approved"; failures degrade to
       // curated-only (e.g. schema not yet re-run on live DB).
-      const { data } = await db
+      // scheduled_week arrives with upgrade-3.sql. Selecting a column that
+      // does not exist is an error in PostgREST, not a null, so this retries
+      // without it — the code is safe to deploy before the migration is run,
+      // and every proposal simply reads as unscheduled until it is.
+      let data: unknown[] | null = null;
+      const withWeek = await db
         .from("shortlist_proposals")
-        .select("id,title,blurb,movie_ids,proposer_id")
+        .select("id,title,blurb,movie_ids,proposer_id,scheduled_week")
         .eq("status", "approved");
+      if (withWeek.error) {
+        const fallback = await db
+          .from("shortlist_proposals")
+          .select("id,title,blurb,movie_ids,proposer_id")
+          .eq("status", "approved");
+        data = fallback.data;
+      } else {
+        data = withWeek.data;
+      }
       const rows = (data ?? []) as Record<string, unknown>[];
       // Credit handles: one batched lookup of proposer profiles; only PUBLIC
       // profiles surface (missing/private -> no credit). Failures omit credit.
@@ -130,6 +175,9 @@ export const getApprovedProposals = unstable_cache(
           ),
           source: "community" as const,
           proposalId: String(r.id),
+          scheduledWeek: Number.isInteger(r.scheduled_week)
+            ? (r.scheduled_week as number)
+            : null,
           proposedBy:
             typeof r.proposer_id === "string"
               ? (handles.get(r.proposer_id) ?? null)
