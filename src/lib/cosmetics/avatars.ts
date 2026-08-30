@@ -43,12 +43,26 @@ export function syntheticPosterAvatar(id: string): CosmeticItem | undefined {
   };
 }
 
+/**
+ * NO AVATAR IS DROPPABLE, AND THIS IS NOT AN OVERSIGHT.
+ *
+ * `droppablePool` is a single pool spanning every slot, and `drawFrom` scales
+ * its seeded ticket by the pool's TOTAL rarity weight. Adding even one
+ * droppable item therefore re-scales every draw for every user and rewrites
+ * their whole canister history — measured at 38 of 40 users when `cyan` and
+ * `magenta` briefly shipped as drops. See the capitalised note in catalogue.ts.
+ *
+ * Giving avatars a canister path means giving them their OWN pool, drawn from
+ * its own seed, so the two sequences cannot perturb each other. Until that
+ * exists, avatars are earned by level and challenge only. `catalogue.test.ts`
+ * enforces this.
+ */
 const GRADIENTS: CosmeticItem[] = [
   { id: "avatar.grad.ember", slot: "avatar", name: "Ember", unlock: { kind: "starter" }, rarity: "common" },
   { id: "avatar.grad.velvet", slot: "avatar", name: "Velvet", unlock: { kind: "starter" }, rarity: "common" },
   { id: "avatar.grad.nitrate", slot: "avatar", name: "Nitrate", unlock: { kind: "level", level: 5 }, rarity: "common" },
-  { id: "avatar.grad.cyan", slot: "avatar", name: "Cyan", unlock: { kind: "drop" }, rarity: "rare" },
-  { id: "avatar.grad.magenta", slot: "avatar", name: "Magenta", unlock: { kind: "drop" }, rarity: "rare" },
+  { id: "avatar.grad.cyan", slot: "avatar", name: "Cyan", unlock: { kind: "level", level: 10 }, rarity: "rare" },
+  { id: "avatar.grad.magenta", slot: "avatar", name: "Magenta", unlock: { kind: "level", level: 20 }, rarity: "rare" },
   { id: "avatar.grad.toxic", slot: "avatar", name: "Toxic", unlock: { kind: "challenge", key: "cryptologist" }, rarity: "legendary" },
 ];
 

@@ -91,6 +91,52 @@ describe("ownedItemIds", () => {
     expect([...ownedItemIds(args)].sort()).toEqual([...ownedItemIds(args)].sort());
   });
 
+  it("draws the exact same canisters it drew before avatars existed", () => {
+    // A PINNED SEQUENCE, AND IT IS SUPPOSED TO BE BRITTLE.
+    //
+    // These ids were captured from the catalogue as it stood at 53fb725, before
+    // the avatar slot was added. `drawFrom` scales its seeded ticket by the
+    // pool's TOTAL rarity weight, so adding, removing, reordering or
+    // re-rarity-ing ANY droppable item silently re-rolls every past week for
+    // every user — an item someone has been shown as owned becomes unowned, and
+    // /u/profile (live redraw) starts disagreeing with /u/[handle] (stored
+    // snapshot). The whole 651-test suite once stayed green through exactly
+    // that change; nothing else in it can see this.
+    //
+    // If this test fails, the catalogue change that broke it is retroactive.
+    // Do not re-capture these values to make it pass unless that is a decision
+    // someone has deliberately made and accepted the reshuffle for.
+    const dropsFor = (userId: string, weeks: string[]) => {
+      const owned = ownedItemIds(stats({ userId, finishedThemeSlugs: weeks }));
+      const byId = new Map(CATALOGUE.map((i) => [i.id, i]));
+      return [...owned].filter((id) => byId.get(id)?.unlock.kind === "drop");
+    };
+    const weeks = ["w1", "w2", "w3", "w4", "w5"];
+
+    // Ten seeds rather than one, because a pool change does not shift every
+    // user: adding a single item left the first two of these untouched while
+    // moving most others. One seed is a coin flip; ten is a net.
+    const expected: [string, string[]][] = [
+      // These two were captured against the pre-avatar catalogue at 53fb725.
+      // The eight below were captured after the fix, from a pool these two
+      // prove is identical to it.
+      ["regression-user", ["tagline.00s.commentary", "tagline.print.aspect-ratio", "tagline.00s.deleted-scenes", "tagline.print.on-location", "frame.neon-magenta"]],
+      ["second-user", ["tagline.80s.sp-mode", "tagline.90s.new-release", "tagline.00s.unrated", "tagline.print.on-location", "tagline.80s.rewind"]],
+      ["pinned-1", ["tagline.10s.exclusive", "tagline.00s.unrated", "background.velvet", "tagline.trailer.personal", "tagline.10s.still-watching"]],
+      ["pinned-2", ["tagline.80s.videocassette", "tagline.10s.because-you-watched", "tagline.80s.taped-over", "frame.toxic", "tagline.trailer.unprepared"]],
+      ["pinned-3", ["tagline.print.on-location", "tagline.90s.widescreen", "tagline.90s.last-copy", "tagline.print.live-audience", "tagline.00s.remastered"]],
+      ["pinned-4", ["overlay.dust", "tagline.print.aspect-ratio", "tagline.90s.new-release", "tagline.10s.skip-intro", "tagline.90s.two-discs"]],
+      ["pinned-5", ["tagline.print.on-location", "tagline.print.no-animals", "tagline.80s.taped-over", "tagline.print.fictitious", "tagline.90s.two-discs"]],
+      ["pinned-6", ["tagline.80s.rewind", "tagline.trailer.personal", "tagline.print.live-audience", "tagline.90s.new-release", "tagline.print.aspect-ratio"]],
+      ["pinned-7", ["frame.toxic", "tagline.trailer.personal", "tagline.print.no-animals", "background.velvet", "frame.neon-magenta"]],
+      ["pinned-8", ["tagline.trailer.one-last-job", "tagline.00s.commentary", "tagline.print.no-animals", "tagline.90s.staff-pick", "tagline.10s.skip-intro"]],
+    ];
+
+    for (const [userId, picks] of expected) {
+      expect(dropsFor(userId, weeks), userId).toEqual(picks);
+    }
+  });
+
   it("adds claimed poster avatars to owned set without perturbing canister drop sequence", () => {
     const withoutClaims = ownedItemIds(stats({ finishedThemeSlugs: ["w1", "w2", "w3"] }));
     const withClaims = ownedItemIds(

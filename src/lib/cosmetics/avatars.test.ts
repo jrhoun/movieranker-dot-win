@@ -65,16 +65,18 @@ describe("gradient avatars", () => {
     expect(starters.map((s) => s.id)).toEqual(["avatar.grad.ember", "avatar.grad.velvet"]);
   });
 
-  it("unlock rules cover level, drop, and challenge requirements", () => {
+  it("unlock rules cover level and challenge requirements", () => {
     const nitrate = AVATARS.find((a) => a.id === "avatar.grad.nitrate");
     expect(nitrate?.unlock).toEqual({ kind: "level", level: 5 });
     expect(nitrate?.rarity).toBe("common");
 
-    const drops = AVATARS.filter((a) => a.unlock.kind === "drop");
-    expect(drops.map((d) => d.id)).toEqual(["avatar.grad.cyan", "avatar.grad.magenta"]);
-    for (const d of drops) {
-      expect(d.rarity).toBe("rare");
-    }
+    const cyan = AVATARS.find((a) => a.id === "avatar.grad.cyan");
+    expect(cyan?.unlock).toEqual({ kind: "level", level: 10 });
+    expect(cyan?.rarity).toBe("rare");
+
+    const magenta = AVATARS.find((a) => a.id === "avatar.grad.magenta");
+    expect(magenta?.unlock).toEqual({ kind: "level", level: 20 });
+    expect(magenta?.rarity).toBe("rare");
 
     const toxic = AVATARS.find((a) => a.id === "avatar.grad.toxic");
     expect(toxic?.unlock).toEqual({ kind: "challenge", key: "cryptologist" });
