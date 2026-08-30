@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import MarqueeHeading from "@/components/MarqueeHeading";
+import ModerationQueue from "@/components/admin/ModerationQueue";
 
 interface ProposalFilm {
   tmdbId: number;
@@ -292,6 +293,11 @@ export default function AdminPage() {
         The site right now
       </h3>
       <Dashboard data={stats} />
+
+      <h3 className="mt-10 border-b border-white/10 pb-1.5 text-xs font-semibold uppercase tracking-wider text-text/80">
+        Public content
+      </h3>
+      <ModerationQueue />
 
       {error && (
         <p className="mt-4 rounded bg-surface p-3 text-sm text-gold ring-1 ring-gold/30" role="status">
