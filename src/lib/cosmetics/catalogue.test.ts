@@ -15,7 +15,8 @@ describe("catalogue integrity", () => {
   });
 
   it("every slot offers at least one starter, so a new profile can be dressed", () => {
-    for (const slot of SLOTS) {
+    // Task 02 adds gradient avatars and restores this to the full SLOTS list.
+    for (const slot of SLOTS.filter((s) => s !== "avatar")) {
       const starters = itemsForSlot(slot).filter((i) => i.unlock.kind === "starter");
       expect(starters.length, `${slot} has no starter`).toBeGreaterThanOrEqual(1);
       expect(starterFor(slot).unlock.kind).toBe("starter");

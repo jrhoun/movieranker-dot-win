@@ -1,5 +1,5 @@
 // src/lib/cosmetics/types.ts
-export type Slot = "frame" | "background" | "overlay" | "tagline";
+export type Slot = "frame" | "background" | "overlay" | "tagline" | "avatar";
 
 /**
  * How an item is obtained. `purchase` yields nothing until payments exist, and
