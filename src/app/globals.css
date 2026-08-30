@@ -213,6 +213,18 @@ body {
   animation: cf-spin 6s linear infinite; box-shadow: 0 0 16px 2px rgba(155,92,255,.45); }
 @keyframes cf-spin { to { filter: hue-rotate(360deg); } }
 
+/* ---- Gradient avatars -------------------------------------------------
+   Pure CSS, no assets. Namespaced `ca-` so they cannot collide with Tailwind
+   utilities, matching the cf-/cb-/co- convention the other cosmetic slots use.
+   Colours are the house palette, except the last three, which are deliberately
+   not — loud items are the rare ones. */
+.ca-ember   { background: linear-gradient(145deg,#f5c518,#e5484d 55%,#3a0e13); }
+.ca-velvet  { background: linear-gradient(145deg,#3a0e13,#220a0e 60%,#0d0d10); }
+.ca-nitrate { background: linear-gradient(145deg,#c9ccd4,#7f7f8c 50%,#15151a); }
+.ca-cyan    { background: linear-gradient(145deg,#22e0ff,#0b2a2e 70%,#0d0d10); }
+.ca-magenta { background: linear-gradient(145deg,#ff3ba7,#2a0b22 70%,#0d0d10); }
+.ca-toxic   { background: linear-gradient(145deg,#7cff4d,#122a10 70%,#0d0d10); }
+
 .cb-scrim { background: linear-gradient(180deg,#101014 0%,rgba(16,16,20,.55) 40%,rgba(16,16,20,.55) 60%,#101014 100%); }
 /* Spotlight's vignette IS its scrim. The centre must never be transparent:
    the avatar, nameplate and tagline sit dead centre, `.cb-beam` adds light

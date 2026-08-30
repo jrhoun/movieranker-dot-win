@@ -1,4 +1,4 @@
-// src/lib/cosmetics/ownership.ts
+import { posterAvatarId } from "./avatars";
 import { drawFrom, droppablePool } from "./canister";
 import { CATALOGUE, itemById } from "./catalogue";
 
@@ -15,6 +15,8 @@ export interface OwnershipStats {
   unlockedAchievementKeys: string[];
   /** Finished Marquee themes, oldest first — order decides the drop sequence. */
   finishedThemeSlugs: string[];
+  /** TMDB ids of claimed poster avatars. */
+  avatarClaims?: number[];
 }
 
 export function ownedItemIds(stats: OwnershipStats, grants: string[] = []): Set<string> {
@@ -45,6 +47,15 @@ export function ownedItemIds(stats: OwnershipStats, grants: string[] = []): Set<
   for (const themeSlug of stats.finishedThemeSlugs) {
     const pick = drawFrom(droppablePool(owned), `${stats.userId}|${themeSlug}`);
     if (pick) owned.add(pick.id);
+  }
+
+  // Poster avatar claims are DERIVED from stored claims on the profile showcase.
+  // MUST STAY BELOW THE REPLAY LOOP: keeping all post-canister derivations below
+  // the replay guarantees canister drop determinism is unperturbed.
+  if (stats.avatarClaims) {
+    for (const tmdbId of stats.avatarClaims) {
+      owned.add(posterAvatarId(tmdbId));
+    }
   }
 
   // MUST STAY BELOW THE REPLAY LOOP. `droppablePool` subtracts what is already

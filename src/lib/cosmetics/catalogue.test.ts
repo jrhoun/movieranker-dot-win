@@ -31,6 +31,17 @@ describe("catalogue integrity", () => {
     }
   });
 
+  it("no avatar is droppable, so avatars cannot perturb the canister pool", () => {
+    // `droppablePool` is ONE pool spanning every slot, and `drawFrom` scales
+    // its seeded ticket by the pool's total rarity weight — so a droppable
+    // avatar re-rolls every user's entire canister history. Giving avatars a
+    // canister path means giving them their own pool and their own seed.
+    // See the note above GRADIENTS in avatars.ts.
+    for (const item of itemsForSlot("avatar")) {
+      expect(item.unlock.kind, `${item.id} is droppable`).not.toBe("drop");
+    }
+  });
+
   it("animated items are never common — loud is rare, by policy", () => {
     for (const item of CATALOGUE.filter((i) => i.animated)) {
       expect(item.rarity, item.id).not.toBe("common");

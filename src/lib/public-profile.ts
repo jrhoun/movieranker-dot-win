@@ -8,6 +8,7 @@ import {
   levelFor,
 } from "./gamification";
 import { reconcileCareerXp, toXpLists } from "./career-xp";
+import { parseAvatarClaims } from "./cosmetics/claims";
 import { NULLABLE_FIELDS, parseEquipped, type Equipped } from "./cosmetics/equipped";
 import {
   chipParticipants,
@@ -24,6 +25,7 @@ export interface ProfileShowcase {
   favoriteListId: string | null;
   lifetimeXp?: number;
   equipped?: Equipped;
+  avatarClaims?: number[];
 }
 
 export const EMPTY_SHOWCASE: ProfileShowcase = {
@@ -74,11 +76,18 @@ export function parseShowcase(input: unknown): ProfileShowcase | null {
   for (const field of NULLABLE_FIELDS) {
     if (equipped[field] === null) delete equipped[field];
   }
+  let avatarClaims: number[] | undefined = undefined;
+  if (o.avatarClaims !== undefined) {
+    const claims = parseAvatarClaims(o.avatarClaims);
+    if (claims === null) return null;
+    avatarClaims = claims;
+  }
   return {
     achievementKeys: keys,
     favoriteListId: fav,
     ...(lifetimeXp !== undefined ? { lifetimeXp } : {}),
     ...(Object.keys(equipped).length > 0 ? { equipped } : {}),
+    ...(avatarClaims && avatarClaims.length > 0 ? { avatarClaims } : {}),
   };
 }
 
@@ -94,11 +103,12 @@ export function mergeShowcase(
     favoriteListId?: unknown;
     lifetimeXp?: unknown;
     equipped?: unknown;
+    avatarClaims?: unknown;
   },
 ): ProfileShowcase | null {
   if (typeof patch !== "object" || patch === null || Array.isArray(patch)) return null;
   const base = parseShowcase(current) ?? EMPTY_SHOWCASE;
-  let { achievementKeys, favoriteListId, lifetimeXp, equipped } = base;
+  let { achievementKeys, favoriteListId, lifetimeXp, equipped, avatarClaims } = base;
   if (patch.achievementKeys !== undefined) {
     const keys = validAchievementKeys(patch.achievementKeys);
     if (!keys || keys.length > MAX_PINNED_ACHIEVEMENTS) return null;
@@ -134,11 +144,17 @@ export function mergeShowcase(
     }
     equipped = combined;
   }
+  if (patch.avatarClaims !== undefined) {
+    const patchClaims = parseAvatarClaims(patch.avatarClaims);
+    if (patchClaims === null) return null;
+    avatarClaims = [...new Set([...(avatarClaims ?? []), ...patchClaims])];
+  }
   return {
     achievementKeys,
     favoriteListId,
     ...(lifetimeXp !== undefined ? { lifetimeXp } : {}),
     ...(equipped && Object.keys(equipped).length > 0 ? { equipped } : {}),
+    ...(avatarClaims && avatarClaims.length > 0 ? { avatarClaims } : {}),
   };
 }
 

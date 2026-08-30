@@ -62,6 +62,40 @@ describe("parseShowcase / mergeShowcase", () => {
       lifetimeXp: 50,
     });
   });
+
+  it("round-trips avatarClaims through parseShowcase and rejects malformed values", () => {
+    expect(parseShowcase({ avatarClaims: [155, 680] })).toEqual({
+      achievementKeys: [],
+      favoriteListId: null,
+      avatarClaims: [155, 680],
+    });
+    expect(parseShowcase({ avatarClaims: ["nope"] })).toBeNull();
+    expect(parseShowcase({ avatarClaims: [-1] })).toBeNull();
+    expect(parseShowcase({ avatarClaims: [0] })).toBeNull();
+    expect(parseShowcase({ avatarClaims: [155, 155] })).toBeNull();
+  });
+
+  it("unions avatarClaims non-destructively in mergeShowcase", () => {
+    const base = { achievementKeys: [], favoriteListId: null, avatarClaims: [155] };
+    const merged = mergeShowcase(base, { avatarClaims: [680] });
+    expect(merged?.avatarClaims).toEqual([155, 680]);
+
+    // Deduplicates existing claims
+    const deduped = mergeShowcase(base, { avatarClaims: [155, 680] });
+    expect(deduped?.avatarClaims).toEqual([155, 680]);
+
+    // Partial patch preserving claims
+    const partial = mergeShowcase(base, { favoriteListId: "list-123" });
+    expect(partial?.favoriteListId).toBe("list-123");
+    expect(partial?.avatarClaims).toEqual([155]);
+
+    // Empty array in patch cannot delete existing claims
+    const emptyPatch = mergeShowcase(base, { avatarClaims: [] });
+    expect(emptyPatch?.avatarClaims).toEqual([155]);
+
+    // Malformed claims in patch returns null
+    expect(mergeShowcase(base, { avatarClaims: "invalid" })).toBeNull();
+  });
 });
 
 describe("shapePublicProfile", () => {

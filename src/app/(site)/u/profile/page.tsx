@@ -34,7 +34,11 @@ import { itemsForSlot, SLOTS } from "@/lib/cosmetics/catalogue";
 import { resolveTaglineText } from "@/lib/cosmetics/taglines";
 import type { Slot, TaglineItem } from "@/lib/cosmetics/types";
 
-const SLOT_LABEL: Record<Slot, string> = {
+const COSMETIC_SLOTS = SLOTS.filter(
+  (s): s is "frame" | "background" | "overlay" | "tagline" => s !== "avatar",
+);
+
+const SLOT_LABEL: Record<"frame" | "background" | "overlay" | "tagline", string> = {
   frame: "Frame",
   background: "Background",
   overlay: "Overlay",
@@ -544,7 +548,7 @@ export default async function MyListsPage() {
             Customise
           </h2>
           <div className="mt-4 space-y-5">
-            {SLOTS.map((slot) => (
+            {COSMETIC_SLOTS.map((slot) => (
               <div key={slot}>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-text/80">
                   {SLOT_LABEL[slot]}

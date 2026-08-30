@@ -1,11 +1,11 @@
-// src/lib/cosmetics/catalogue.ts
+import { AVATARS, syntheticPosterAvatar } from "./avatars";
 import { BACKGROUNDS } from "./backgrounds";
 import { FRAMES } from "./frames";
 import { OVERLAYS } from "./overlays";
 import { TAGLINES } from "./taglines";
 import type { CosmeticItem, Slot } from "./types";
 
-export const SLOTS: Slot[] = ["frame", "background", "overlay", "tagline"];
+export const SLOTS: Slot[] = ["frame", "background", "overlay", "tagline", "avatar"];
 
 /**
  * THE DROP ENTRIES ARE APPEND-ONLY, AND SO IS THIS SPREAD ORDER.
@@ -23,12 +23,20 @@ export const SLOTS: Slot[] = ["frame", "background", "overlay", "tagline"];
  * /u/[handle] reads the stored equipped snapshot). Append new `drop` items to
  * the END of their slot's list; never renumber what is already there.
  */
-export const CATALOGUE: CosmeticItem[] = [...FRAMES, ...BACKGROUNDS, ...OVERLAYS, ...TAGLINES];
+export const CATALOGUE: CosmeticItem[] = [
+  ...FRAMES,
+  ...BACKGROUNDS,
+  ...OVERLAYS,
+  ...TAGLINES,
+  ...AVATARS,
+];
 
 const BY_ID = new Map(CATALOGUE.map((i) => [i.id, i]));
 
 export function itemById(id: string): CosmeticItem | undefined {
-  return BY_ID.get(id);
+  // Poster avatars are per-user and never in CATALOGUE, so they are made on
+  // demand rather than looked up.
+  return BY_ID.get(id) ?? syntheticPosterAvatar(id);
 }
 
 export function itemsForSlot(slot: Slot): CosmeticItem[] {
