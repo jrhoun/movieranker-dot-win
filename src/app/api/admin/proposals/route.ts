@@ -146,7 +146,20 @@ export async function PATCH(request: Request) {
       .from("shortlist_proposals")
       .update({ scheduled_week: week })
       .eq("id", id);
-    if (error) return dbErrorResponse(error);
+    if (error) {
+      // One theme per week is enforced by a partial unique index, so picking a
+      // week another proposal already holds is an ordinary thing to do and a
+      // 23505 is the expected answer. Without this it reaches the owner as a
+      // 500 carrying a raw "duplicate key value violates unique constraint"
+      // string — an opaque failure on a routine action.
+      if (error.code === "23505") {
+        return NextResponse.json(
+          { error: "Another theme is already scheduled for that week." },
+          { status: 409 },
+        );
+      }
+      return dbErrorResponse(error);
+    }
     return NextResponse.json({ ok: true });
   }
 
