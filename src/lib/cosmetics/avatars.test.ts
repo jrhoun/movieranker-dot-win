@@ -9,7 +9,7 @@ import {
   posterAvatarTmdbId,
   syntheticPosterAvatar,
 } from "./avatars";
-import { itemById, SLOTS } from "./catalogue";
+import { itemById, SLOTS, starterFor } from "./catalogue";
 
 describe("synthetic poster avatars", () => {
   it("round-trips a tmdb id", () => {
@@ -134,6 +134,21 @@ describe("generated avatars", () => {
       .sort((x, y) => x - y);
     expect(new Set(levels).size, "two avatars unlock at the same level").toBe(levels.length);
     expect(levels[levels.length - 1]).toBeGreaterThanOrEqual(30);
+  });
+
+  it("keeps the same default avatar it has always had", () => {
+    // `resolveEquipped` and `sanitizeEquipped` both fall back to
+    // starterFor("avatar") for an unowned or stale id, and starterFor returns
+    // the FIRST POSITIONAL starter in the slot. So this id is the face of
+    // every profile that has not picked one, and the array order that decides
+    // it is load-bearing rather than cosmetic.
+    //
+    // Pinned exactly, because the ways it can move are all silent: reordering
+    // AVATARS' two spreads, regenerating the manifest, or changing which
+    // entries count as starters. Changing the default is a fine thing to do
+    // deliberately — it should just not happen as a side effect of something
+    // else.
+    expect(starterFor("avatar").id).toBe("avatar.gen.lorelei-reel");
   });
 
   it("never calls a starter rare", () => {
