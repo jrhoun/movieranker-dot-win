@@ -2,7 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import ClaimHandleCard from "@/components/profile/ClaimHandleCard";
-import Nameplate from "@/components/profile/Nameplate";
+import ProfileCanvas from "@/components/profile/ProfileCanvas";
+import CosmeticPicker, { type PickerItem } from "@/components/profile/CosmeticPicker";
+import AvatarPicker from "@/components/profile/AvatarPicker";
 import LevelProgressionModal from "@/components/profile/LevelProgressionModal";
 import ReferralInviteCard from "@/components/profile/ReferralInviteCard";
 import ShowcaseCard from "@/components/profile/ShowcaseCard";
@@ -22,9 +24,42 @@ import {
   levelFor,
   unlockedAt,
   xpProgress,
+  type AchievementStats,
 } from "@/lib/gamification";
 import { reconcileCareerXp, toXpLists } from "@/lib/career-xp";
 import { marqueeStanding, type ThemeCompletion } from "@/lib/marquee-standing";
+import { ownedItemIds } from "@/lib/cosmetics/ownership";
+import { resolveEquipped } from "@/lib/cosmetics/equipped";
+import { itemsForSlot, SLOTS } from "@/lib/cosmetics/catalogue";
+import { resolveTaglineText } from "@/lib/cosmetics/taglines";
+import type { Slot, TaglineItem } from "@/lib/cosmetics/types";
+
+const SLOT_LABEL: Record<Slot, string> = {
+  frame: "Frame",
+  background: "Background",
+  overlay: "Overlay",
+  tagline: "Tagline",
+};
+
+/**
+ * Labels are resolved here, server-side, never handed to the client as raw
+ * catalogue items: the tagline slot's earned lines carry a literal "{count}"
+ * template (or, for tagline.earned.pioneer, the exact spoiler text a user who
+ * hasn't earned it must not see). resolveTaglineText enforces both, and an
+ * earned line the viewer hasn't qualified for is DROPPED from the list
+ * rather than shown with a substitute label: all four earned lines share the
+ * same `set` ("Earned"), so falling back to that would render several
+ * identical, indistinguishable locked chips. A locked earned line has no
+ * button to equip anyway, so omitting it loses nothing.
+ */
+function pickerItems(slot: Slot, stats: AchievementStats): PickerItem[] {
+  if (slot === "tagline") {
+    return (itemsForSlot("tagline") as TaglineItem[])
+      .map((t) => ({ id: t.id, name: resolveTaglineText(t.id, stats) }))
+      .filter((t): t is PickerItem => t.name !== undefined);
+  }
+  return itemsForSlot(slot).map((i) => ({ id: i.id, name: i.name }));
+}
 
 interface DbList {
   id: string;
@@ -52,11 +87,24 @@ export default async function MyListsPage() {
     profile?.visibility === "public" ? "public" : "private";
   const showcase = parseShowcase(profile?.showcase) ?? EMPTY_SHOWCASE;
 
-  // RLS scopes rows to the owner. Top posters: final_rank first (done lists),
-  // then elo desc (drafts).
+  // Owner-scoped EXPLICITLY — RLS does not do it for us, and cannot. `lists`
+  // carries two PERMISSIVE select policies that OR together (supabase/schema.sql):
+  // "owner all" (auth.uid() = owner_id) and "anyone reads done lists"
+  // (status='done' and visibility in ('unlisted','public')), the latter
+  // recreated unchanged by upgrade-1.sql. An unfiltered select therefore
+  // returns this user's rows PLUS every other user's finished public lists.
+  // That is not merely cosmetic here: these rows feed `breakdown.total`, which
+  // the ratchet at the foot of this function writes irreversibly into
+  // showcase.lifetimeXp — the floor /api/profile uses to gate cosmetics, list
+  // pinning and theme proposals — and `finishedThemeSlugs`, which drives
+  // canister drop replay, so strangers' themes would make the picker offer
+  // drops the write path then 403s. Every sibling owner-scoped query filters
+  // the same way (career-xp.ts, api/profile/route.ts).
+  // Top posters: final_rank first (done lists), then elo desc (drafts).
   const { data: lists } = await supabase
     .from("lists")
     .select("id,title,participants,status,visibility,theme_slug,created_at,list_movies(title,poster_path,tmdb_id)")
+    .eq("owner_id", auth.user.id)
     .order("created_at", { ascending: false })
     .order("final_rank", { foreignTable: "list_movies", ascending: true, nullsFirst: false })
     .order("elo", { foreignTable: "list_movies", ascending: false });
@@ -166,7 +214,7 @@ export default async function MyListsPage() {
     }));
   const standing = marqueeStanding(completions, auth.user.id);
 
-  const achievements = evaluateAchievements({
+  const achievementStats: AchievementStats = {
     doneLists: doneCards.length,
     // Films actually ranked, not XP. Reading XP here meant seven referrals
     // unlocked "ranked a hundred films" for someone who had ranked none.
@@ -176,9 +224,65 @@ export default async function MyListsPage() {
     marqueeWeeks: xpLists.filter((l) => l.done && l.isMarquee).length,
     marqueeConnectionsSolved: solveCount ?? 0,
     ...standing,
-  });
+  };
+  const achievements = evaluateAchievements(achievementStats);
   const level = levelFor(progress.current);
   const { unlocked, locked } = unlockedAt(level.level);
+
+  // Same rows /api/profile's equip validator reads (owner_id + status=done,
+  // oldest first): ownedItemIds replays canister drops in this order, so any
+  // other ordering here could show a picker item as owned that a real equip
+  // request would then 403. Filter-then-sort is equivalent to the
+  // validator's sort-then-filter since sorting never reorders within the
+  // filtered subset.
+  const finishedThemeSlugs = ((lists ?? []) as (DbList & { theme_slug?: string | null })[])
+    .filter(
+      (l): l is DbList & { theme_slug: string } =>
+        l.status === "done" && typeof l.theme_slug === "string" && l.theme_slug.length > 0,
+    )
+    .slice()
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .map((l) => l.theme_slug);
+
+  const ownedCosmetics = ownedItemIds({
+    userId: auth.user.id,
+    level: level.level,
+    unlockedAchievementKeys: achievements.filter((a) => a.unlocked).map((a) => a.key),
+    finishedThemeSlugs,
+  });
+  const canvasEquipped = resolveEquipped(showcase.equipped, ownedCosmetics);
+  // Stored SNAPSHOT, consistent with /u/[handle]: that page must read the
+  // stored value (its own achievement stats are RLS-limited and can't always
+  // re-derive an earned tagline), so the owner's own preview reads the same
+  // field rather than a live recompute that could show different text than
+  // what visitors actually see. /api/profile resolves and stores it at
+  // equip time, from these same achievementStats.
+  const taglineText = showcase.equipped?.taglineText ?? undefined;
+  const ownedCosmeticIds = [...ownedCosmetics];
+
+  // Avatar picker source: this user's own finished films, built straight from
+  // the raw rows (title/poster_path/tmdb_id travel together per movie) rather
+  // than zipping ListRowData's `posters` against its `movieIds` — those two
+  // arrays are filtered independently and can misalign whenever a row is
+  // missing a tmdb_id. Deduplicated by tmdbId (the same film can appear in
+  // several finished lists, and AvatarPicker keys its chips on tmdbId — an
+  // unfiltered flatMap would produce duplicate React keys and a repeated
+  // visible chip), keeping the first occurrence unless it lacked a poster
+  // and a later one has one. Capped at a generous but bounded size for the
+  // picker's flex-wrap chip list.
+  const AVATAR_FILM_CAP = 60;
+  const avatarFilmsById = new Map<number, { tmdbId: number; title: string; posterPath: string | null }>();
+  for (const l of (lists ?? []) as DbList[]) {
+    if (l.status !== "done") continue;
+    for (const m of l.list_movies ?? []) {
+      if (typeof m.tmdb_id !== "number") continue;
+      const existing = avatarFilmsById.get(m.tmdb_id);
+      if (!existing || (!existing.posterPath && m.poster_path)) {
+        avatarFilmsById.set(m.tmdb_id, { tmdbId: m.tmdb_id, title: m.title, posterPath: m.poster_path });
+      }
+    }
+  }
+  const avatarFilms = [...avatarFilmsById.values()].slice(0, AVATAR_FILM_CAP);
 
   // Background ratchet: lock in new peak XP so deleting lists later never loses rank
   if (claimed && breakdown.total > (showcase.lifetimeXp ?? 0)) {
@@ -194,9 +298,7 @@ export default async function MyListsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <MarqueeHeading>My Profile & Lists</MarqueeHeading>
-          {claimed && profile?.handle ? (
-            <Nameplate handle={profile.handle} level={progress.level} size="compact" className="mt-1" />
-          ) : (
+          {!claimed && (
             <p className="mt-1 text-xs text-muted">
               Track your ranking progress, achievements, and movie collections.
             </p>
@@ -219,6 +321,23 @@ export default async function MyListsPage() {
           </Link>
         </div>
       </div>
+
+      {/* Rendered as its own block rather than inside the flex header row
+          above: ProfileCanvas is a bordered, padded card, and a row laid out
+          with `justify-between` against MarqueeHeading and the Preview/Settings
+          links would stretch or overflow it — exactly the sideways-scroll
+          failure this feature must not introduce at narrow widths. */}
+      {claimed && profile?.handle && (
+        <div className="mt-4 max-w-sm">
+          <ProfileCanvas
+            handle={profile.handle}
+            level={progress.level}
+            equipped={canvasEquipped}
+            posters={doneCards.flatMap((c) => c.posters).slice(0, 6)}
+            taglineText={taglineText}
+          />
+        </div>
+      )}
 
       {!claimed && (
         <div className="mt-4">
@@ -414,6 +533,39 @@ export default async function MyListsPage() {
           </div>
         </div>
       </div>
+
+      {/* Customise: cosmetics equipped on ProfileCanvas above, one picker per slot. */}
+      {claimed && profile?.handle && (
+        <section
+          aria-labelledby="customise-heading"
+          className="mt-6 rounded-xl bg-surface p-5 ring-1 ring-white/10 shadow-lg"
+        >
+          <h2 id="customise-heading" className="font-display text-sm uppercase tracking-[0.14em] text-gold">
+            Customise
+          </h2>
+          <div className="mt-4 space-y-5">
+            {SLOTS.map((slot) => (
+              <div key={slot}>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-text/80">
+                  {SLOT_LABEL[slot]}
+                </h3>
+                <CosmeticPicker
+                  slot={slot}
+                  items={pickerItems(slot, achievementStats)}
+                  owned={ownedCosmeticIds}
+                  current={canvasEquipped[slot] ?? undefined}
+                />
+              </div>
+            ))}
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-text/80">
+                Avatar
+              </h3>
+              <AvatarPicker films={avatarFilms} current={canvasEquipped.avatarTmdbId} />
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Row 3 (1 Col): All My Lists */}
       <section aria-labelledby="lists-heading" className="mt-8">

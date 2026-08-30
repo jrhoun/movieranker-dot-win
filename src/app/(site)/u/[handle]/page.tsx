@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import Nameplate from "@/components/profile/Nameplate";
+import ProfileCanvas from "@/components/profile/ProfileCanvas";
 import ParticipantChips from "@/components/ParticipantChips";
 import MoviePoster from "@/components/list/MoviePoster";
 import { normalizeHandle } from "@/lib/handles";
 import { evaluateAchievements } from "@/lib/gamification";
 import { marqueeStanding, type ThemeCompletion } from "@/lib/marquee-standing";
+import { sanitizeEquipped } from "@/lib/cosmetics/equipped";
 import {
   EMPTY_SHOWCASE,
   parseShowcase,
@@ -182,16 +183,60 @@ export default async function PublicProfilePage({
     // the badge must count only the ones that were actually cracked.
     .eq("correct", true);
 
+  // Finished-Marquee count for achievementStats.marqueeWeeks below — only
+  // the COUNT is read, so unlike the ordered version /api/profile computes
+  // for its own equip validator, no sort is needed here.
+  const finishedThemeCount = ((lists ?? []) as Record<string, unknown>[]).filter(
+    (r) =>
+      r.status === "done" &&
+      typeof r.theme_slug === "string" &&
+      (r.theme_slug as string).length > 0,
+  ).length;
+
   // Unlocked only; cards.length is the public done-list count (shapePublicProfile
   // filters to status=done + visibility=public, so private/unlisted never count).
-  const allAchievements = evaluateAchievements({
+  // marqueeWeeks was missing here before this task: without it, "season_ticket"
+  // (12 finished Marquees) could never unlock on this page, so an equipped
+  // attendance tagline would silently fall back to nothing. Added to match the
+  // /api/profile validator, which does count it (`marqueeWeeks: finishedThemeSlugs.length`).
+  const achievementStats = {
     doneLists: cards.length,
     moviesRanked,
     maxMoviesInSingleList: Math.max(0, ...cards.map((c) => c.posters.length)),
     coCuratedLists: cards.filter((c) => (c.chips?.length ?? 0) > 0).length,
+    marqueeWeeks: finishedThemeCount,
     marqueeConnectionsSolved: solveCount ?? 0,
     ...standing,
-  }).filter((a) => a.unlocked);
+  };
+  const allAchievements = evaluateAchievements(achievementStats).filter((a) => a.unlocked);
+
+  // NOT resolveEquipped: this page's achievement stats above are inherently
+  // RLS-limited (shapePublicProfile counts only public done lists, and
+  // marquee_solves is scoped by RLS to its own reader), so they can never
+  // fully reconstruct ownership of a challenge- or drop-gated item earned
+  // partly through private data. Re-checking ownership here with them would
+  // not catch a stale grant — it would produce FALSE NEGATIVES: a user who
+  // earns the legendary, challenge-gated frame.prism and equips it would see
+  // it themselves, while every other visitor (and the owner on THIS page)
+  // would silently see starter brass instead. /api/profile already validated
+  // the id against the owner's own full-access stats when it was written,
+  // which is the strongest guarantee available here — so this page trusts
+  // that snapshot and only re-checks what it CAN verify correctly on its
+  // own: that the id still exists in the catalogue and still belongs to its
+  // slot (see sanitizeEquipped's doc comment). /u/profile, by contrast, has
+  // complete stats and keeps using resolveEquipped's real ownership check —
+  // this asymmetry is deliberate, not a mismatch to "fix" later.
+  const canvasEquipped = sanitizeEquipped(showcase.equipped);
+  // Rendered as the stored SNAPSHOT, never recomputed via resolveTaglineText
+  // on this page: this page's achievementStats above is itself RLS-limited
+  // (public done lists only, and marquee_solves is scoped to its own reader),
+  // so a tagline earned partly through private lists or solves would
+  // silently vanish here for EVERY viewer — including the owner previewing
+  // their own /u/[handle] — if recomputed with these stats. /api/profile
+  // resolves and stores it once, at equip time, from the real owner's own
+  // full-access stats, so this is read straight through instead.
+  const taglineText = showcase.equipped?.taglineText ?? undefined;
+
   // Showcase curation: featured list + pinned achievements first. The favorite
   // must be among the shaped (public done) cards or it is silently omitted.
   const featured = showcase.favoriteListId
@@ -226,7 +271,13 @@ export default async function PublicProfilePage({
         </div>
       )}
       <header>
-        <Nameplate handle={profile.handle} level={level.level} />
+        <ProfileCanvas
+          handle={profile.handle}
+          level={level.level}
+          equipped={canvasEquipped}
+          posters={cards.flatMap((c) => c.posters).slice(0, 6)}
+          taglineText={taglineText}
+        />
         {/* Single-line Level & Rank badge */}
         <div className="mt-2 flex items-center justify-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/15 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-gold ring-1 ring-gold/40 shadow-sm">

@@ -8,6 +8,7 @@ import {
   levelFor,
 } from "./gamification";
 import { reconcileCareerXp, toXpLists } from "./career-xp";
+import { NULLABLE_FIELDS, parseEquipped, type Equipped } from "./cosmetics/equipped";
 import {
   chipParticipants,
   type AttributionRow,
@@ -22,6 +23,7 @@ export interface ProfileShowcase {
   achievementKeys: string[];
   favoriteListId: string | null;
   lifetimeXp?: number;
+  equipped?: Equipped;
 }
 
 export const EMPTY_SHOWCASE: ProfileShowcase = {
@@ -60,10 +62,23 @@ export function parseShowcase(input: unknown): ProfileShowcase | null {
     }
     lifetimeXp = Math.floor(o.lifetimeXp);
   }
+  // `?? undefined`: a stored `equipped: null` is an absent key, not a
+  // malformed one — every other field here tolerates absence the same way.
+  const equipped = parseEquipped(o.equipped ?? undefined);
+  if (equipped === null) return null;
+  // parseEquipped accepts a literal null on a slot field (or taglineText) as
+  // mergeShowcase's "clear this" signal — mergeShowcase deletes the key
+  // before it's ever persisted, but a row written some other way (or by an
+  // older, buggier mergeShowcase) could still carry one. Strip it here too,
+  // so a reader never has to treat a stored null as distinct from "absent".
+  for (const field of NULLABLE_FIELDS) {
+    if (equipped[field] === null) delete equipped[field];
+  }
   return {
     achievementKeys: keys,
     favoriteListId: fav,
     ...(lifetimeXp !== undefined ? { lifetimeXp } : {}),
+    ...(Object.keys(equipped).length > 0 ? { equipped } : {}),
   };
 }
 
@@ -74,11 +89,16 @@ export function parseShowcase(input: unknown): ProfileShowcase | null {
  */
 export function mergeShowcase(
   current: unknown,
-  patch: { achievementKeys?: unknown; favoriteListId?: unknown; lifetimeXp?: unknown },
+  patch: {
+    achievementKeys?: unknown;
+    favoriteListId?: unknown;
+    lifetimeXp?: unknown;
+    equipped?: unknown;
+  },
 ): ProfileShowcase | null {
   if (typeof patch !== "object" || patch === null || Array.isArray(patch)) return null;
   const base = parseShowcase(current) ?? EMPTY_SHOWCASE;
-  let { achievementKeys, favoriteListId, lifetimeXp } = base;
+  let { achievementKeys, favoriteListId, lifetimeXp, equipped } = base;
   if (patch.achievementKeys !== undefined) {
     const keys = validAchievementKeys(patch.achievementKeys);
     if (!keys || keys.length > MAX_PINNED_ACHIEVEMENTS) return null;
@@ -100,10 +120,25 @@ export function mergeShowcase(
     // Monotonic ratchet: lifetime XP never decreases
     lifetimeXp = Math.max(lifetimeXp ?? 0, Math.floor(patch.lifetimeXp));
   }
+  if (patch.equipped !== undefined) {
+    const next = parseEquipped(patch.equipped);
+    if (next === null) return null;
+    // Merge rather than replace, so equipping a frame does not clear a tagline.
+    const combined: Equipped = { ...(equipped ?? {}), ...next };
+    // `null` on a slot field (or taglineText) is parseEquipped's "clear
+    // this" signal — delete the key rather than persisting a literal null,
+    // which nothing downstream (resolveEquipped, ProfileCanvas, the OG
+    // card) expects.
+    for (const field of NULLABLE_FIELDS) {
+      if (combined[field] === null) delete combined[field];
+    }
+    equipped = combined;
+  }
   return {
     achievementKeys,
     favoriteListId,
     ...(lifetimeXp !== undefined ? { lifetimeXp } : {}),
+    ...(equipped && Object.keys(equipped).length > 0 ? { equipped } : {}),
   };
 }
 

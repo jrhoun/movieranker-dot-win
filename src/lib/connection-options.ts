@@ -18,6 +18,8 @@
  * one attempt regardless.
  */
 
+import { hashString, mulberry32 } from "./seeded-random";
+
 export interface ShuffledOption {
   option: string;
   /**
@@ -26,28 +28,6 @@ export interface ShuffledOption {
    * how the order changes.
    */
   originalIndex: number;
-}
-
-/** FNV-1a. Small, dependency-free, and good enough to spread slugs across seeds. */
-function hashSlug(slug: string): number {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < slug.length; i++) {
-    hash ^= slug.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return hash >>> 0;
-}
-
-/** mulberry32: tiny seeded PRNG with a well-distributed 32-bit state. */
-function mulberry32(seed: number): () => number {
-  let state = seed;
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let t = state;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 /**
@@ -59,7 +39,7 @@ export function shuffledOptions(slug: string, options: string[]): ShuffledOption
     option,
     originalIndex,
   }));
-  const random = mulberry32(hashSlug(slug));
+  const random = mulberry32(hashString(slug));
   // Fisher-Yates, back to front.
   for (let i = entries.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));

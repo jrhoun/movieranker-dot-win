@@ -130,3 +130,87 @@ describe("shapePublicProfile", () => {
     expect(shapePublicProfile([])).toEqual({ cards: [], moviesRanked: 0, level: expect.objectContaining({ level: 1 }) });
   });
 });
+
+describe("showcase equipped block", () => {
+  it("round-trips through parse", () => {
+    const parsed = parseShowcase({ achievementKeys: [], favoriteListId: null, equipped: { frame: "frame.brass" } });
+    expect(parsed?.equipped).toEqual({ frame: "frame.brass" });
+  });
+
+  it("rejects a malformed equipped block outright", () => {
+    expect(parseShowcase({ achievementKeys: [], favoriteListId: null, equipped: { frame: 7 } })).toBeNull();
+  });
+
+  it("merging one slot preserves the others", () => {
+    const merged = mergeShowcase(
+      { achievementKeys: [], favoriteListId: null, equipped: { tagline: "tagline.80s.rewind" } },
+      { equipped: { frame: "frame.brass" } },
+    );
+    expect(merged?.equipped).toEqual({ tagline: "tagline.80s.rewind", frame: "frame.brass" });
+  });
+
+  it("treats a stored equipped: null as absent rather than malformed", () => {
+    expect(parseShowcase({ achievementKeys: [], favoriteListId: null, equipped: null }))
+      .toEqual({ achievementKeys: [], favoriteListId: null });
+  });
+
+  it("strips a stored slot-field null on read, same as mergeShowcase does on write", () => {
+    // mergeShowcase always deletes a cleared slot before persisting, but a
+    // row written some other way could still carry one — parseShowcase must
+    // not let it leak through as a distinct-from-absent value.
+    expect(parseShowcase({ achievementKeys: [], favoriteListId: null, equipped: { frame: null } }))
+      .toEqual({ achievementKeys: [], favoriteListId: null });
+  });
+
+  it("clears a slot when the patch sets it to null, preserving the others", () => {
+    const merged = mergeShowcase(
+      {
+        achievementKeys: [],
+        favoriteListId: null,
+        equipped: { tagline: "tagline.80s.rewind", frame: "frame.brass" },
+      },
+      { equipped: { tagline: null } },
+    );
+    // The key is gone entirely — not present-but-null — so nothing downstream
+    // has to treat a stored null as a special case.
+    expect(merged?.equipped).toEqual({ frame: "frame.brass" });
+    expect(merged?.equipped).not.toHaveProperty("tagline");
+  });
+
+  it("round-trips a stored taglineText snapshot", () => {
+    const parsed = parseShowcase({
+      achievementKeys: [],
+      favoriteListId: null,
+      equipped: { tagline: "tagline.earned.centurion", taglineText: "104 films ranked. No regrets." },
+    });
+    expect(parsed?.equipped).toEqual({
+      tagline: "tagline.earned.centurion",
+      taglineText: "104 films ranked. No regrets.",
+    });
+  });
+
+  it("clearing the tagline clears its stored text too", () => {
+    // Mirrors what /api/profile actually sends: a `tagline: null` patch is
+    // always paired with `taglineText: null`, so a cleared slot never leaves
+    // orphaned text behind for a tagline that's no longer equipped.
+    const merged = mergeShowcase(
+      {
+        achievementKeys: [],
+        favoriteListId: null,
+        equipped: { tagline: "tagline.earned.centurion", taglineText: "104 films ranked. No regrets." },
+      },
+      { equipped: { tagline: null, taglineText: null } },
+    );
+    expect(merged?.equipped).toBeUndefined();
+  });
+
+  it("strips a stored taglineText: null on read, same as the slot fields", () => {
+    expect(
+      parseShowcase({
+        achievementKeys: [],
+        favoriteListId: null,
+        equipped: { tagline: "tagline.80s.rewind", taglineText: null },
+      })?.equipped,
+    ).toEqual({ tagline: "tagline.80s.rewind" });
+  });
+});
