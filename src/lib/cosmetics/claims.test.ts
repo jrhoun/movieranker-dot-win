@@ -31,9 +31,16 @@ describe("claims", () => {
       expect(parseAvatarClaims([])).toEqual([]);
     });
 
+    it("treats absent and null as no claims, not as malformed", () => {
+      // Not a nicety. parseShowcase turns a null from here into a null for the
+      // whole showcase, and mergeShowcase then falls back to EMPTY_SHOWCASE —
+      // so returning null here would wipe achievements, the favourite list and
+      // equipped cosmetics on the user's next write.
+      expect(parseAvatarClaims(undefined)).toEqual([]);
+      expect(parseAvatarClaims(null)).toEqual([]);
+    });
+
     it("rejects non-array inputs", () => {
-      expect(parseAvatarClaims(null)).toBeNull();
-      expect(parseAvatarClaims(undefined)).toBeNull();
       expect(parseAvatarClaims(155)).toBeNull();
       expect(parseAvatarClaims("155")).toBeNull();
       expect(parseAvatarClaims({})).toBeNull();
