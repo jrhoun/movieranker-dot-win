@@ -5,10 +5,13 @@ import { createElement as h } from "react";
 import { ImageResponse } from "next/og";
 import { beforeAll, describe, expect, it } from "vitest";
 import { itemsForSlot } from "./cosmetics/catalogue";
+import { podiumDisplayOrder } from "./list-view";
 import {
   COLORS,
+  cardFingerprint,
   GRADIENT_AVATAR_BACKGROUND,
   OG_RESPONSE_OPTIONS,
+  posterRowLayout,
   OG_SIZE,
   OgCard,
   PosterRow,
@@ -790,5 +793,110 @@ describe("gradient avatars reach the share card", () => {
       expect(value).not.toMatch(/var\(|currentColor/);
       expect(value).toMatch(/#[0-9a-f]{6}/i);
     }
+  });
+});
+
+/**
+ * The share card and the page it opens must agree about who won.
+ *
+ * The list page lays its podium out 2nd-1st-3rd with the winner raised in the
+ * middle. A flat left-to-right row of the same three posters therefore puts a
+ * DIFFERENT film in the leftmost slot, so someone comparing a link preview
+ * against the page gets two answers to "who came first" — a real report, and
+ * the reason posterRowLayout exists.
+ */
+/**
+ * A shared link's preview is cached by the platform, not by us. The only way to
+ * make Threads or Bluesky fetch a new card is to hand them a new URL, so this
+ * key has to move when the picture moves and hold still when it does not.
+ */
+describe("cardFingerprint", () => {
+  it("is stable for the same card", () => {
+    // A key that churned would defeat preview caching entirely, re-fetching a
+    // card that has not changed on every share.
+    const parts = ["MARVEL MOVIES", 50, "a.jpg", "b.jpg", "c.jpg"];
+    expect(cardFingerprint(parts)).toBe(cardFingerprint([...parts]));
+  });
+
+  it("changes when the podium is reordered", () => {
+    // The actual reported bug: rank a list, share it, reorder it, and the
+    // preview keeps the old winner because the URL never changed.
+    const before = cardFingerprint(["T", 50, "a.jpg", "b.jpg", "c.jpg"]);
+    const after = cardFingerprint(["T", 50, "b.jpg", "a.jpg", "c.jpg"]);
+    expect(after).not.toBe(before);
+  });
+
+  it("changes when the title or the film count changes", () => {
+    const base = cardFingerprint(["T", 50, "a.jpg"]);
+    expect(cardFingerprint(["T2", 50, "a.jpg"])).not.toBe(base);
+    expect(cardFingerprint(["T", 51, "a.jpg"])).not.toBe(base);
+  });
+
+  it("distinguishes a missing poster from a shifted one", () => {
+    // Joining without a separator would make ["ab", null] and ["a", "b"]
+    // collide, so a film losing its art could keep the old card.
+    expect(cardFingerprint(["ab", null])).not.toBe(cardFingerprint(["a", "b"]));
+  });
+
+  it("is URL-safe, since it becomes a path segment", () => {
+    for (const parts of [["A B/C?d=1"], ["ünïcøde"], [null], [""]]) {
+      expect(cardFingerprint(parts)).toMatch(/^[a-z0-9]+$/);
+    }
+  });
+});
+
+describe("posterRowLayout", () => {
+  const three = ["first.jpg", "second.jpg", "third.jpg"];
+
+  it("puts the winner in the middle, matching the page's podium", () => {
+    const slots = posterRowLayout(three, true);
+    expect(slots.map((s) => s.url)).toEqual(["second.jpg", "first.jpg", "third.jpg"]);
+  });
+
+  it("orders exactly as the page does, from the page's own function", () => {
+    // Bound to podiumDisplayOrder rather than restating its output, so the two
+    // cannot drift apart later — which is the whole failure being fixed here.
+    expect(posterRowLayout(three, true).map((s) => s.url)).toEqual(podiumDisplayOrder(three));
+  });
+
+  it("raises the winner and only the winner", () => {
+    const slots = posterRowLayout(three, true);
+    expect(slots[1].h).toBeGreaterThan(slots[0].h);
+    expect(slots[1].h).toBeGreaterThan(slots[2].h);
+    expect(slots[0].h).toBe(slots[2].h);
+  });
+
+  it("leaves a non-podium row in plain rank order at one size", () => {
+    // The marquee card: three films posed as a puzzle, where implying a
+    // ranking would assert something that card deliberately does not claim.
+    const slots = posterRowLayout(three, false);
+    expect(slots.map((s) => s.url)).toEqual(three);
+    expect(new Set(slots.map((s) => s.h)).size).toBe(1);
+  });
+
+  it("does not build a podium out of fewer than three films", () => {
+    // Two films have no middle, and raising one of them implies a third slot
+    // that is not there.
+    const two = posterRowLayout(["a.jpg", "b.jpg"], true);
+    expect(two.map((s) => s.url)).toEqual(["a.jpg", "b.jpg"]);
+    expect(new Set(two.map((s) => s.h)).size).toBe(1);
+  });
+
+  it("keeps a missing poster in its slot rather than closing the gap", () => {
+    // A film with no art still holds its podium position; dropping it would
+    // silently promote the film behind it.
+    expect(posterRowLayout(["a.jpg", null, "c.jpg"], true).map((s) => s.url)).toEqual([
+      null,
+      "a.jpg",
+      "c.jpg",
+    ]);
+  });
+
+  it("never returns more than three slots", () => {
+    expect(posterRowLayout(["a", "b", "c", "d", "e"], true)).toHaveLength(3);
+  });
+
+  it("returns nothing for an empty list", () => {
+    expect(posterRowLayout([], true)).toEqual([]);
   });
 });

@@ -127,7 +127,9 @@ export default function ShareButton({
   }
 
   const mailto = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(url)}`;
-  const threadsUrl = `https://www.threads.net/intent/post?text=${encodedText}`;
+  // threads.com, not threads.net — the .net address still works but 302s, and
+  // the redirect is one more place a composer intent can lose its payload.
+  const threadsUrl = `https://www.threads.com/intent/post?text=${encodedText}`;
   const blueskyUrl = `https://bsky.app/intent/compose?text=${encodedText}`;
 
   return (
@@ -163,13 +165,6 @@ export default function ShareButton({
               </svg>
               <span>Copy link</span>
             </button>
-            <a role="menuitem" href={mailto} onClick={() => setOpen(false)} className={menuItem}>
-              <svg className="size-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect width="20" height="16" x="2" y="4" rx="2" />
-                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-              </svg>
-              <span>Email</span>
-            </a>
             <a
               role="menuitem"
               href={threadsUrl}
@@ -195,6 +190,13 @@ export default function ShareButton({
                 <path d="M123.121 33.664C188.241 82.553 258.281 181.68 284 234.873c25.719-53.192 95.759-152.32 160.879-201.21C491.866-1.611 568-28.906 568 57.947c0 17.346-9.945 145.713-15.778 166.555-20.575 73.253-95.619 92.05-162.775 80.375 116.326 19.986 145.98 90.938 81.99 156.453-122.38 125.321-170.835-31.282-187.437-128.531C267.4 430.048 218.945 586.654 96.565 461.33-32.575 395.815-2.921 324.863 113.405 304.877 46.249 316.552-28.795 297.755-49.37 224.502-55.203 203.66-65.148 75.293-65.148 57.947c0-86.853 76.134-59.558 123.121-24.283z" />
               </svg>
               <span>Post to Bluesky</span>
+            </a>
+            <a role="menuitem" href={mailto} onClick={() => setOpen(false)} className={menuItem}>
+              <svg className="size-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect width="20" height="16" x="2" y="4" rx="2" />
+                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+              </svg>
+              <span>Email</span>
             </a>
             {canNativeShare && (
               <button
