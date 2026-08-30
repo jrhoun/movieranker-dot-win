@@ -30,3 +30,22 @@ export function flagsFor(parts: (string | null | undefined)[]): string[] {
   }
   return hits;
 }
+
+/**
+ * Split an over-fetched result into one page plus the answer to "is there more?".
+ *
+ * The queue asks the database for `pageSize + 1` rows and never renders the
+ * extra one; its mere existence is the signal. That beats a second COUNT query,
+ * and it beats the previous approach, which was a bare `.limit(200)` with no
+ * way to tell a full page from the end of the table — at 201 public lists the
+ * 201st was invisible and the summary line went on reporting the page's own
+ * length as though it were the total.
+ *
+ * The boundary is the whole point: `rows.length === pageSize` means a page that
+ * exactly fills, NOT a page with more behind it. Getting that backwards shows a
+ * "Load more" button that returns nothing.
+ */
+export function takePage<T>(fetched: T[], pageSize: number): { rows: T[]; hasMore: boolean } {
+  const hasMore = fetched.length > pageSize;
+  return { rows: hasMore ? fetched.slice(0, pageSize) : fetched, hasMore };
+}

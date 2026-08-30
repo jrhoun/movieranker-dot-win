@@ -79,12 +79,25 @@ interface Stats {
 
 type StatsResponse = { available: true; stats: Stats } | { available: false; reason: string };
 
+/**
+ * One number, read at a glance.
+ *
+ * The number leads and the label sits beside it rather than under it: stacked,
+ * each card was three left-aligned lines of wildly different sizes and the grid
+ * read as six paragraphs. A dashboard is scanned, not read.
+ */
 function Stat({ label, value, sub }: { label: string; value: number; sub?: string }) {
   return (
-    <div className="rounded bg-surface p-3 ring-1 ring-white/10">
-      <div className="font-display text-2xl tabular-nums text-gold">{value.toLocaleString()}</div>
-      <div className="text-[11px] uppercase tracking-wider text-text/80">{label}</div>
-      {sub && <div className="text-[10px] text-muted">{sub}</div>}
+    <div className="flex items-baseline gap-2.5 rounded bg-surface px-3 py-2.5 ring-1 ring-white/10">
+      <span className="font-display text-2xl leading-none tabular-nums text-gold">
+        {value.toLocaleString()}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-[11px] uppercase leading-tight tracking-wider text-text/80">
+          {label}
+        </span>
+        {sub && <span className="block text-[10px] leading-tight text-muted">{sub}</span>}
+      </span>
     </div>
   );
 }
@@ -285,8 +298,12 @@ export default function AdminPage() {
   // invisible the moment it was made and a mis-click could not be found again.
   const decided = all.filter((p) => p.status !== "pending");
 
+  // Wider than the reading pages. This is a dashboard — a stat grid and rows of
+  // list metadata carrying two actions each — and at max-w-2xl those rows
+  // wrapped their buttons onto a second line while the page kept wide empty
+  // margins on either side.
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10">
+    <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-10">
       <MarqueeHeading as="h2">Admin</MarqueeHeading>
 
       <h3 className="mt-6 border-b border-white/10 pb-1.5 text-xs font-semibold uppercase tracking-wider text-text/80">

@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { dbErrorResponse, invalid } from "@/lib/lists-api";
 import { isOwnerEmail } from "@/lib/proposals-api";
-import { flagsFor } from "@/lib/moderation";
+import { flagsFor, takePage } from "@/lib/moderation";
 
 /**
  * Moderation over the text this site actually shows strangers.
@@ -35,6 +35,20 @@ async function requireOwner(): Promise<boolean> {
 
 const PUBLICLY_READABLE = ["public", "unlisted"];
 
+/**
+ * One page of the queue.
+ *
+ * Was a flat `.limit(200)` with no indication that a limit had been hit: at 201
+ * public lists the 201st simply did not exist as far as this page was
+ * concerned, and the summary line went on confidently reporting "N of 200" as
+ * though 200 were the total. A cap you cannot see is worse than a small one.
+ *
+ * 50 rather than 200 for a second reason: the participant lookup below is an
+ * `.in("list_id", [...])`, and 200 uuids is a ~7KB query string. That is the
+ * thing that breaks first when this number grows.
+ */
+const PAGE_SIZE = 50;
+
 interface ListRow {
   id: string;
   title: string;
@@ -46,7 +60,7 @@ interface ListRow {
   owner_id: string;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!(await requireOwner())) return new Response("Not Found", { status: 404 });
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -56,17 +70,28 @@ export async function GET() {
     });
   }
 
+  // Keyset pagination on created_at, not offset. An offset would skip or repeat
+  // rows as lists are created underneath a reader working through the queue;
+  // "older than the last one I saw" cannot.
+  const before = new URL(request.url).searchParams.get("before");
+
   try {
     const db = supabaseAdmin();
-    const { data, error } = await db
+    let query = db
       .from("lists")
       .select("id,title,description,participants,status,visibility,created_at,owner_id")
       .eq("status", "done")
       .in("visibility", PUBLICLY_READABLE)
       .order("created_at", { ascending: false })
-      .limit(200);
+      // One more than the page, purely to learn whether a further page exists.
+      // The extra row is dropped below and never rendered.
+      .limit(PAGE_SIZE + 1);
+    if (before) query = query.lt("created_at", before);
+
+    const { data, error } = await query;
     if (error) throw error;
-    const rows = (data ?? []) as ListRow[];
+
+    const { rows, hasMore } = takePage((data ?? []) as ListRow[], PAGE_SIZE);
 
     // Owner handles: who to talk to about a list, and the only identity shown.
     const ownerIds = [...new Set(rows.map((r) => r.owner_id))];
@@ -103,15 +128,29 @@ export async function GET() {
       };
     });
 
-    // Flagged first, then newest. The queue is meant to be worked from the top
-    // and abandoned when it stops being interesting.
-    items.sort((a, b) =>
-      a.flags.length === b.flags.length
-        ? b.createdAt.localeCompare(a.createdAt)
-        : b.flags.length - a.flags.length,
-    );
+    // STRICTLY NEWEST FIRST, and no longer flagged-first.
+    //
+    // Sorting flagged items to the top was right for a single unbounded fetch
+    // and becomes a lie the moment there is a second page: it would only ever
+    // raise flagged rows above the other 49 in the same page, so a flagged list
+    // on page 3 still sits behind 100 unflagged ones while the layout implies
+    // the worst is at the top. Flags are computed in Node over the fetched rows
+    // and cannot order a query.
+    //
+    // So the ordering is the one the cursor can actually honour, the client
+    // sorts flagged-first within what it has loaded, and the copy says which is
+    // which. Ranking the whole table by flag would take the blocklist into SQL,
+    // and a word list is not fit to be the definition of objectionable.
+    items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
-    return NextResponse.json({ available: true, items });
+    return NextResponse.json({
+      available: true,
+      items,
+      hasMore,
+      // What to pass as `before` for the next page. Null when this is the end,
+      // so the client never has to guess whether it is done.
+      nextCursor: hasMore ? items[items.length - 1]?.createdAt ?? null : null,
+    });
   } catch (e) {
     return NextResponse.json({
       available: false,

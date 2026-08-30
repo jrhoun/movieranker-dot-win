@@ -221,6 +221,15 @@ export default async function MyListsPage() {
   const level = levelFor(progress.current);
   const { unlocked, locked } = unlockedAt(level.level);
 
+  // The cheapest unlock still ahead. Taken by MINIMUM rather than as locked[0]:
+  // `unlockedAt` filters UNLOCKS and preserves its order, so the first locked
+  // entry is only the next one if that array happens to be sorted by level —
+  // which nothing enforces, and which a later insertion would quietly break.
+  const nextUnlock =
+    locked.length > 0
+      ? locked.reduce((lowest, u) => (u.atLevel < lowest.atLevel ? u : lowest))
+      : null;
+
   // Same rows /api/profile's equip validator reads (owner_id + status=done,
   // oldest first): ownedItemIds replays canister drops in this order, so any
   // other ordering here could show a picker item as owned that a real equip
@@ -322,34 +331,56 @@ export default async function MyListsPage() {
         </div>
       </div>
 
-      {/* Rendered as its own block rather than inside the flex header row
-          above: ProfileCanvas is a bordered, padded card, and a row laid out
-          with `justify-between` against MarqueeHeading and the Preview/Settings
-          links would stretch or overflow it — exactly the sideways-scroll
-          failure this feature must not introduce at narrow widths. */}
-      {claimed && profile?.handle && (
-        <div className="mt-4 max-w-sm">
-          <ProfileCanvas
-            handle={profile.handle}
-            level={progress.level}
-            equipped={canvasEquipped}
-            posters={canvasPosters}
-            taglineText={taglineText}
-          />
-        </div>
-      )}
-
       {!claimed && (
         <div className="mt-4">
           <ClaimHandleCard />
         </div>
       )}
 
-      {/* Row 1 (1 Col): Marquee Gamification Hero Banner */}
-      <section aria-labelledby="stats-heading" className="mt-6 rounded-xl bg-surface p-6 ring-1 ring-gold/30 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+      {/* THE HERO: who you are, beside how far you have got.
+
+          The canvas used to sit alone in a max-w-sm block with the rest of the
+          row empty, and the level banner ran full-bleed underneath it — so the
+          page opened with a small card marooned in whitespace above a wide bar.
+          They are the same subject and now share a row.
+
+          The canvas keeps a fixed column rather than stretching: it is a
+          composed card at a set aspect, and widening it pulls the nameplate
+          away from the art it belongs to. */}
+      <div
+        className={`mt-4 grid gap-4 ${
+          claimed && profile?.handle
+            ? "lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)] lg:items-start"
+            : "grid-cols-1"
+        }`}
+      >
+        {claimed && profile?.handle && (
+          // Capped below lg, where the grid collapses to one column and the
+          // canvas would otherwise run the full page width — leaving a 78px
+          // avatar adrift in a 600px card. Above lg the column itself is the
+          // constraint, so the cap comes off.
+          <div className="max-w-sm lg:max-w-none">
+            <ProfileCanvas
+              handle={profile.handle}
+              level={progress.level}
+              equipped={canvasEquipped}
+              posters={canvasPosters}
+              taglineText={taglineText}
+            />
+          </div>
+        )}
+
+        <section
+          aria-labelledby="stats-heading"
+          className="rounded-xl bg-surface p-5 ring-1 ring-gold/30 shadow-xl sm:p-6"
+        >
+          {/* Stacked, not a justify-between row. The old inner layout put the
+              rank text and a 256px stat grid on one line, which fits the full
+              page width it used to have and overflows the ~19rem-narrower
+              column it has now. Breakpoints answer the VIEWPORT, not the
+              column, so no `sm:` variant could have rescued that. */}
           <div className="flex items-center gap-5">
-            <div aria-hidden="true" className="flex flex-col items-center">
+            <div aria-hidden="true" className="flex shrink-0 flex-col items-center">
               <span className="font-display text-6xl leading-none text-gold [text-shadow:0_0_24px_rgba(245,197,24,0.35)]">
                 {progress.level}
               </span>
@@ -357,8 +388,8 @@ export default async function MyListsPage() {
                 {progress.prestige > 0 ? `Level · P${progress.prestige}` : "Level"}
               </span>
             </div>
-            <div>
-              <span className="font-display text-2xl uppercase tracking-[0.14em] text-gold flex items-center gap-1.5">
+            <div className="min-w-0">
+              <span className="font-display flex flex-wrap items-center gap-1.5 text-xl uppercase tracking-[0.14em] text-gold sm:text-2xl">
                 Level {progress.level} – {level.title}
                 {progress.prestige > 0 && (
                   <span className="text-sm text-accent">
@@ -376,7 +407,7 @@ export default async function MyListsPage() {
             </div>
           </div>
 
-          <dl className="grid grid-cols-2 gap-4 font-mono text-sm sm:w-64">
+          <dl className="mt-5 grid grid-cols-2 gap-3 font-mono text-sm">
             <div className="rounded-lg bg-surface-raised p-3 ring-1 ring-white/5 text-center">
               <dt className="text-xs uppercase tracking-wider text-muted">Movies Ranked</dt>
               <dd className="mt-1 font-display text-2xl text-text tabular-nums">{moviesRanked}</dd>
@@ -386,7 +417,6 @@ export default async function MyListsPage() {
               <dd className="mt-1 font-display text-2xl text-text tabular-nums">{cards.length}</dd>
             </div>
           </dl>
-        </div>
 
         {/* XP Progress Bar & Guide */}
         <div className="mt-5 space-y-2">
@@ -443,7 +473,8 @@ export default async function MyListsPage() {
             )}
           </div>
         </div>
-      </section>
+        </section>
+      </div>
 
       {/* Row 2 (2 Cols): Left = Unlockables & Trophies, Right = Invite Card & Quick Stats */}
       <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -458,43 +489,50 @@ export default async function MyListsPage() {
                 {unlocked.length}/{unlocked.length + locked.length}
               </span>
             </div>
-            {/* No blur and no "Coming Soon": every entry here does something, so
-                the honest move is to say what, and let it read as a roadmap. */}
-            <ul className="mt-3 space-y-1.5">
-              {[...unlocked, ...locked].map((u) => {
-                const isUnlocked = u.atLevel <= progress.level;
-                return (
-                  <li
-                    key={u.name}
-                    className={`flex items-start gap-2.5 rounded-lg p-2.5 ring-1 transition-colors ${
-                      isUnlocked
-                        ? "bg-gold/10 ring-gold/30"
-                        : "bg-surface-raised/40 ring-white/5"
-                    }`}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`mt-px text-xs ${isUnlocked ? "text-gold" : "text-muted/60"}`}
-                    >
-                      {isUnlocked ? "✓" : "○"}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span
-                          className={`text-xs font-semibold ${isUnlocked ? "text-gold" : "text-text/70"}`}
-                        >
-                          {u.name}
-                        </span>
-                        <span className="shrink-0 font-mono text-[10px] text-muted">
-                          Lv {u.atLevel}
-                        </span>
-                      </div>
-                      <p className="mt-0.5 text-[11px] leading-snug text-muted">{u.effect}</p>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            {/* THE NEXT ONE, NOT ALL OF THEM. This listed every unlock inline,
+                which was both the tallest block in the column and a verbatim
+                duplicate of the "Ranks & unlocks" tab in the career guide
+                below — the same UNLOCKS array, the same markup, rendered
+                twice on one page. What is actually actionable is the next
+                thing to cross, so that is what this says; the full roadmap is
+                one click away and no longer competes with it.
+
+                Still no blur and no "Coming Soon": the next unlock is named
+                and priced. */}
+            {nextUnlock ? (
+              <div className="mt-3 rounded-lg bg-surface-raised/40 p-3 ring-1 ring-white/5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-[10px] uppercase tracking-wider text-muted">Next up</span>
+                  <span className="shrink-0 font-mono text-[10px] text-muted">
+                    Lv {nextUnlock.atLevel}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs font-semibold text-text">{nextUnlock.name}</p>
+                <p className="mt-0.5 text-[11px] leading-snug text-muted">{nextUnlock.effect}</p>
+              </div>
+            ) : (
+              <p className="mt-3 rounded-lg bg-gold/10 p-3 text-xs text-gold ring-1 ring-gold/30">
+                Every level unlock is yours.
+              </p>
+            )}
+
+            <div className="mt-3">
+              <LevelProgressionModal
+                currentLevel={level.level}
+                currentXp={lifetimeXp}
+                breakdown={breakdown}
+                initialTab="ranks"
+                label="See all level unlocks →"
+                challenges={achievements
+                  .filter((a) => a.challenge)
+                  .map((a) => ({
+                    name: a.name,
+                    description: a.description,
+                    icon: a.icon,
+                    unlocked: a.unlocked,
+                  }))}
+              />
+            </div>
           </section>
 
           <ShowcaseCard achievements={achievements} initialKeys={showcase.achievementKeys} />

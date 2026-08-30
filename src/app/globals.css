@@ -217,9 +217,31 @@ body {
    Pure CSS, no assets. Namespaced `ca-` so they cannot collide with Tailwind
    utilities, matching the cf-/cb-/co- convention the other cosmetic slots use.
    Colours are the house palette, except the last three, which are deliberately
-   not — loud items are the rare ones. */
+   not — loud items are the rare ones.
+
+   EVERY RULE HERE NEEDS A TWIN in og-card.tsx's GRADIENT_AVATAR_BACKGROUND.
+   Satori reads no stylesheet, so a gradient present only here renders as an
+   empty avatar on the share card, silently and at HTTP 200. Both directions
+   are asserted by tests; do not add one without the other. */
 .ca-ember   { background: linear-gradient(145deg,#f5c518,#e5484d 55%,#3a0e13); }
 .ca-velvet  { background: linear-gradient(145deg,#3a0e13,#220a0e 60%,#0d0d10); }
+
+/* Starters. Spread across the wheel on purpose: the avatar grid is the first
+   thing a new profile scrolls, and fourteen variations of amber reads as one
+   choice rendered fourteen times. */
+.ca-sepia       { background: linear-gradient(145deg,#d9a86c,#6b4a2a 55%,#2a1a10); }
+.ca-noir        { background: linear-gradient(145deg,#e8e8ec,#5a5a63 50%,#0d0d10); }
+.ca-technicolor { background: linear-gradient(145deg,#ff4d4d,#ffd24d 45%,#4d9bff); }
+.ca-chroma      { background: linear-gradient(145deg,#2b6cff,#10203f 65%,#0d0d10); }
+.ca-popcorn     { background: linear-gradient(145deg,#ffe08a,#d9a02b 55%,#4a2f0b); }
+.ca-proscenium  { background: linear-gradient(145deg,#b0202e,#5a0f18 60%,#14070a); }
+.ca-matinee     { background: linear-gradient(145deg,#ffd0b0,#d98f6b 50%,#3a5a5e); }
+.ca-midnight    { background: linear-gradient(145deg,#3a4fa8,#16204a 60%,#08080f); }
+.ca-dusk        { background: linear-gradient(145deg,#ff8a3d,#a23c78 55%,#2a1038); }
+.ca-celluloid   { background: linear-gradient(145deg,#f0c07a,#a8763a 55%,#241608); }
+.ca-aurora      { background: linear-gradient(145deg,#35e0c0,#2f7fb8 50%,#4a2a8a); }
+.ca-ultraviolet { background: linear-gradient(145deg,#a56bff,#3a1d6b 60%,#0d0d10); }
+
 .ca-nitrate { background: linear-gradient(145deg,#c9ccd4,#7f7f8c 50%,#15151a); }
 .ca-cyan    { background: linear-gradient(145deg,#22e0ff,#0b2a2e 70%,#0d0d10); }
 .ca-magenta { background: linear-gradient(145deg,#ff3ba7,#2a0b22 70%,#0d0d10); }

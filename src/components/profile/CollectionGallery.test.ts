@@ -2,24 +2,61 @@ import { describe, expect, it } from "vitest";
 import { labelFor, unlockLabel } from "@/lib/cosmetics/labels";
 import { isEarnedTagline } from "@/lib/cosmetics/taglines";
 import { CATALOGUE, itemsForSlot, SLOTS } from "@/lib/cosmetics/catalogue";
-import type { TaglineItem } from "@/lib/cosmetics/types";
+import { collectionCategories } from "@/lib/cosmetics/categories";
+import { syntheticPosterAvatar, posterAvatarId } from "@/lib/cosmetics/avatars";
+import type { CosmeticItem, TaglineItem } from "@/lib/cosmetics/types";
 import { ACHIEVEMENTS } from "@/lib/gamification";
 
+/**
+ * These assert the FUNCTION THE GALLERY CALLS, not a copy of its expression.
+ * The previous version rebuilt the same slot-then-tagline-set list it was
+ * checking and compared it to the catalogue, so it agreed with itself by
+ * construction: had the gallery stopped rendering a category, this suite would
+ * have stayed green. Now the categories come from the shared builder, and the
+ * "every item exactly once" claim is a claim about what actually ships.
+ */
 describe("collection gallery coverage", () => {
+  const categories = collectionCategories();
+  const shown = categories.flatMap((c) => c.items.map((i) => i.id));
+
   it("shows every catalogue item exactly once", () => {
-    // The gallery renders each non-tagline slot once, then taglines split by
-    // set. If a set were missed, or a slot rendered twice, the collection
-    // would silently under- or double-report what a user owns.
-    const taglines = itemsForSlot("tagline") as TaglineItem[];
-    const sets = [...new Set(taglines.map((t) => t.set))];
-
-    const shown = [
-      ...SLOTS.filter((s) => s !== "tagline").flatMap((s) => itemsForSlot(s)),
-      ...sets.flatMap((set) => taglines.filter((t) => t.set === set)),
-    ].map((i) => i.id);
-
     expect(new Set(shown).size, "an item is rendered twice").toBe(shown.length);
     expect(shown.length, "an item is missing from the gallery").toBe(CATALOGUE.length);
+    expect([...shown].sort()).toEqual(CATALOGUE.map((i) => i.id).sort());
+  });
+
+  it("gives every slot a category", () => {
+    // A new slot added to SLOTS but not to the builder would be invisible in
+    // the collection while still being equippable — owned items nobody can
+    // find. Taglines are the one slot spread over several categories.
+    for (const slot of SLOTS) {
+      const covering = categories.filter((c) => c.items.some((i) => i.slot === slot));
+      expect(covering.length, `slot "${slot}" has no category`).toBeGreaterThan(0);
+    }
+  });
+
+  it("gives every category a title and a stable unique key", () => {
+    const keys = categories.map((c) => c.key);
+    expect(new Set(keys).size, "two categories share a key").toBe(keys.length);
+    for (const c of categories) {
+      expect(c.title, c.key).toBeTruthy();
+      expect(c.items.length, `${c.key} is an empty category`).toBeGreaterThan(0);
+    }
+  });
+
+  it("puts a claimed poster avatar in the avatars category", () => {
+    // Claims are per-user and never in CATALOGUE. A claim costs an allowance,
+    // so one that appears nowhere is one the user will forget they spent.
+    const claim = syntheticPosterAvatar(posterAvatarId(155)) as CosmeticItem;
+    const withClaim = collectionCategories([claim]);
+    const avatars = withClaim.find((c) => c.key === "avatar");
+    expect(avatars?.items.map((i) => i.id)).toContain("avatar.poster.155");
+  });
+
+  it("does not leak a claimed avatar into the base catalogue view", () => {
+    // collectionCategories() with no argument must be the pure catalogue —
+    // otherwise the coverage assertion above would drift with a user's claims.
+    expect(shown).not.toContain("avatar.poster.155");
   });
 });
 
