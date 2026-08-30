@@ -102,6 +102,17 @@ export const EARNED_TAGLINES: TaglineItem[] = [
  */
 const EARNED_IDS = new Set(EARNED_TAGLINES.map((t) => t.id));
 
+/**
+ * Membership, never a text sniff — see the note above. UI that has to decide
+ * whether a tagline's own words may be shown asks this: a STATIC line is safe
+ * to display while locked (the line is the thing you want), an EARNED one is
+ * not, because its `name` and `text` are either a "{count}" template or the
+ * display text of something not yet earned.
+ */
+export function isEarnedTagline(id: string): boolean {
+  return EARNED_IDS.has(id);
+}
+
 export const TAGLINES: TaglineItem[] = [
   // The Trailer
   line("trailer.in-a-world", "The Trailer", "In a world…", STARTER),

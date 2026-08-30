@@ -74,6 +74,10 @@ export default function SlotPreview({
   const background = BACKGROUND_PREVIEW_CLASS[item.id];
   if (background) return <span aria-hidden className={`${base} ${background}`} />;
 
-  // Taglines have no visual of their own — the gallery renders their text.
+  // A tagline IS its text — it has no art, and an empty chip in its place is
+  // worse than nothing: 88 blank boxes read as a broken grid. Callers render
+  // the line itself instead.
+  if (item.slot === "tagline") return null;
+
   return <span aria-hidden className={`${base} bg-surface-raised ring-1 ring-white/10`} />;
 }
