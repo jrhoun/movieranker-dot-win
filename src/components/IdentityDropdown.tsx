@@ -12,9 +12,19 @@ const itemCls =
 export default function IdentityDropdown({
   handle,
   signOut,
+  isOwner = false,
 }: {
   handle: string | null;
   signOut: () => Promise<void>;
+  /**
+   * Decided on the server from OWNER_EMAIL. A boolean, never the email itself —
+   * shipping that would publish the one address the admin gate is keyed on.
+   *
+   * Hiding the link is a courtesy, not a control: /admin's API routes each
+   * re-check the gate and answer 404 to anyone else, so a visitor who types the
+   * URL still sees nothing.
+   */
+  isOwner?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -108,6 +118,12 @@ export default function IdentityDropdown({
           <span aria-hidden="true">⚙</span>
           Settings
         </Link>
+        {isOwner && (
+          <Link role="menuitem" href="/admin" className={itemCls} tabIndex={open ? 0 : -1}>
+            <span aria-hidden="true">🎛</span>
+            Admin
+          </Link>
+        )}
         <div role="separator" className="my-1 h-px bg-white/10" />
         <form action={signOut}>
           <button role="menuitem" type="submit" className={`${itemCls} w-full text-left`} tabIndex={open ? 0 : -1}>

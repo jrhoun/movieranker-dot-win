@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import SignInLink from "@/components/SignInLink";
 import IdentityDropdown from "@/components/IdentityDropdown";
+import { isOwnerEmail } from "@/lib/proposals-api";
 
 async function signOut() {
   "use server";
@@ -26,6 +27,17 @@ export default async function SiteHeader() {
     handle = profile?.handle ?? null;
   }
 
+  /**
+   * Resolved on the SERVER and passed as a boolean. The owner's email must
+   * never reach the client — sending it so the browser could compare would
+   * publish the one address the admin gate is keyed on.
+   *
+   * This only hides a link. /admin's API routes each re-check the gate and
+   * answer 404 to anyone else, so the link's absence is a courtesy, not the
+   * security boundary.
+   */
+  const isOwner = isOwnerEmail(data.user?.email ?? null);
+
   return (
     <header className="sticky top-0 z-40 border-b border-gold/20 bg-bg/85 backdrop-blur-md">
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-1">
@@ -45,7 +57,7 @@ export default async function SiteHeader() {
             Updates
           </Link>
           {data.user ? (
-            <IdentityDropdown handle={handle} signOut={signOut} />
+            <IdentityDropdown handle={handle} signOut={signOut} isOwner={isOwner} />
           ) : (
             <SignInLink className="flex min-h-9 items-center rounded-full border border-gold/40 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-gold transition-colors duration-200 ease-out hover:bg-gold hover:text-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold" />
           )}
