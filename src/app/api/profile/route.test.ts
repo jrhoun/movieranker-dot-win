@@ -264,45 +264,67 @@ describe("PATCH /api/profile — showcase", () => {
     expect((upd.args[0] as { showcase: { lifetimeXp?: number } }).showcase.lifetimeXp).toBe(50);
   });
 
-  it("strips a client-supplied avatarClaims instead of storing it", async () => {
-    // CRITICAL, and for a longer-lived reason than lifetimeXp: mergeShowcase
-    // UNIONS claims and can never remove one, so a single unchecked PATCH
-    // permanently self-grants poster avatars that are supposed to be rationed
-    // by claimAllowance(level). parseAvatarClaims caps neither the values nor
-    // the array length, so "permanently" here means the entire library in one
-    // request. Nothing equips avatars yet, which is exactly why this is worth
-    // closing now — the claims would sit in storage waiting to be honoured.
+  const doneListWith = (tmdbIds: number[]) => [
+    {
+      theme_slug: null,
+      status: "done",
+      participants: [],
+      created_at: "2026-01-01T00:00:00Z",
+      list_movies: tmdbIds.map((id) => ({ tmdb_id: id, poster_path: `/p${id}.jpg` })),
+    },
+  ];
+
+  it("stores an avatar claim for a film the user finished ranking", async () => {
     currentDb.row = {
       id: "u-1",
-      showcase: { achievementKeys: [], favoriteListId: null, avatarClaims: [155] },
+      showcase: { achievementKeys: [], favoriteListId: null, lifetimeXp: 0 },
     };
+    currentDb.rowsByTable = { lists: doneListWith([155]) };
     currentDb.writeResult = { data: { id: "u-1" }, error: null };
-    const res = await patchShowcase({ avatarClaims: [1, 2, 3, 4, 5] });
+    const res = await patchShowcase({ avatarClaims: [155] });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { showcase: { avatarClaims?: number[] } };
     expect(body.showcase.avatarClaims).toEqual([155]);
-    const upd = currentDb.calls.find((c) => c.method === "update")!;
-    expect(
-      (upd.args[0] as { showcase: { avatarClaims?: number[] } }).showcase.avatarClaims,
-    ).toEqual([155]);
   });
 
-  it("strips avatarClaims even riding alongside a legitimate field in the same request", async () => {
+  it("refuses a claim for a film the user never ranked", async () => {
+    // The claim is what turns a poster into an owned avatar, so believing the
+    // client here would let anyone wear any film in TMDB.
     currentDb.row = {
       id: "u-1",
-      showcase: { achievementKeys: [], favoriteListId: null, avatarClaims: [155] },
+      showcase: { achievementKeys: [], favoriteListId: null, lifetimeXp: 0 },
     };
+    currentDb.rowsByTable = { lists: doneListWith([155]) };
     currentDb.writeResult = { data: { id: "u-1" }, error: null };
-    const res = await patchShowcase({
-      achievementKeys: ["first_premiere"],
-      avatarClaims: [999999],
-    });
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as {
-      showcase: { achievementKeys: string[]; avatarClaims?: number[] };
+    const res = await patchShowcase({ avatarClaims: [999999] });
+    expect(res.status).toBe(403);
+  });
+
+  it("refuses more claims than the level allowance, even when every film is ranked", async () => {
+    // Every id here IS in the user's own finished list, so this can only be
+    // refused by the allowance — which is the half that makes claims scarce.
+    const many = Array.from({ length: 60 }, (_, i) => 1000 + i);
+    currentDb.row = {
+      id: "u-1",
+      showcase: { achievementKeys: [], favoriteListId: null, lifetimeXp: 0 },
     };
-    expect(body.showcase.achievementKeys).toEqual(["first_premiere"]);
-    expect(body.showcase.avatarClaims).toEqual([155]);
+    currentDb.rowsByTable = { lists: doneListWith(many) };
+    currentDb.writeResult = { data: { id: "u-1" }, error: null };
+    const res = await patchShowcase({ avatarClaims: many });
+    expect(res.status).toBe(403);
+  });
+
+  it("counts already-stored claims against the allowance, not just the patch", async () => {
+    // Otherwise the allowance is spendable one request at a time forever.
+    const many = Array.from({ length: 60 }, (_, i) => 1000 + i);
+    currentDb.row = {
+      id: "u-1",
+      showcase: { achievementKeys: [], favoriteListId: null, lifetimeXp: 0, avatarClaims: many },
+    };
+    currentDb.rowsByTable = { lists: doneListWith([...many, 155]) };
+    currentDb.writeResult = { data: { id: "u-1" }, error: null };
+    const res = await patchShowcase({ avatarClaims: [155] });
+    expect(res.status).toBe(403);
   });
 
   it("strips lifetimeXp even riding alongside a legitimate field in the same request", async () => {

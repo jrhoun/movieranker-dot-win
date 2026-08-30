@@ -14,7 +14,8 @@ import {
 import { fetchCareerXp } from "@/lib/career-xp";
 import { resolveReferrerId } from "@/lib/referrals";
 import { parseEquipped } from "@/lib/cosmetics/equipped";
-import { validateEquipPatch } from "@/lib/cosmetics/equip-guard";
+import { validateClaims, validateEquipPatch } from "@/lib/cosmetics/equip-guard";
+import { claimAllowance, parseAvatarClaims } from "@/lib/cosmetics/claims";
 import { ownedItemIds } from "@/lib/cosmetics/ownership";
 import { resolveTaglineText } from "@/lib/cosmetics/taglines";
 import { marqueeStanding } from "@/lib/marquee-standing";
@@ -167,15 +168,13 @@ export async function PATCH(request: Request) {
     const clientShowcase: Record<string, unknown> = { ...(body.showcase as Record<string, unknown>) };
     delete clientShowcase.lifetimeXp;
 
-    // avatarClaims: same trust boundary as lifetimeXp above. `mergeShowcase`
-    // UNIONS claims and never removes one — they are permanent by design — so
-    // a single unchecked PATCH would permanently self-grant the entire poster
-    // library, and `parseAvatarClaims` caps neither the count nor the array
-    // length. The allowance that is supposed to gate this (`claimAllowance`,
-    // derived from level) has no caller yet: claiming lands with the route
-    // work in a later task, which is where this strip gets replaced by a real
-    // check. Until then the field is server-owned and never client-writable.
-    delete clientShowcase.avatarClaims;
+    // avatarClaims: shape-checked here, but NOT trusted until validateClaims
+    // below has checked the merged set against this user's own finished films
+    // and their derived allowance. `mergeShowcase` unions claims and can never
+    // remove one, so an unchecked claim is permanent — this is the one field
+    // where a missed validation cannot be undone by a later correct write.
+    const claimsPatch = parseAvatarClaims(clientShowcase.avatarClaims);
+    if (claimsPatch === null) return invalid("invalid avatarClaims");
 
     // taglineText is server-derived from resolveTaglineText, the same trust
     // boundary as lifetimeXp above: never believe a client-supplied value.
@@ -209,7 +208,11 @@ export async function PATCH(request: Request) {
       (clientShowcase as { equipped?: unknown }).equipped,
     );
     if (equipPatch === null) return invalid("invalid equipped block");
-    if (Object.keys(equipPatch).length > 0) {
+    // Claims need the same finished-list data an equip does, so they share the
+    // block rather than paying for a second round of queries. A claims-only
+    // request must still enter it — otherwise claims would skip validation
+    // entirely whenever no cosmetic was being equipped alongside them.
+    if (Object.keys(equipPatch).length > 0 || claimsPatch.length > 0) {
       // Ordered oldest-first: ownedItemIds replays canister drops in
       // finishedThemeSlugs order, and an unordered query would make the
       // drop-derived half of `owned` (and therefore a 403) non-deterministic
@@ -304,6 +307,22 @@ export async function PATCH(request: Request) {
         marqueeConnectionsSolved: breakdown.connections / CONNECTION_SOLVE_XP,
         ...standing,
       };
+      // The FULL post-merge claim set, matching what mergeShowcase will store.
+      // Validating only the patch would let a client spend its allowance one
+      // request at a time and never exceed it on any single call.
+      const storedClaims =
+        (row as { showcase?: { avatarClaims?: number[] } }).showcase?.avatarClaims ?? [];
+      const mergedClaims = [...new Set([...storedClaims, ...claimsPatch])];
+      if (claimsPatch.length > 0) {
+        const claimCheck = validateClaims(
+          mergedClaims,
+          ownedTmdbIds,
+          claimAllowance(levelFor(total).level),
+        );
+        if (!claimCheck.ok)
+          return NextResponse.json({ error: claimCheck.error }, { status: 403 });
+      }
+
       const owned = ownedItemIds({
         userId: auth.user.id,
         level: levelFor(total).level,
@@ -311,6 +330,9 @@ export async function PATCH(request: Request) {
           .filter((a) => a.unlocked)
           .map((a) => a.key),
         finishedThemeSlugs,
+        // The merged set, so a poster claimed and equipped in the SAME request
+        // is already owned by the time validateEquipPatch asks.
+        avatarClaims: mergedClaims,
       });
 
       const check = validateEquipPatch(equipPatch, owned, ownedTmdbIds, posterPathByTmdbId);

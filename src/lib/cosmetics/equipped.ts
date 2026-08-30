@@ -15,6 +15,19 @@ export interface Equipped {
   overlay?: string | null;
   tagline?: string | null;
   /**
+   * A catalogue id like every other slot — including a POSTER avatar, which
+   * arrives as the synthetic `avatar.poster.<tmdbId>` that `itemById`
+   * synthesises on demand. That is what lets the ordinary per-field loop in
+   * `validateEquipPatch` check ownership and slot correspondence for avatars
+   * with no special case, and it is why claiming a poster is a separate act
+   * from equipping one: the claim is what puts the synthetic id into `owned`.
+   *
+   * Distinct from the older `avatarTmdbId`/`avatarPosterPath` pair above,
+   * which is the pre-slot mechanism and still carries the poster path used to
+   * RENDER a poster avatar.
+   */
+  avatar?: string | null;
+  /**
    * The tagline's resolved display text, stored as a SNAPSHOT at equip time
    * — never recomputed from `tagline` on read. A viewer of /u/[handle]
    * (including the owner themselves, since that page filters by visibility
@@ -30,7 +43,7 @@ export interface Equipped {
   taglineText?: string | null;
 }
 
-export const ID_FIELDS = ["frame", "background", "overlay", "tagline"] as const;
+export const ID_FIELDS = ["frame", "background", "overlay", "tagline", "avatar"] as const;
 
 /**
  * Fields where `null`, on a raw patch, means "clear this" — the read/write
@@ -105,7 +118,7 @@ export function parseEquipped(input: unknown): Equipped | null {
 export function resolveEquipped(
   equipped: Equipped | undefined,
   owned: Set<string>,
-): Required<Pick<Equipped, "frame" | "background" | "overlay">> & Equipped {
+): Required<Pick<Equipped, "frame" | "background" | "overlay" | "avatar">> & Equipped {
   const e = equipped ?? {};
   const pick = (slot: Slot, id: string | null | undefined) =>
     id && canEquip(id, owned) ? id : starterFor(slot).id;
@@ -115,6 +128,10 @@ export function resolveEquipped(
     frame: pick("frame", e.frame),
     background: pick("background", e.background),
     overlay: pick("overlay", e.overlay),
+    // Resolved like the other three rather than passed through: a poster
+    // avatar's ownership comes from a CLAIM, and an unclaimed one must fall
+    // back to the starter instead of rendering a film the user cannot show.
+    avatar: pick("avatar", e.avatar),
     // A tagline is optional — no starter is forced on anyone.
     tagline: e.tagline && canEquip(e.tagline, owned) ? e.tagline : undefined,
   };
@@ -141,7 +158,7 @@ export function resolveEquipped(
  */
 export function sanitizeEquipped(
   equipped: Equipped | undefined,
-): Required<Pick<Equipped, "frame" | "background" | "overlay">> & Equipped {
+): Required<Pick<Equipped, "frame" | "background" | "overlay" | "avatar">> & Equipped {
   const e = equipped ?? {};
   const validFor = (slot: Slot, id: string | null | undefined) =>
     id && itemById(id)?.slot === slot ? id : undefined;
@@ -151,6 +168,10 @@ export function sanitizeEquipped(
     frame: validFor("frame", e.frame) ?? starterFor("frame").id,
     background: validFor("background", e.background) ?? starterFor("background").id,
     overlay: validFor("overlay", e.overlay) ?? starterFor("overlay").id,
+    // A stored `avatar.poster.<tmdbId>` still resolves here, because itemById
+    // synthesises it — so a viewer keeps seeing the poster the owner claimed,
+    // without this page needing the claim list it cannot read under RLS.
+    avatar: validFor("avatar", e.avatar) ?? starterFor("avatar").id,
     // A tagline is optional — no starter is forced on anyone, same as resolveEquipped.
     tagline: validFor("tagline", e.tagline),
   };
