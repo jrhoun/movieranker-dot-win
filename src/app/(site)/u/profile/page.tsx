@@ -331,34 +331,56 @@ export default async function MyListsPage() {
         </div>
       </div>
 
-      {/* Rendered as its own block rather than inside the flex header row
-          above: ProfileCanvas is a bordered, padded card, and a row laid out
-          with `justify-between` against MarqueeHeading and the Preview/Settings
-          links would stretch or overflow it — exactly the sideways-scroll
-          failure this feature must not introduce at narrow widths. */}
-      {claimed && profile?.handle && (
-        <div className="mt-4 max-w-sm">
-          <ProfileCanvas
-            handle={profile.handle}
-            level={progress.level}
-            equipped={canvasEquipped}
-            posters={canvasPosters}
-            taglineText={taglineText}
-          />
-        </div>
-      )}
-
       {!claimed && (
         <div className="mt-4">
           <ClaimHandleCard />
         </div>
       )}
 
-      {/* Row 1 (1 Col): Marquee Gamification Hero Banner */}
-      <section aria-labelledby="stats-heading" className="mt-6 rounded-xl bg-surface p-6 ring-1 ring-gold/30 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+      {/* THE HERO: who you are, beside how far you have got.
+
+          The canvas used to sit alone in a max-w-sm block with the rest of the
+          row empty, and the level banner ran full-bleed underneath it — so the
+          page opened with a small card marooned in whitespace above a wide bar.
+          They are the same subject and now share a row.
+
+          The canvas keeps a fixed column rather than stretching: it is a
+          composed card at a set aspect, and widening it pulls the nameplate
+          away from the art it belongs to. */}
+      <div
+        className={`mt-4 grid gap-4 ${
+          claimed && profile?.handle
+            ? "lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)] lg:items-start"
+            : "grid-cols-1"
+        }`}
+      >
+        {claimed && profile?.handle && (
+          // Capped below lg, where the grid collapses to one column and the
+          // canvas would otherwise run the full page width — leaving a 78px
+          // avatar adrift in a 600px card. Above lg the column itself is the
+          // constraint, so the cap comes off.
+          <div className="max-w-sm lg:max-w-none">
+            <ProfileCanvas
+              handle={profile.handle}
+              level={progress.level}
+              equipped={canvasEquipped}
+              posters={canvasPosters}
+              taglineText={taglineText}
+            />
+          </div>
+        )}
+
+        <section
+          aria-labelledby="stats-heading"
+          className="rounded-xl bg-surface p-5 ring-1 ring-gold/30 shadow-xl sm:p-6"
+        >
+          {/* Stacked, not a justify-between row. The old inner layout put the
+              rank text and a 256px stat grid on one line, which fits the full
+              page width it used to have and overflows the ~19rem-narrower
+              column it has now. Breakpoints answer the VIEWPORT, not the
+              column, so no `sm:` variant could have rescued that. */}
           <div className="flex items-center gap-5">
-            <div aria-hidden="true" className="flex flex-col items-center">
+            <div aria-hidden="true" className="flex shrink-0 flex-col items-center">
               <span className="font-display text-6xl leading-none text-gold [text-shadow:0_0_24px_rgba(245,197,24,0.35)]">
                 {progress.level}
               </span>
@@ -366,8 +388,8 @@ export default async function MyListsPage() {
                 {progress.prestige > 0 ? `Level · P${progress.prestige}` : "Level"}
               </span>
             </div>
-            <div>
-              <span className="font-display text-2xl uppercase tracking-[0.14em] text-gold flex items-center gap-1.5">
+            <div className="min-w-0">
+              <span className="font-display flex flex-wrap items-center gap-1.5 text-xl uppercase tracking-[0.14em] text-gold sm:text-2xl">
                 Level {progress.level} – {level.title}
                 {progress.prestige > 0 && (
                   <span className="text-sm text-accent">
@@ -385,7 +407,7 @@ export default async function MyListsPage() {
             </div>
           </div>
 
-          <dl className="grid grid-cols-2 gap-4 font-mono text-sm sm:w-64">
+          <dl className="mt-5 grid grid-cols-2 gap-3 font-mono text-sm">
             <div className="rounded-lg bg-surface-raised p-3 ring-1 ring-white/5 text-center">
               <dt className="text-xs uppercase tracking-wider text-muted">Movies Ranked</dt>
               <dd className="mt-1 font-display text-2xl text-text tabular-nums">{moviesRanked}</dd>
@@ -395,7 +417,6 @@ export default async function MyListsPage() {
               <dd className="mt-1 font-display text-2xl text-text tabular-nums">{cards.length}</dd>
             </div>
           </dl>
-        </div>
 
         {/* XP Progress Bar & Guide */}
         <div className="mt-5 space-y-2">
@@ -452,7 +473,8 @@ export default async function MyListsPage() {
             )}
           </div>
         </div>
-      </section>
+        </section>
+      </div>
 
       {/* Row 2 (2 Cols): Left = Unlockables & Trophies, Right = Invite Card & Quick Stats */}
       <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
