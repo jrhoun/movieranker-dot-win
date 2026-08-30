@@ -247,6 +247,24 @@ body {
 .ca-magenta { background: linear-gradient(145deg,#ff3ba7,#2a0b22 70%,#0d0d10); }
 .ca-toxic   { background: linear-gradient(145deg,#7cff4d,#122a10 70%,#0d0d10); }
 
+/* ---- Poster placeholders ----------------------------------------------
+   For films TMDB has no art for — plenty of shorts, festival films and recent
+   additions. A permanent state, not a loading one, so it gets a real design
+   rather than an empty surface with the title floating in it.
+
+   Namespaced `pp-` and picked by posterPlaceholderClass() from the film's tmdb
+   id, so a film keeps its colour when its list is reordered and wears the same
+   one in every view. Muted on purpose: these sit in a grid beside real poster
+   art and must not outshine it. */
+.pp-0 { background: linear-gradient(160deg,#2a2f3d,#1a1d26 60%,#12141a); }
+.pp-1 { background: linear-gradient(160deg,#3a2a2f,#241a1e 60%,#161114); }
+.pp-2 { background: linear-gradient(160deg,#26332f,#18211f 60%,#101614); }
+.pp-3 { background: linear-gradient(160deg,#332e26,#211d18 60%,#161310); }
+.pp-4 { background: linear-gradient(160deg,#2d2839,#1d1a26 60%,#131119); }
+.pp-5 { background: linear-gradient(160deg,#233039,#161f26 60%,#0f151a); }
+.pp-6 { background: linear-gradient(160deg,#392c33,#261d22 60%,#191216); }
+.pp-7 { background: linear-gradient(160deg,#2b3126,#1c2019 60%,#131610); }
+
 /* ---- Background previews ----------------------------------------------
    Stand-ins for the collection gallery ONLY. A real background is composited
    from several layers (poster art, a scrim, sprocket holes, a beam) that

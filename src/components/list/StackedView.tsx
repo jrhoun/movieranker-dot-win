@@ -91,6 +91,7 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
                       <MoviePoster
                         title={m.title}
                         posterPath={m.posterPath}
+                        tmdbId={m.tmdbId}
                       />
                     </a>
                   </div>
@@ -168,6 +169,7 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
                     <MoviePoster
                       title={m.title}
                       posterPath={m.posterPath}
+                      tmdbId={m.tmdbId}
                     />
                   </a>
                 </div>
@@ -216,6 +218,7 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
                     <MoviePoster
                       title={m.title}
                       posterPath={m.posterPath}
+                      tmdbId={m.tmdbId}
                     />
                   </a>
                 </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import type { RankedMovie } from "@/lib/ranking";
+import { posterPlaceholderClass } from "@/lib/poster-placeholder";
 
 const POSTER_BASE = "https://image.tmdb.org/t/p/w185";
 
@@ -59,8 +60,12 @@ export default function ParkedStrip({
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center p-1.5 text-center text-xs text-muted">
-                    {m.title}
+                  <div
+                    className={`flex h-full w-full items-center justify-center p-1.5 text-center ${posterPlaceholderClass(m.tmdbId)}`}
+                  >
+                    <span className="line-clamp-3 text-[10px] font-semibold uppercase leading-tight tracking-wide text-text/90">
+                      {m.title}
+                    </span>
                   </div>
                 )}
                 {m.parked && (
