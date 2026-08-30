@@ -1,5 +1,43 @@
 import { describe, expect, it } from "vitest";
-import { flagsFor } from "./moderation";
+import { flagsFor, takePage } from "./moderation";
+
+describe("takePage", () => {
+  const rows = (n: number) => Array.from({ length: n }, (_, i) => i);
+
+  it("reports more when the over-fetch came back full", () => {
+    // 11 fetched for a page of 10 means an 11th row exists.
+    const { rows: page, hasMore } = takePage(rows(11), 10);
+    expect(hasMore).toBe(true);
+    expect(page).toHaveLength(10);
+  });
+
+  it("never renders the extra row it fetched only to probe with", () => {
+    const { rows: page } = takePage(rows(11), 10);
+    expect(page).not.toContain(10);
+  });
+
+  it("treats an exactly-full page as the end, not as more", () => {
+    // THE BOUNDARY, and the reason this is a function rather than two inline
+    // lines. `length === pageSize` means the table ran out at exactly this
+    // many; reading it as "more" shows a Load more button that fetches nothing
+    // and never goes away.
+    const { rows: page, hasMore } = takePage(rows(10), 10);
+    expect(hasMore).toBe(false);
+    expect(page).toHaveLength(10);
+  });
+
+  it("handles a partial page and an empty one", () => {
+    expect(takePage(rows(3), 10)).toEqual({ rows: [0, 1, 2], hasMore: false });
+    expect(takePage(rows(0), 10)).toEqual({ rows: [], hasMore: false });
+  });
+
+  it("preserves order, since the cursor is read off the last row", () => {
+    // The next request asks for rows older than the LAST one shown. If this
+    // reordered, pagination would skip rows with no indication.
+    const { rows: page } = takePage(rows(11), 10);
+    expect(page).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  });
+});
 
 describe("flagsFor", () => {
   it("returns nothing for ordinary film-list text", () => {
