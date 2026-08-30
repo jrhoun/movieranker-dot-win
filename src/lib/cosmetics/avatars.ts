@@ -1,3 +1,4 @@
+import manifest from "../../../public/avatars/manifest.json";
 import type { CosmeticItem } from "./types";
 
 /**
@@ -67,7 +68,57 @@ const GRADIENTS: CosmeticItem[] = [
 ];
 
 /**
- * Fixed-catalogue avatars. Gradients arrive in this task; generated art is
- * spread in later, when its assets exist.
+ * DiceBear styles that are CC0. The CC BY 4.0 styles require visible designer
+ * credit on every page that shows them, so they must never ship here.
+ * `scripts/generate-avatars.mjs` reads each style's own licence metadata and
+ * refuses to write a non-CC0 one, so this list is a second lock rather than
+ * the only one.
  */
-export const AVATARS: CosmeticItem[] = [...GRADIENTS];
+export const CC0_STYLES = [
+  "identicon",
+  "initials",
+  "lorelei",
+  "notionists",
+  "open-peeps",
+  "pixel-art",
+  "rings",
+  "shapes",
+  "thumbs",
+];
+
+/** Public URL for a generated avatar's committed SVG. */
+export function avatarAssetPath(id: string): string {
+  return `/avatars/${id.replace("avatar.gen.", "")}.svg`;
+}
+
+const titleCase = (s: string) =>
+  s
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+
+/**
+ * Generated art, committed as SVGs rather than produced at request time — an
+ * avatar that could be conjured on demand could not be an unlockable.
+ *
+ * NONE ARE DROPPABLE, for the reason spelled out above `GRADIENTS`: the
+ * canister pool is shared across every slot, so 24 droppable items would
+ * rewrite every user's drop history far more violently than the two that
+ * already did it once. They pace by level instead.
+ *
+ * Three starters so a new profile has real choice on day one, then one every
+ * three levels to 65 — the last is reachable well inside the level 100 ceiling.
+ */
+const GENERATED: CosmeticItem[] = manifest.map((entry, i) => ({
+  id: `avatar.gen.${entry.id}`,
+  slot: "avatar",
+  name: `${titleCase(entry.style)} ${titleCase(entry.seed)}`,
+  unlock: i < 3 ? { kind: "starter" } : { kind: "level", level: 2 + (i - 2) * 3 },
+  rarity: i < 12 ? "common" : "rare",
+}));
+
+/**
+ * Fixed-catalogue avatars: generated art plus the gradients. Poster avatars are
+ * NOT here — they are per-user and synthesised on demand by `itemById`.
+ */
+export const AVATARS: CosmeticItem[] = [...GENERATED, ...GRADIENTS];

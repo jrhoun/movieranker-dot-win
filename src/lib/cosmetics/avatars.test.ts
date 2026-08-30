@@ -1,7 +1,14 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { AVATARS, posterAvatarId, posterAvatarTmdbId, syntheticPosterAvatar } from "./avatars";
+import {
+  AVATARS,
+  avatarAssetPath,
+  CC0_STYLES,
+  posterAvatarId,
+  posterAvatarTmdbId,
+  syntheticPosterAvatar,
+} from "./avatars";
 import { itemById, SLOTS } from "./catalogue";
 
 describe("synthetic poster avatars", () => {
@@ -47,6 +54,69 @@ describe("synthetic poster avatars", () => {
   });
 });
 
+describe("generated avatars", () => {
+  const manifest = JSON.parse(
+    readFileSync(join(process.cwd(), "public/avatars/manifest.json"), "utf8"),
+  ) as { id: string; style: string; license: string }[];
+
+  const generated = AVATARS.filter((a) => a.id.startsWith("avatar.gen."));
+
+  it("ships only CC0 styles — the CC BY styles require visible designer credit", () => {
+    // A licence breach is invisible at runtime and expensive later, so it is
+    // checked here as well as in the generator that writes these files.
+    for (const entry of manifest) {
+      expect(CC0_STYLES, `${entry.id} uses a non-CC0 style`).toContain(entry.style);
+      expect(entry.license, entry.id).toBe("CC0-1.0");
+    }
+  });
+
+  it("every committed asset has a catalogue entry and vice versa", () => {
+    // Catches both directions: an SVG nobody can equip, and a catalogue entry
+    // pointing at a file that was never committed.
+    const files = readdirSync(join(process.cwd(), "public/avatars"))
+      .filter((f) => f.endsWith(".svg"))
+      .map((f) => f.replace(/\.svg$/, ""));
+    expect(generated.map((a) => a.id.replace("avatar.gen.", "")).sort()).toEqual(files.sort());
+  });
+
+  it("asset paths point at real files that contain drawing, not just metadata", () => {
+    for (const a of generated) {
+      const svg = readFileSync(join(process.cwd(), "public", avatarAssetPath(a.id)), "utf8");
+      // A DiceBear SVG always carries an RDF metadata block, so merely being
+      // non-empty proves nothing — an avatar that renders as a blank box would
+      // still pass that. Require actual geometry.
+      expect(svg, `${a.id} has no drawable content`).toMatch(/<(path|circle|rect|polygon|ellipse)\b/);
+    }
+  });
+
+  it("no generated avatar is droppable", () => {
+    // 24 droppable items would rewrite every user's canister history far more
+    // violently than the two that already did. catalogue.test.ts enforces this
+    // for the whole slot; this states it where the entries are built.
+    for (const a of generated) {
+      expect(a.unlock.kind, a.id).not.toBe("drop");
+    }
+  });
+
+  it("gives a new profile real choice, and paces the rest inside the level ceiling", () => {
+    expect(generated.filter((a) => a.unlock.kind === "starter").length).toBeGreaterThanOrEqual(3);
+    for (const a of generated) {
+      if (a.unlock.kind === "level") {
+        expect(a.unlock.level, a.id).toBeGreaterThan(1);
+        expect(a.unlock.level, a.id).toBeLessThanOrEqual(100);
+      }
+    }
+  });
+
+  it("names read as names, not as filenames", () => {
+    // "lorelei reel" is a manifest key; "Lorelei Reel" is a collectible.
+    for (const a of generated) {
+      expect(a.name, a.id).not.toContain("-");
+      expect(a.name[0], a.id).toBe(a.name[0].toUpperCase());
+    }
+  });
+});
+
 describe("gradient avatars", () => {
   it("gradient avatar ids are unique and properly namespaced", () => {
     const grads = AVATARS.filter((a) => a.id.startsWith("avatar.grad."));
@@ -60,8 +130,13 @@ describe("gradient avatars", () => {
   });
 
   it("starter invariant: at least one starter gradient avatar exists", () => {
-    const starters = AVATARS.filter((a) => a.unlock.kind === "starter");
-    expect(starters.length).toBeGreaterThanOrEqual(1);
+    // Scoped to gradients, as the name says. It previously filtered ALL of
+    // AVATARS, which only matched because gradients were the only entries;
+    // adding generated starters made the unscoped version fail for no real
+    // reason.
+    const starters = AVATARS.filter(
+      (a) => a.id.startsWith("avatar.grad.") && a.unlock.kind === "starter",
+    );
     expect(starters.map((s) => s.id)).toEqual(["avatar.grad.ember", "avatar.grad.velvet"]);
   });
 
