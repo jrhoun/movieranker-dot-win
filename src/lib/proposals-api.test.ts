@@ -44,11 +44,18 @@ describe("parseProposal", () => {
 });
 
 describe("parseProposalStatus", () => {
-  it("whitelists approved/rejected only", () => {
+  it("whitelists the three real states and nothing else", () => {
     expect(parseProposalStatus("approved")).toBe("approved");
     expect(parseProposalStatus("rejected")).toBe("rejected");
-    expect(parseProposalStatus("pending")).toBeNull();
-    expect(parseProposalStatus(undefined)).toBeNull();
+    // Accepted so a decision can be undone — reverting an approval pulls the
+    // theme back out of the live shortlist, which is the point.
+    expect(parseProposalStatus("pending")).toBe("pending");
+  });
+
+  it("refuses anything that is not one of them", () => {
+    for (const bad of [undefined, null, "", "APPROVED", "deleted", 1, {}, ["approved"]]) {
+      expect(parseProposalStatus(bad), JSON.stringify(bad) ?? "undefined").toBeNull();
+    }
   });
 });
 

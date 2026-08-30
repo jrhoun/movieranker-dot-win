@@ -32,8 +32,19 @@ export function parseProposal(body: ProposalBody): ParsedProposal {
 }
 
 /** Whitelist for PATCH status transitions; anything else -> null. */
-export function parseProposalStatus(raw: unknown): "approved" | "rejected" | null {
-  return raw === "approved" || raw === "rejected" ? raw : null;
+/**
+ * `pending` is accepted so the owner can UNDO a decision.
+ *
+ * It is a real state change, not a no-op: `getApprovedProposals` reads
+ * `status = 'approved'`, so reverting an approval pulls that theme back out of
+ * the live shortlist. That is exactly what undoing a mis-click should do, and
+ * the route is owner-gated, so the only person who can reach it is the one
+ * person entitled to decide.
+ */
+export function parseProposalStatus(
+  raw: unknown,
+): "approved" | "rejected" | "pending" | null {
+  return raw === "approved" || raw === "rejected" || raw === "pending" ? raw : null;
 }
 
 /**
