@@ -359,13 +359,29 @@ export default async function MyListsPage() {
           // canvas would otherwise run the full page width — leaving a 78px
           // avatar adrift in a 600px card. Above lg the column itself is the
           // constraint, so the cap comes off.
-          <div className="max-w-sm lg:max-w-none">
+          <div className="flex max-w-sm flex-col gap-3 lg:max-w-none">
             <ProfileCanvas
               handle={profile.handle}
               level={progress.level}
               equipped={canvasEquipped}
               posters={canvasPosters}
               taglineText={taglineText}
+            />
+            {/* Directly under the card it edits. This lived down in the
+                Collection section, several screens below the avatar it
+                changes — so the control and its subject were never on screen
+                together. It also gives this column something to do: a canvas
+                alone left the left half of the hero underfilled beside a dense
+                stats panel. */}
+            <CustomiseModal
+              handle={profile.handle}
+              level={progress.level}
+              equipped={canvasEquipped}
+              owned={ownedCosmeticIds}
+              posters={canvasPosters}
+              claims={showcase.avatarClaims ?? []}
+              films={avatarFilms}
+              taglineTexts={taglineTexts}
             />
           </div>
         )}
@@ -584,24 +600,15 @@ export default async function MyListsPage() {
           aria-labelledby="customise-heading"
           className="mt-6 rounded-xl bg-surface p-5 ring-1 ring-white/10 shadow-lg"
         >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2
-              id="customise-heading"
-              className="font-display text-sm uppercase tracking-[0.14em] text-gold"
-            >
-              Collection
-            </h2>
-            <CustomiseModal
-              handle={profile.handle}
-              level={progress.level}
-              equipped={canvasEquipped}
-              owned={ownedCosmeticIds}
-              posters={canvasPosters}
-              claims={showcase.avatarClaims ?? []}
-              films={avatarFilms}
-              taglineTexts={taglineTexts}
-            />
-          </div>
+          {/* The Customise control used to live here. It now sits under the
+              canvas at the top of the page, next to the thing it edits — this
+              section is for browsing what you have, which is a different job. */}
+          <h2
+            id="customise-heading"
+            className="font-display text-sm uppercase tracking-[0.14em] text-gold"
+          >
+            Collection
+          </h2>
           <CollectionGallery
             owned={ownedCosmeticIds}
             claims={showcase.avatarClaims ?? []}
