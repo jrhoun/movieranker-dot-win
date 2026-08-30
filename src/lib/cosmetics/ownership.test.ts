@@ -90,14 +90,31 @@ describe("ownedItemIds", () => {
     const args = stats({ finishedThemeSlugs: ["w1", "w2", "w3"] });
     expect([...ownedItemIds(args)].sort()).toEqual([...ownedItemIds(args)].sort());
   });
+
+  it("adds claimed poster avatars to owned set without perturbing canister drop sequence", () => {
+    const withoutClaims = ownedItemIds(stats({ finishedThemeSlugs: ["w1", "w2", "w3"] }));
+    const withClaims = ownedItemIds(
+      stats({ finishedThemeSlugs: ["w1", "w2", "w3"], avatarClaims: [155, 680] }),
+    );
+
+    expect(withClaims.has("avatar.poster.155")).toBe(true);
+    expect(withClaims.has("avatar.poster.680")).toBe(true);
+    expect(withoutClaims.has("avatar.poster.155")).toBe(false);
+
+    // Canister drop sequence invariant: the non-claim items in both sets must be strictly identical
+    const withClaimsNonPoster = [...withClaims].filter((id) => !id.startsWith("avatar.poster."));
+    expect(withClaimsNonPoster.sort()).toEqual([...withoutClaims].sort());
+  });
 });
 
 describe("canEquip", () => {
   it("permits an owned id and refuses an unowned or unknown one", () => {
-    const owned = ownedItemIds(stats());
+    const owned = ownedItemIds(stats({ avatarClaims: [155] }));
     const starter = itemsForSlot("frame").find((i) => i.unlock.kind === "starter")!;
     expect(canEquip(starter.id, owned)).toBe(true);
     expect(canEquip("frame.neon-cyan", owned)).toBe(false);
     expect(canEquip("frame.not-a-real-id", owned)).toBe(false);
+    expect(canEquip("avatar.poster.155", owned)).toBe(true);
+    expect(canEquip("avatar.poster.999", owned)).toBe(false);
   });
 });
