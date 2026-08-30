@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { dbErrorResponse, invalid } from "@/lib/lists-api";
 import { isOwnerEmail, parseProposalStatus } from "@/lib/proposals-api";
 import { getMovieById } from "@/lib/tmdb";
+import { marqueeNumber, weeksSinceUtcEpoch } from "@/lib/shortlist";
 
 /**
  * OWNER_EMAIL-gated admin API for shortlist proposals. Unset/mismatched
@@ -22,17 +23,28 @@ interface ProposalRow {
   status: string;
   created_at: string;
   proposer_id: string | null;
+  scheduled_week?: number | null;
 }
 
 export async function GET() {
   if (!(await requireOwner())) return new Response("Not Found", { status: 404 });
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("shortlist_proposals")
-    .select("id,title,blurb,movie_ids,status,created_at,proposer_id")
-    .order("created_at", { ascending: false });
-  if (error) return dbErrorResponse(error);
-  const rows = (data ?? []) as ProposalRow[];
+  // scheduled_week arrives with upgrade-3.sql. PostgREST errors on a column
+  // that does not exist rather than returning null, so this retries without
+  // it — the admin screen keeps working before the migration is run, showing
+  // everything as unscheduled.
+  const cols = "id,title,blurb,movie_ids,status,created_at,proposer_id";
+  const read = async (withWeek: boolean) =>
+    supabase
+      .from("shortlist_proposals")
+      .select(withWeek ? `${cols},scheduled_week` : cols)
+      .order("created_at", { ascending: false });
+
+  const first = await read(true);
+  const scheduling = !first.error;
+  const result = scheduling ? first : await read(false);
+  if (result.error) return dbErrorResponse(result.error);
+  const rows = (result.data ?? []) as unknown as ProposalRow[];
 
   /**
    * Resolve the films.
@@ -72,6 +84,14 @@ export async function GET() {
   }
 
   return NextResponse.json({
+    // The week the marquee is on right now, so the client can label a
+    // scheduled week as "Marquee 6" rather than the raw 2956 the rotation
+    // actually runs on — that number reads as noise to a human.
+    currentWeek: weeksSinceUtcEpoch(),
+    currentMarqueeNumber: marqueeNumber(),
+    // False until upgrade-3.sql has been run; the UI hides scheduling rather
+    // than offering a control that cannot work.
+    scheduling,
     proposals: rows.map((r) => ({
       id: r.id,
       title: r.title,
@@ -79,6 +99,7 @@ export async function GET() {
       status: r.status,
       createdAt: r.created_at,
       proposerHandle: r.proposer_id ? (handles.get(r.proposer_id) ?? null) : null,
+      scheduledWeek: typeof r.scheduled_week === "number" ? r.scheduled_week : null,
       films: (r.movie_ids ?? []).map((id) => ({
         tmdbId: id,
         title: films.get(id)?.title ?? null,
@@ -91,22 +112,54 @@ export async function GET() {
 export async function PATCH(request: Request) {
   if (!(await requireOwner())) return new Response("Not Found", { status: 404 });
 
-  let body: { id?: unknown; status?: unknown };
+  let body: { id?: unknown; status?: unknown; scheduledWeek?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
     return invalid("invalid JSON");
   }
   const id = typeof body.id === "string" ? body.id : "";
-  const status = parseProposalStatus(body.status);
-  if (!id || !status)
-    return invalid("id and status ('approved'|'rejected') required");
+  if (!id) return invalid("id required");
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase
-    .from("shortlist_proposals")
-    .update({ status })
-    .eq("id", id);
+
+  /**
+   * Scheduling is a SEPARATE act from approving, and this route keeps them
+   * separate. Approving is a judgement about a theme's quality; scheduling
+   * decides which week it takes over the marquee. Collapsing the two is what
+   * used to let an approval silently change the theme already on screen.
+   *
+   * `scheduledWeek: null` unschedules — the proposal stays approved and simply
+   * stops claiming a week.
+   */
+  if (body.scheduledWeek !== undefined) {
+    const week = body.scheduledWeek;
+    if (week !== null && (typeof week !== "number" || !Number.isInteger(week) || week < 0)) {
+      return invalid("scheduledWeek must be a non-negative integer or null");
+    }
+    if (week !== null && week < weeksSinceUtcEpoch()) {
+      // The past cannot be rescheduled, and letting someone try produces a
+      // theme that never runs and an index slot that looks taken.
+      return invalid("that week has already passed");
+    }
+    const { error } = await supabase
+      .from("shortlist_proposals")
+      .update({ scheduled_week: week })
+      .eq("id", id);
+    if (error) return dbErrorResponse(error);
+    return NextResponse.json({ ok: true });
+  }
+
+  const status = parseProposalStatus(body.status);
+  if (!status)
+    return invalid("status ('approved'|'rejected'|'pending') or scheduledWeek required");
+
+  // Un-approving must release the week too, or a rejected theme keeps a slot
+  // no other proposal can take (the unique index makes that permanent).
+  const patch: Record<string, unknown> =
+    status === "approved" ? { status } : { status, scheduled_week: null };
+
+  const { error } = await supabase.from("shortlist_proposals").update(patch).eq("id", id);
   if (error) return dbErrorResponse(error);
   return NextResponse.json({ ok: true });
 }
