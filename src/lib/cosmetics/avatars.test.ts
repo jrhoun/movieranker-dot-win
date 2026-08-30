@@ -1,6 +1,7 @@
-// src/lib/cosmetics/avatars.test.ts
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { posterAvatarId, posterAvatarTmdbId, syntheticPosterAvatar } from "./avatars";
+import { AVATARS, posterAvatarId, posterAvatarTmdbId, syntheticPosterAvatar } from "./avatars";
 import { itemById, SLOTS } from "./catalogue";
 
 describe("synthetic poster avatars", () => {
@@ -43,5 +44,51 @@ describe("synthetic poster avatars", () => {
 
   it("avatar is a real slot", () => {
     expect(SLOTS).toContain("avatar");
+  });
+});
+
+describe("gradient avatars", () => {
+  it("gradient avatar ids are unique and properly namespaced", () => {
+    const grads = AVATARS.filter((a) => a.id.startsWith("avatar.grad."));
+    expect(grads.length).toBe(6);
+    const ids = grads.map((g) => g.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const g of grads) {
+      expect(g.slot).toBe("avatar");
+      expect(g.id).toMatch(/^avatar\.grad\.[a-z]+$/);
+    }
+  });
+
+  it("starter invariant: at least one starter gradient avatar exists", () => {
+    const starters = AVATARS.filter((a) => a.unlock.kind === "starter");
+    expect(starters.length).toBeGreaterThanOrEqual(1);
+    expect(starters.map((s) => s.id)).toEqual(["avatar.grad.ember", "avatar.grad.velvet"]);
+  });
+
+  it("unlock rules cover level, drop, and challenge requirements", () => {
+    const nitrate = AVATARS.find((a) => a.id === "avatar.grad.nitrate");
+    expect(nitrate?.unlock).toEqual({ kind: "level", level: 5 });
+    expect(nitrate?.rarity).toBe("common");
+
+    const drops = AVATARS.filter((a) => a.unlock.kind === "drop");
+    expect(drops.map((d) => d.id)).toEqual(["avatar.grad.cyan", "avatar.grad.magenta"]);
+    for (const d of drops) {
+      expect(d.rarity).toBe("rare");
+    }
+
+    const toxic = AVATARS.find((a) => a.id === "avatar.grad.toxic");
+    expect(toxic?.unlock).toEqual({ kind: "challenge", key: "cryptologist" });
+    expect(toxic?.rarity).toBe("legendary");
+  });
+
+  it("every gradient avatar has a matching .ca-* rule in globals.css", () => {
+    const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
+    const grads = AVATARS.filter((a) => a.id.startsWith("avatar.grad."));
+    for (const item of grads) {
+      const cls = item.id.replace(/^avatar\.grad\./, "ca-");
+      expect(css, `${item.id} missing .${cls} rule in globals.css`).toMatch(
+        new RegExp(`\\.${cls}\\b`),
+      );
+    }
   });
 });

@@ -43,8 +43,17 @@ export function syntheticPosterAvatar(id: string): CosmeticItem | undefined {
   };
 }
 
+const GRADIENTS: CosmeticItem[] = [
+  { id: "avatar.grad.ember", slot: "avatar", name: "Ember", unlock: { kind: "starter" }, rarity: "common" },
+  { id: "avatar.grad.velvet", slot: "avatar", name: "Velvet", unlock: { kind: "starter" }, rarity: "common" },
+  { id: "avatar.grad.nitrate", slot: "avatar", name: "Nitrate", unlock: { kind: "level", level: 5 }, rarity: "common" },
+  { id: "avatar.grad.cyan", slot: "avatar", name: "Cyan", unlock: { kind: "drop" }, rarity: "rare" },
+  { id: "avatar.grad.magenta", slot: "avatar", name: "Magenta", unlock: { kind: "drop" }, rarity: "rare" },
+  { id: "avatar.grad.toxic", slot: "avatar", name: "Toxic", unlock: { kind: "challenge", key: "cryptologist" }, rarity: "legendary" },
+];
+
 /**
- * Fixed-catalogue avatars. Gradients arrive in the next task; generated art is
+ * Fixed-catalogue avatars. Gradients arrive in this task; generated art is
  * spread in later, when its assets exist.
  */
-export const AVATARS: CosmeticItem[] = [];
+export const AVATARS: CosmeticItem[] = [...GRADIENTS];
