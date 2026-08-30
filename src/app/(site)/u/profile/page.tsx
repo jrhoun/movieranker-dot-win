@@ -241,6 +241,10 @@ export default async function MyListsPage() {
     level: level.level,
     unlockedAchievementKeys: achievements.filter((a) => a.unlocked).map((a) => a.key),
     finishedThemeSlugs,
+    // Without this a claimed poster is not owned, so the picker shows it
+    // locked and resolveEquipped below drops an equipped one back to the
+    // starter — the claim would be spent and invisible.
+    avatarClaims: showcase.avatarClaims ?? [],
   });
   const canvasEquipped = resolveEquipped(showcase.equipped, ownedCosmetics);
   // Stored SNAPSHOT, consistent with /u/[handle]: that page must read the

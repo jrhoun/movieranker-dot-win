@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { posterAvatarId, posterAvatarTmdbId, syntheticPosterAvatar } from "@/lib/cosmetics/avatars";
 import { itemsForSlot, SLOTS } from "@/lib/cosmetics/catalogue";
+import { claimAllowance } from "@/lib/cosmetics/claims";
 import type { CosmeticItem, Slot, TaglineItem } from "@/lib/cosmetics/types";
 import type { Equipped } from "@/lib/cosmetics/equipped";
 import { patchShowcase } from "@/lib/public-profile";
@@ -20,6 +21,110 @@ const SLOT_LABEL: Record<Slot, string> = {
 
 /** Slot order in the tab strip: the things people change most, first. */
 const TAB_ORDER: Slot[] = ["avatar", "frame", "background", "overlay", "tagline"];
+
+const POSTER = "https://image.tmdb.org/t/p/w185";
+
+/**
+ * Turning one of your own ranked films into an avatar.
+ *
+ * DELIBERATELY OUTSIDE THE DRAFT. Every other choice in this dialog is
+ * provisional until Save and discarded by Cancel; a claim is permanent — there
+ * is no unclaiming, because one allowance rotating through a whole library
+ * would defeat the scarcity entirely. Putting an irreversible act behind a
+ * button labelled Cancel would be a lie about what Cancel does, so claiming
+ * saves immediately and asks first.
+ *
+ * The confirm step is the whole point of this component: a mis-click here
+ * cannot be taken back.
+ */
+function ClaimPosters({
+  films,
+  claimed,
+  allowance,
+  busy,
+  error,
+  onClaim,
+}: {
+  films: { tmdbId: number; title: string; posterPath: string | null }[];
+  claimed: number[];
+  allowance: number;
+  busy: boolean;
+  error: string | null;
+  onClaim: (tmdbId: number) => void;
+}) {
+  const [pending, setPending] = useState<number | null>(null);
+  const claimedSet = new Set(claimed);
+  const unclaimed = films.filter((f) => !claimedSet.has(f.tmdbId));
+  const remaining = Math.max(0, allowance - claimed.length);
+
+  if (films.length === 0) return null;
+
+  return (
+    <div className="mt-6 border-t border-white/10 pt-4">
+      <h3 className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-text/70">
+          Claim a film poster
+        </span>
+        <span className="text-[11px] tabular-nums text-muted">
+          {remaining} claim{remaining === 1 ? "" : "s"} left
+        </span>
+      </h3>
+
+      <p className="mt-1 text-[10px] leading-tight text-muted">
+        {remaining > 0
+          ? "A poster from one of your finished rankings, yours to wear. Claims are permanent — you earn another every level."
+          : "You have spent every claim. Each level up earns another."}
+      </p>
+
+      {error && (
+        <p className="mt-2 text-[11px] text-gold" role="status">
+          {error}
+        </p>
+      )}
+
+      {unclaimed.length === 0 ? (
+        <p className="mt-3 text-[11px] text-muted">Every film you have ranked is already claimed.</p>
+      ) : (
+        <ul className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(76px,1fr))] gap-2">
+          {unclaimed.map((film) => {
+            const isPending = pending === film.tmdbId;
+            return (
+              <li key={film.tmdbId}>
+                <button
+                  type="button"
+                  disabled={remaining === 0 || busy}
+                  onClick={() => (isPending ? onClaim(film.tmdbId) : setPending(film.tmdbId))}
+                  onBlur={() => isPending && setPending(null)}
+                  title={film.title}
+                  className={`flex w-full flex-col items-center gap-1.5 rounded-lg p-2 text-center transition-colors focus-visible:outline-2 focus-visible:outline-gold ${
+                    isPending ? "bg-gold/15 ring-1 ring-gold" : "hover:bg-surface-raised"
+                  } ${remaining === 0 ? "cursor-not-allowed opacity-40" : ""}`}
+                >
+                  <span className="block h-[54px] w-9 shrink-0 overflow-hidden rounded-sm bg-surface-raised ring-1 ring-white/10">
+                    {film.posterPath && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={`${POSTER}${film.posterPath}`}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    )}
+                  </span>
+                  <span className="line-clamp-2 text-[11px] leading-tight text-text">
+                    {film.title}
+                  </span>
+                  <span className="text-[10px] leading-tight text-gold">
+                    {isPending ? (busy ? "Claiming…" : "Claim — permanent?") : "Claim"}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 /** Top level, not nested in the modal: a component defined during render is a
  *  new type every render, which remounts every tile on each keystroke. */
@@ -128,11 +233,37 @@ export default function CustomiseModal({
     if (!open && el.open) el.close();
   }, [open]);
 
+  /**
+   * Claims live in local state, not just the prop, so a poster claimed in this
+   * session becomes equippable without a reload. They are only ever ADDED —
+   * mirroring the server, where mergeShowcase unions claims and can never
+   * remove one.
+   */
+  const [claimed, setClaimed] = useState<number[]>(claims);
+  const [claiming, setClaiming] = useState(false);
+  const [claimError, setClaimError] = useState<string | null>(null);
+
+  async function claimPoster(tmdbId: number) {
+    setClaiming(true);
+    setClaimError(null);
+    // Sent on its own, never bundled with the equip draft: this write is
+    // permanent and must not depend on the rest of the dialog being valid.
+    const ok = await patchShowcase({ avatarClaims: [...claimed, tmdbId] });
+    setClaiming(false);
+    if (!ok) {
+      // The server re-checks the film is really the user's and that the count
+      // fits their allowance, so a refusal here is authoritative.
+      setClaimError("That claim was refused — you may be out of claims.");
+      return;
+    }
+    setClaimed((c) => [...new Set([...c, tmdbId])]);
+  }
+
   const ownedSet = new Set(owned);
   const posterByTmdbId = new Map(films.map((f) => [f.tmdbId, f]));
 
   // Claimed posters are per-user and never in CATALOGUE.
-  const claimedAvatars: CosmeticItem[] = claims
+  const claimedAvatars: CosmeticItem[] = claimed
     .map((tmdbId) => syntheticPosterAvatar(posterAvatarId(tmdbId)))
     .filter((i): i is CosmeticItem => i !== undefined)
     .map((i) => ({ ...i, name: posterByTmdbId.get(posterAvatarTmdbId(i.id)!)?.title ?? i.name }));
@@ -312,6 +443,17 @@ export default function CustomiseModal({
                   </div>
                 ))
               : grid(tabItems)}
+
+            {tab === "avatar" && (
+              <ClaimPosters
+                films={films}
+                claimed={claimed}
+                allowance={claimAllowance(level)}
+                busy={claiming}
+                error={claimError}
+                onClaim={claimPoster}
+              />
+            )}
           </div>
 
           <div className="flex items-center justify-between gap-3 border-t border-white/10 p-4 sm:px-6">
