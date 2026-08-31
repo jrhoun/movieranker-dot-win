@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { announceConnectionRevealed, connectionStorageKey } from "@/lib/connection-state";
 import { shuffledOptions } from "@/lib/connection-options";
 import { CONNECTION_SOLVE_XP } from "@/lib/gamification";
 import type { ThemeConnectionGame } from "@/lib/shortlist-themes";
@@ -49,7 +50,7 @@ export default function MarqueeConnectionGame({
   onBonusEarned,
   className = "",
 }: MarqueeConnectionGameProps) {
-  const storageKey = `mr-conn-${themeSlug}`;
+  const storageKey = connectionStorageKey(themeSlug);
   const [gameState, setGameState] = useState<GameState>(() => {
     if (typeof window === "undefined") return { selected: null, revealed: false };
     try {
@@ -117,6 +118,26 @@ export default function MarqueeConnectionGame({
     });
   }
 
+  /**
+   * Save the reveal, then announce it.
+   *
+   * Both reveal paths — guessing and peeking — used to inline the same write,
+   * and neither told anything else on the page. The heading above this card
+   * decides between the question and the theme title from exactly this stored
+   * value, so without an announcement it kept asking "what connects these
+   * films?" directly above the card that had just answered it, until a reload.
+   * A `storage` event cannot cover this: the DOM delivers those only to other
+   * tabs, never the one that wrote.
+   */
+  function persistReveal(nextState: GameState) {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(nextState));
+    } catch {
+      // Storage blocked: the in-page state still stands for this session.
+    }
+    announceConnectionRevealed(themeSlug);
+  }
+
   function handleGuess(originalIndex: number) {
     if (revealed) return;
     const isRight = originalIndex === game.correctIndex;
@@ -137,11 +158,7 @@ export default function MarqueeConnectionGame({
     }
     recordAttempt(originalIndex);
 
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(nextState));
-    } catch {
-      // ignore
-    }
+    persistReveal(nextState);
   }
 
   function handleSkipToReveal() {
@@ -153,11 +170,7 @@ export default function MarqueeConnectionGame({
     const nextState: GameState = { selected: null, revealed: true, correct: false };
     setGameState(nextState);
     recordAttempt(null);
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(nextState));
-    } catch {
-      // ignore
-    }
+    persistReveal(nextState);
   }
 
   const isCorrect = selected === game.correctIndex;
