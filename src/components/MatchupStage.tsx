@@ -31,9 +31,28 @@ function Side({
     animClass = position === "left" ? "animate-recoil-left" : "animate-recoil-right";
   }
 
+  /*
+   * NO `transition-transform` ON THIS WRAPPER, and that is the fix.
+   *
+   * It carried `transition-transform duration-200 ease-out`, and the only
+   * thing that ever transforms this element is the keyframe animation above —
+   * the hover lift lives on the button inside, with its own transition. So the
+   * transition had exactly one effect: when the animation class came off at the
+   * end of a vote, the transform eased from the animation's `forwards` end
+   * state back to identity over 200ms, WHILE the next pair was already on
+   * screen. Every incoming poster drifted into place instead of arriving
+   * settled.
+   *
+   * Measured, not guessed. Reading `getAnimations({subtree:true})` on the stage
+   * in the live page at the moment of a click returned four CSSTransitions of
+   * 200ms on `translate` and `box-shadow` — the tail of the PREVIOUS vote still
+   * running as the new one began. 120ms later the real CSSAnimations
+   * (hit-right, recoil-right, winner-poster-glow, all duration 380) were in
+   * flight, confirming the animation itself works.
+   */
   return (
     <div
-      className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-2 sm:gap-3 transition-transform duration-200 ease-out ${animClass}`}
+      className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-2 sm:gap-3 ${animClass}`}
       aria-hidden={isLosing}
     >
       {/* Only the poster frame is the vote target — titles/meta stay outside so
