@@ -62,6 +62,25 @@ describe("matchup animation timing", () => {
     expect(MATCHUP_SETTLE_MS).toBeLessThanOrEqual(450);
   });
 
+  it("does not put a transform transition on the animated wrapper", () => {
+    // A `transition-transform` on the element the keyframe animation drives
+    // means that when the animation class is removed at the end of a vote, the
+    // transform EASES back to identity while the next pair is already on
+    // screen — so every incoming poster drifts into place instead of arriving
+    // settled. Confirmed in the live page: getAnimations() at click time
+    // returned 200ms CSSTransitions on `translate`, the previous vote's tail.
+    //
+    // Matched on the wrapper's own class list rather than the whole file, since
+    // the button inside legitimately transitions its hover lift.
+    const stage = readFileSync(join(process.cwd(), "src/components/MatchupStage.tsx"), "utf8");
+    const wrapper = /className=\{`flex min-w-0 flex-1[^`]*`\}/.exec(stage);
+    expect(wrapper, "could not find the animated wrapper's className").not.toBeNull();
+    expect(
+      wrapper![0],
+      "the animated wrapper has a transform transition, which drags a 200ms tail onto the next pair",
+    ).not.toMatch(/transition-transform|transition-all/);
+  });
+
   it("does not layer a full-page view transition over the vote", () => {
     // startViewTransition with no view-transition-name anywhere cross-fades the
     // ENTIRE page — sticky header, progress bar, VS divider — on every vote,
