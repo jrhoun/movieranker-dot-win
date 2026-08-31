@@ -10,6 +10,7 @@ import ParkedStrip from "@/components/ParkedStrip";
 import SaveGateSheet from "@/components/SaveGateSheet";
 import { PersonIcon } from "@/components/ParticipantChips";
 import { marqueeDisplayTitle } from "@/lib/marquee-title";
+import { MATCHUP_SETTLE_MS } from "@/lib/matchup-timing";
 import { marqueeNumber } from "@/lib/shortlist";
 import { getThemeConnectionGame } from "@/lib/shortlist-themes";
 import {
@@ -346,21 +347,27 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
       setInitialClosePairs(countClosePairs(nextActive));
     }
     setSettlingLoserId(loserId);
-    // Snappy physical recoil animation (260ms) before next matchup swaps in
-    settleTimer.current = setTimeout(() => {
-      const updatePair = () => {
-        setSettlingLoserId(null);
-        const p = selectNextPair(next, sharpening, pair);
-        if (sharpening && !p) setSharpening(false);
-        setPair(p);
-      };
 
-      if (typeof document !== "undefined" && "startViewTransition" in document) {
-        (document as unknown as { startViewTransition: (cb: () => void) => void }).startViewTransition(updatePair);
-      } else {
-        updatePair();
-      }
-    }, 260);
+    /*
+     * Wait for the recoil to FINISH, then swap. The delay comes from the same
+     * constant the stylesheet is checked against, because these two drifting
+     * apart is what made the vote feel broken: the timeout said 260ms, the
+     * animation had grown to 380ms, and every vote mounted the next pair while
+     * the loser was still visibly on screen mid-flight.
+     *
+     * NO startViewTransition. It used to wrap this swap, and with no
+     * `view-transition-name` declared anywhere it cross-faded the ENTIRE page
+     * — sticky header, progress bar, VS divider and both posters — over the top
+     * of an already-interrupted recoil. Two soft dissolves stacked on one
+     * gesture, about a quarter-second of extra wall time on a screen you tap
+     * twenty times per list. The posters swap cleanly now.
+     */
+    settleTimer.current = setTimeout(() => {
+      setSettlingLoserId(null);
+      const p = selectNextPair(next, sharpening, pair);
+      if (sharpening && !p) setSharpening(false);
+      setPair(p);
+    }, MATCHUP_SETTLE_MS);
   }
 
   function handleParkToggle(tmdbId: number, toParked: boolean) {
