@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import CompareModal from "@/components/list/CompareModal";
 import CompletionSummaryCard from "@/components/CompletionSummaryCard";
 import ListViews from "@/components/list/ListViews";
+import MarqueeListTitle from "@/components/list/MarqueeListTitle";
 import MarqueeConnectionGame from "@/components/MarqueeConnectionGame";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import OwnerControls from "@/components/list/OwnerControls";
@@ -349,10 +350,16 @@ export default async function PublicListPage({
       />
 
       <header className="relative z-30 space-y-3 rounded-2xl border border-white/5 bg-surface/60 p-5 shadow-2xl backdrop-blur-md ring-1 ring-white/5">
+        {/* The eyebrow carries the IDENTIFIER, the heading carries the state of
+            play. It used to be "Weekly Marquee Theme" over "Weekly Marquee #2":
+            the same two words twice, and an eyebrow promising a theme the
+            heading then withheld. The number belongs up here; what the heading
+            says depends on whether this reader has answered the quiz yet, which
+            only the client knows — see MarqueeListTitle. */}
         {list.theme_slug && (
           <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-gold">
             <span aria-hidden="true">✦</span>
-            <span>Weekly Marquee Theme</span>
+            <span>{displayTitle}</span>
           </div>
         )}
 
@@ -360,7 +367,11 @@ export default async function PublicListPage({
           <div className="min-w-0 flex-1">
             <h1 className="flex items-center gap-2 font-display text-2xl uppercase tracking-wide text-text leading-tight break-words sm:text-3xl">
               <span aria-hidden="true" className="shrink-0 text-gold">✦</span>
-              <span>{displayTitle}</span>
+              {list.theme_slug ? (
+                <MarqueeListTitle themeSlug={list.theme_slug} themeTitle={list.title} />
+              ) : (
+                <span>{displayTitle}</span>
+              )}
             </h1>
           </div>
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
