@@ -9,6 +9,7 @@ import OwnerControls from "@/components/list/OwnerControls";
 import ParticipantChips from "@/components/ParticipantChips";
 import ShareButton from "@/components/ShareButton";
 import { withRanks, type ListMovieRow } from "@/lib/list-view";
+import { marqueeDisplayTitle } from "@/lib/marquee-title";
 import { summariseCompletion, isWorthCelebrating, type CompletionSummary } from "@/lib/completion";
 import { calculateXpBreakdown, countMoviesRanked } from "@/lib/gamification";
 import { reconcileCareerXp, toXpLists, type CareerListRow } from "@/lib/career-xp";
@@ -184,17 +185,20 @@ export default async function PublicListPage({
 
   // THE SPOILER RULE, on the page itself. For a marquee list, list.title IS the
   // theme title and the description IS the theme blurb — both paraphrase the
-  // answer to the connection quiz sitting further down the page. A finished
-  // marquee therefore shows its week instead, and the real title is revealed
-  // by the quiz once it has been answered.
+  // answer to the connection quiz sitting further down the page. The week is
+  // shown instead, and the real title is revealed by the quiz once answered.
   //
-  // Drafts keep their title: the owner is mid-ranking and chose the theme.
-  const withholdTheme = !!list.theme_slug && list.status === "done";
-  const displayTitle = withholdTheme
-    ? listMarqueeNumber
-      ? `Weekly Marquee #${listMarqueeNumber}`
-      : "Weekly Marquee"
-    : list.title;
+  // DRAFTS ARE WITHHELD TOO, which they were not. The old rule exempted them
+  // on the premise that "the owner is mid-ranking and chose the theme" — and
+  // that premise is false. The home hero deliberately does not name the theme
+  // (its own comment: the hook "only works because the theme is withheld"), so
+  // a player starting the marquee has never seen it. Exempting drafts leaked
+  // the answer to the one person still playing.
+  //
+  // Shared with the play room rather than restated: two copies of a rule whose
+  // failure is silent will drift, and this one already had.
+  const withholdTheme = !!list.theme_slug;
+  const displayTitle = marqueeDisplayTitle(list.title, list.theme_slug, listMarqueeNumber);
 
   /**
    * What this ranking just earned, shown only to the person who finished it and
