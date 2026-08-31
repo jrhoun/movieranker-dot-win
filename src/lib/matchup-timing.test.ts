@@ -47,13 +47,19 @@ describe("matchup animation timing", () => {
     }
   });
 
-  it("keeps the whole gesture inside a snappy budget", () => {
-    // Ranking is a long sequence of taps and this delay is paid on every one.
-    // 380ms plus a full-page cross-fade was the "laggy" half of the report.
-    expect(MATCHUP_SETTLE_MS).toBeLessThanOrEqual(280);
-    // Fast enough to feel instant is not the goal either — the recoil has to
-    // be legible as a recoil.
-    expect(MATCHUP_SETTLE_MS).toBeGreaterThanOrEqual(160);
+  it("gives the recoil long enough to read as a recoil", () => {
+    // This bound exists because 240 was tried and was too short: the motion is
+    // a 70px flight with a scale, a rotation and an overshoot ease, and at
+    // 240ms it was reported as not happening at all. Shortening this to chase
+    // "snappy" removes the feedback the tap exists to give — the earlier
+    // version of this test asserted <= 280ms and encoded exactly that mistake
+    // as a requirement.
+    expect(MATCHUP_SETTLE_MS).toBeGreaterThanOrEqual(320);
+
+    // Still bounded. The failure being prevented is layering delays back up:
+    // the old gesture cost ~630ms (260ms interrupted motion, then a full-page
+    // cross-fade) and this must stay clearly under that.
+    expect(MATCHUP_SETTLE_MS).toBeLessThanOrEqual(450);
   });
 
   it("does not layer a full-page view transition over the vote", () => {
