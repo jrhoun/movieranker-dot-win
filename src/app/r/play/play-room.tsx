@@ -581,8 +581,35 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           wordmark gives a permanent way back to home; Exit stays the
           confirm-flow path out. */}
       <header className="sticky top-0 z-20 flex items-center gap-2 sm:gap-3 border-b border-gold/15 bg-bg/85 px-3 py-2 sm:px-6 sm:py-2.5 backdrop-blur-md">
+        {/*
+         * THE WORDMARK IS ALSO AN EXIT, so it goes through the same door.
+         *
+         * It was a plain <Link href="/">, which means client-side routing —
+         * and as the beforeunload note below says, that never fires an unload
+         * warning. Sitting two inches from an Exit button that opens a
+         * three-way confirm, it silently left instead.
+         *
+         * Nothing was destroyed by that: every vote writes to localStorage and
+         * the home page surfaces a "Ranking in Progress" card. But for a
+         * SIGNED-IN user it skipped what Exit's "Resume later" does — a real
+         * draft saved to the server — so their votes stayed in one browser's
+         * storage, absent from My Lists and lost with site data or a device
+         * change. Two exits offering two different levels of safety.
+         *
+         * Still a link, not a button: right-click, middle-click and the status
+         * bar URL all keep working. The click is only intercepted when there is
+         * something to lose — real votes, mid-ranking. With no votes yet, or
+         * once the ranking is finished (where the dialog does not render), it
+         * navigates as before.
+         */}
         <Link
           href="/"
+          onClick={(e) => {
+            if (!session || finished) return;
+            if (totalComparisons(session) === 0) return;
+            e.preventDefault();
+            setExitOpen(true);
+          }}
           className="flex shrink-0 items-center gap-1 font-display text-base sm:text-lg uppercase tracking-widest text-text transition-colors duration-200 ease-out hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
         >
           <span aria-hidden="true" className="text-gold">✦</span>
@@ -679,6 +706,17 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
             className="w-full max-w-md rounded bg-surface p-4 shadow-2xl ring-1 ring-gold/25"
           >
             <p className="text-sm uppercase tracking-widest text-muted">Leave this ranking?</p>
+            {/* Say what actually happens. "Leave this ranking?" with three
+                buttons and no explanation left people guessing whether their
+                votes were about to be thrown away — they are not, and a
+                warning that does not say so is just an obstacle. The two cases
+                genuinely differ, so they are worded separately rather than
+                averaged into something vague. */}
+            <p className="mt-1.5 text-xs leading-snug text-muted">
+              {signedIn
+                ? `Your ${Math.floor(totalComparisons(session) / 2)} votes are safe either way. Resume later saves this as a draft on your account, so you can pick it up on any device.`
+                : `Your ${Math.floor(totalComparisons(session) / 2)} votes are kept in this browser — the home page will offer to resume. Only Abandon discards them.`}
+            </p>
             <div className="mt-3 flex flex-col gap-2">
               {/* Positive default first; destructive last and quietest. */}
               <button
