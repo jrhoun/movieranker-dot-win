@@ -9,6 +9,7 @@ import MoviePoster from "@/components/list/MoviePoster";
 import ParkedStrip from "@/components/ParkedStrip";
 import SaveGateSheet from "@/components/SaveGateSheet";
 import { PersonIcon } from "@/components/ParticipantChips";
+import { marqueeDisplayTitle } from "@/lib/marquee-title";
 import { marqueeNumber } from "@/lib/shortlist";
 import { getThemeConnectionGame } from "@/lib/shortlist-themes";
 import {
@@ -134,7 +135,6 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   const exitTriggerRef = useRef<HTMLButtonElement>(null);
   const exitPanelRef = useRef<HTMLDivElement>(null);
   // Curated Lock Mode: inline confirm card for leaving this week's themed list
-  const [unlockOpen, setUnlockOpen] = useState(false);
   // set once an OAuth redirect away from the page has begun (leave-warning stays disarmed)
   const [authRedirecting, setAuthRedirecting] = useState(false);
   // Real Participants: resumed drafts let a signed-in viewer claim a chip.
@@ -458,15 +458,30 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     router.push("/");
   }
 
-  // Unlock exits curated mode (chip goes muted); themeSlug is kept so stage-B
-  // community stats can still credit the list. No reverse re-lock.
-  function handleUnlock() {
-    if (!session) return;
-    const next = { ...session, curated: false };
-    setSession(next);
-    saveSession(next);
-    setUnlockOpen(false);
-  }
+  /*
+   * UNLOCK WAS REMOVED, and this note is why, so it is not re-added by
+   * reflex.
+   *
+   * It sat in the header beside Exit and Undo and offered: "Unlocking lets you
+   * add more movies, but this ranking will no longer count as this week's
+   * themed list." Two halves, and the first was not true here — nothing in the
+   * play room gates adding films on `curated`, and there is no add-films
+   * control on this screen at all. Searching every non-test use of `curated`,
+   * the only thing it gates in the UI is whether a SAVED list's title can be
+   * edited (OwnerControls). So the button's real effect was to drop the
+   * marquee flag, irreversibly, with no re-lock.
+   *
+   * It was also `hidden sm:inline-flex` — no phone has ever had it — which is
+   * the strongest evidence that nothing depends on it.
+   *
+   * A player who wants a different set can finish the marquee (six or seven
+   * films) and start a fresh ranking, which is the same number of taps and
+   * costs them nothing.
+   *
+   * `curated: false` alongside a themeSlug remains a REACHABLE state: sessions
+   * saved in localStorage before this removal can still hold it, which is why
+   * the unlocked chip branch in the header stays.
+   */
 
   function startSharpen() {
     if (!session) return;
@@ -569,8 +584,23 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         <div aria-hidden="true" className="h-5 w-px shrink-0 bg-white/10" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h1 className="truncate text-sm sm:text-base font-bold leading-tight">{session.title}</h1>
+            {/* THE SPOILER RULE. For a marquee room `session.title` is the theme
+                title, which paraphrases the answer to the connection quiz on
+                the completion screen — this header used to name it for the
+                whole session and then ask the player to guess it. The home hero
+                withholds it, the share text withholds it, the OG card withholds
+                it and the finished list page withholds it; this was the one
+                surface that did not.
+
+                The stored title is untouched: the saved list really is that
+                theme, and the quiz reveals it once answered. */}
+            <h1 className="truncate text-sm sm:text-base font-bold leading-tight">
+              {marqueeDisplayTitle(session.title, session.themeSlug, marqueeNumber())}
+            </h1>
             {session.themeSlug && (
+              // The unlocked variant stays: `curated: false` with a themeSlug is
+              // still reachable in sessions saved before the Unlock control was
+              // removed, and those must not render as locked.
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
                   session.curated
@@ -594,24 +624,19 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
             </p>
           )}
         </div>
+        {/* Two controls, one shape. There were three in three different styles
+            — a ringed chip, a bare underline and another ringed chip — and the
+            Unlock one is gone entirely; see the note where handleUnlock used to
+            be. Undo picks up gold on hover because it is the one you reach for
+            mid-vote; Exit stays muted because leaving is not the job. */}
         {!finished && (
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            {session.curated && (
-              <button
-                type="button"
-                onClick={() => setUnlockOpen((v) => !v)}
-                aria-expanded={unlockOpen}
-                className="hidden sm:inline-flex min-h-8 rounded bg-surface px-2.5 py-0.5 text-xs font-medium text-muted ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised"
-              >
-                Unlock
-              </button>
-            )}
             <button
               ref={exitTriggerRef}
               type="button"
               onClick={() => setExitOpen((v) => !v)}
               aria-expanded={exitOpen}
-              className="min-h-8 rounded px-2 py-0.5 text-xs sm:text-sm text-muted underline-offset-4 transition-colors duration-200 ease-out hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:text-text"
+              className="flex min-h-8 items-center rounded px-2.5 py-0.5 text-xs sm:text-sm font-medium text-muted ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised"
             >
               Exit
             </button>
@@ -619,7 +644,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               type="button"
               onClick={handleUndo}
               disabled={!canUndo}
-              className="flex min-h-8 items-center gap-1 rounded bg-surface px-2.5 py-0.5 text-xs sm:text-sm font-medium ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised disabled:pointer-events-none disabled:opacity-40"
+              className="flex min-h-8 items-center gap-1 rounded bg-surface px-2.5 py-0.5 text-xs sm:text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised disabled:pointer-events-none disabled:opacity-40"
             >
               <span aria-hidden="true">↩</span> Undo
             </button>
@@ -631,35 +656,6 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         <p role="alert" className="px-4 pt-2 text-xs text-accent-red sm:px-6 sm:text-sm">
           Sign-in failed — still playing as a guest.
         </p>
-      )}
-
-      {unlockOpen && session.curated && !finished && (
-        <div
-          role="group"
-          aria-labelledby="unlock-title"
-          className="mx-auto w-full max-w-2xl animate-fade-in px-4 pt-3 sm:px-6"
-        >
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded bg-surface p-3 ring-1 ring-white/10">
-            <p id="unlock-title" className="min-w-0 flex-1 text-sm text-muted">
-              Unlocking lets you add more movies, but this ranking will no longer
-              count as this week&apos;s themed list.
-            </p>
-            <button
-              type="button"
-              onClick={() => setUnlockOpen(false)}
-              className="min-h-11 rounded bg-surface-raised px-4 text-sm font-medium transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
-            >
-              Keep it locked
-            </button>
-            <button
-              type="button"
-              onClick={handleUnlock}
-              className="min-h-11 rounded bg-surface-raised px-4 text-sm font-medium text-accent-red transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
-            >
-              Unlock anyway
-            </button>
-          </div>
-        </div>
       )}
 
       {exitOpen && !finished && (
