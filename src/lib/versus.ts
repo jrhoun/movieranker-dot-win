@@ -25,7 +25,14 @@ export interface VersusResult {
   /** Pairwise order-agreement % over all pairs of shared movies; null when
    * fewer than 2 shared (no pairs to agree or disagree about). */
   agreementPct: number | null;
+  /** Backward-compatible alias for agreementPct */
+  compatibilityScore: number | null;
+  /** Top 5 arguments sorted by |delta| desc */
   biggestArguments: SharedMovie[];
+  /** Single sharpest clash (movie with highest |delta| > 0); null if no differences or no shared */
+  sharpestClash: SharedMovie | null;
+  /** Mutual favorites (both ranked highly), sorted by (rankA + rankB) asc */
+  sharedFavorites: SharedMovie[];
   onlyInA: VersusEntry[];
   onlyInB: VersusEntry[];
 }
@@ -52,6 +59,41 @@ function intersect(a: VersusEntry[], b: VersusEntry[]) {
     });
   }
   return { shared, onlyInA, onlyInB: b.filter((m) => !seen.has(m.tmdbId)) };
+}
+
+/** Finds the #1 most contentious movie (highest absolute rank difference |delta| > 0). */
+export function findSharpestClash(shared: SharedMovie[]): SharedMovie | null {
+  const differing = shared.filter((m) => m.delta !== 0);
+  if (differing.length === 0) return null;
+  return [...differing].sort((a, b) => {
+    const diff = Math.abs(b.delta) - Math.abs(a.delta);
+    if (diff !== 0) return diff;
+    // Tie-breaker: prefer the film ranked highest by either voter (min rank)
+    const minRankA = Math.min(a.rankA, a.rankB);
+    const minRankB = Math.min(b.rankA, b.rankB);
+    if (minRankA !== minRankB) return minRankA - minRankB;
+    return a.rankA - b.rankA;
+  })[0];
+}
+
+/** Finds films that both users ranked highly (mutual favorites). */
+export function findSharedFavorites(shared: SharedMovie[], maxRankThreshold = 5): SharedMovie[] {
+  if (shared.length === 0) return [];
+  // First, find items where both voters placed it in the top maxRankThreshold
+  const topTier = shared.filter((m) => m.rankA <= maxRankThreshold && m.rankB <= maxRankThreshold);
+  if (topTier.length > 0) {
+    return [...topTier].sort((a, b) => (a.rankA + a.rankB) - (b.rankA + b.rankB) || a.rankA - b.rankA);
+  }
+  // If none in top maxRankThreshold, look for mutual top 10 with close delta (|delta| <= 3)
+  const broader = shared.filter((m) => m.rankA <= 10 && m.rankB <= 10 && Math.abs(m.delta) <= 3);
+  if (broader.length > 0) {
+    return [...broader].sort((a, b) => (a.rankA + a.rankB) - (b.rankA + b.rankB) || a.rankA - b.rankA);
+  }
+  // Otherwise top items by sum of ranks with small delta
+  return [...shared]
+    .filter((m) => Math.abs(m.delta) <= 3)
+    .sort((a, b) => (a.rankA + a.rankB) - (b.rankA + b.rankB))
+    .slice(0, 3);
 }
 
 /** Playful compatibility copy tier (DESIGN.md Premiere Night voice). */
@@ -108,13 +150,18 @@ export function computeVersus(a: VersusEntry[], b: VersusEntry[]): VersusResult 
     }
   }
 
+  const agreementPct = pairs === 0 ? null : Math.round((agrees / pairs) * 100);
+
   return {
     shared,
-    agreementPct: pairs === 0 ? null : Math.round((agrees / pairs) * 100),
+    agreementPct,
+    compatibilityScore: agreementPct,
     // Stable sort keeps A's rank order among equal-magnitude arguments.
     biggestArguments: [...shared]
       .sort((x, y) => Math.abs(y.delta) - Math.abs(x.delta))
       .slice(0, 5),
+    sharpestClash: findSharpestClash(shared),
+    sharedFavorites: findSharedFavorites(shared),
     onlyInA,
     onlyInB,
   };

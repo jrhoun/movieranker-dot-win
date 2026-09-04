@@ -191,7 +191,7 @@ export default function MarqueeConnectionGame({
           </span>
           <div>
             <h3 className="font-display text-base uppercase tracking-wider text-gold sm:text-lg">
-              The Secret Connection
+              Bonus Points: Guess the Thread
             </h3>
             <p className="text-xs text-muted">{weekLabel}</p>
           </div>

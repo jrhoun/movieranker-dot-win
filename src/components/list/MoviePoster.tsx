@@ -25,7 +25,7 @@ export default function MoviePoster({
           src={`${POSTER_BASE}${posterPath}`}
           alt=""
           loading="lazy"
-          className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+          className="h-full w-full object-cover"
         />
       ) : (
         // TMDB has no art for this film, and never will for plenty of shorts

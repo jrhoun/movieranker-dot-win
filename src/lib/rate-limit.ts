@@ -14,6 +14,7 @@ export const LIMITS = {
   // Marquee connection attempts. The (user_id, theme_slug) primary key is the
   // real one-attempt cap; this only blunts scripted hammering.
   marqueeSolve: { limit: 10, windowMs: 60_000 }, // POST /api/marquee-solve
+  upvote: { limit: 30, windowMs: 60_000 }, // POST /api/lists/[id]/upvote
 } as const;
 
 const buckets = new Map<string, number[]>();

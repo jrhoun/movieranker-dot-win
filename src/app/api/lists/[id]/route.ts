@@ -27,6 +27,7 @@ function moviePatchRow(m: MovieInput) {
   if (m.title !== undefined) row.title = m.title;
   if (m.posterPath !== undefined) row.poster_path = m.posterPath;
   if (m.releaseYear !== undefined) row.release_year = m.releaseYear;
+  if (m.tagline !== undefined) row.tagline = m.tagline;
   if (m.elo !== undefined) row.elo = m.elo;
   if (m.comparisons !== undefined) row.comparisons = m.comparisons;
   if (m.parked !== undefined) row.parked = m.parked;

@@ -293,6 +293,82 @@ export default async function ComparePage({
         @{handleA ?? "someone"} vs @{handleB ?? "someone"}
       </p>
 
+      {/* Sharpest Clash Callout */}
+      {vs.sharpestClash && Math.abs(vs.sharpestClash.delta) > 0 && (
+        <section className="mt-6 rounded-xl border border-accent-red/30 bg-gradient-to-br from-accent-red/10 via-surface to-surface p-4 shadow-lg ring-1 ring-accent-red/20">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-accent-red">
+            <span aria-hidden="true">🥊</span>
+            <span>Sharpest Clash · Biggest Disagreement</span>
+          </div>
+          <div className="mt-3 flex items-center gap-4">
+            <a
+              href={tmdbMovieUrl(vs.sharpestClash.tmdbId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`View ${vs.sharpestClash.title} on TMDB`}
+              className="w-16 shrink-0 transition-opacity hover:opacity-90 sm:w-20 rounded focus-visible:outline-2 focus-visible:outline-gold"
+            >
+              <MoviePoster title={vs.sharpestClash.title} posterPath={vs.sharpestClash.posterPath} />
+            </a>
+            <div className="min-w-0 flex-1 space-y-1">
+              <h3 className="font-display text-xl uppercase tracking-wide text-text truncate sm:text-2xl">
+                {vs.sharpestClash.title}
+              </h3>
+              <p className="text-xs text-muted sm:text-sm">
+                @{handleA ?? "List A"} ranked it{" "}
+                <span className="font-display text-base text-gold">#{vs.sharpestClash.rankA}</span>, but @
+                {handleB ?? "List B"} placed it at{" "}
+                <span className="font-display text-base text-gold">#{vs.sharpestClash.rankB}</span>.
+              </p>
+              <div className="pt-1">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-red/20 px-2.5 py-0.5 text-xs font-bold text-accent-red ring-1 ring-accent-red/30">
+                  {Math.abs(vs.sharpestClash.delta)} rank {Math.abs(vs.sharpestClash.delta) === 1 ? "position" : "positions"} difference
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Common Ground Mutual Favorites Callout */}
+      {vs.sharedFavorites.length > 0 && (
+        <section className="mt-6 rounded-xl border border-gold/30 bg-gradient-to-br from-gold/10 via-surface to-surface p-4 shadow-lg ring-1 ring-gold/20">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-gold">
+            <span aria-hidden="true">✦</span>
+            <span>Common Ground · Mutual Favorites</span>
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            Films both rankings agreed belong at the top:
+          </p>
+          <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+            {vs.sharedFavorites.map((fav) => (
+              <li
+                key={fav.tmdbId}
+                className="flex items-center gap-3 rounded-lg bg-surface-raised p-2.5 ring-1 ring-white/10"
+              >
+                <a
+                  href={tmdbMovieUrl(fav.tmdbId)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={`View ${fav.title} on TMDB`}
+                  className="w-12 shrink-0 transition-opacity hover:opacity-90 sm:w-14 rounded focus-visible:outline-2 focus-visible:outline-gold"
+                >
+                  <MoviePoster title={fav.title} posterPath={fav.posterPath} />
+                </a>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-text">{fav.title}</p>
+                  <div className="mt-1 flex items-center gap-2 text-xs text-muted">
+                    <span>A: <strong className="text-gold font-display text-sm">#{fav.rankA}</strong></span>
+                    <span>•</span>
+                    <span>B: <strong className="text-gold font-display text-sm">#{fav.rankB}</strong></span>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {vs.biggestArguments.length > 0 && (
         <section className="mt-6">
           <h2 className="flex items-center gap-3 font-display text-2xl uppercase tracking-[0.12em]">

@@ -23,6 +23,7 @@ export interface TmdbMovieCredit {
   title: string;
   posterPath: string | null;
   releaseYear: number | null;
+  tagline?: string | null;
 }
 
 export type PersonCreditRole = "all" | "director" | "actor";
@@ -36,6 +37,7 @@ interface TmdbRawCredit {
   release_date?: string | null;
   job?: string;
   department?: string;
+  tagline?: string | null;
 }
 
 async function tmdbFetch<T>(
@@ -55,11 +57,13 @@ async function tmdbFetch<T>(
 }
 
 function toCredit(m: TmdbRawCredit): TmdbMovieCredit {
+  const cleanTagline = m.tagline?.trim();
   return {
     tmdbId: m.id,
     title: m.title ?? "",
     posterPath: m.poster_path ?? null,
     releaseYear: m.release_date ? Number(m.release_date.slice(0, 4)) : null,
+    ...(cleanTagline ? { tagline: cleanTagline } : {}),
   };
 }
 

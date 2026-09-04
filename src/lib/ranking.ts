@@ -3,6 +3,7 @@ export interface RankedMovie {
   title: string;
   posterPath: string | null;
   releaseYear: number | null;
+  tagline?: string | null;
   elo: number;
   comparisons: number;
   parked: boolean;

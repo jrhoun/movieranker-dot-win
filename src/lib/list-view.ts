@@ -5,6 +5,7 @@ export interface ListMovieRow {
   title: string;
   posterPath: string | null;
   releaseYear: number | null;
+  tagline?: string | null;
   comparisons: number;
   finalRank: number | null;
 }

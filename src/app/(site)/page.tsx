@@ -5,6 +5,7 @@ import type { ThemeCommunityActivity } from "@/lib/shortlist";
 import { getMovieById, getPreferredPosterPath } from "@/lib/tmdb";
 import type { TmdbMovieCredit } from "@/lib/tmdb";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getTrendingLists, type TrendingListSummary } from "@/lib/trending";
 
 // Server component: resolves this week's themed marquee (deterministic weekly
 // rotation) and hydrates the movie details both the hero fan and the strip
@@ -27,8 +28,10 @@ export default async function Page({
   let proposedBy: string | null = null;
   let activity: ThemeCommunityActivity = { count: 0, previews: [] };
   let userThemeListId: string | null = null;
+  let trendingLists: TrendingListSummary[] = [];
 
   try {
+    const supabase = await createSupabaseServerClient();
     const { theme, movieIds, activity: a } = await getTonightsShortlist();
     title = theme.title;
     blurb = theme.blurb;
@@ -47,7 +50,6 @@ export default async function Page({
       })),
     );
 
-    const supabase = await createSupabaseServerClient();
     const { data: auth } = await supabase.auth.getUser();
     if (auth?.user && slug) {
       const { data } = await supabase
@@ -61,6 +63,8 @@ export default async function Page({
         .maybeSingle();
       userThemeListId = data?.id ?? null;
     }
+
+    trendingLists = await getTrendingLists(supabase, 6);
   } catch {
     // fall through to hardcoded hero fan
   }
@@ -77,6 +81,7 @@ export default async function Page({
         previews: activity.previews,
         userThemeListId,
       }}
+      trendingLists={trendingLists}
     />
   );
 }

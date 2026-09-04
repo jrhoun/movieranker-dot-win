@@ -377,3 +377,28 @@ describe("tmdbMovieUrl", () => {
     expect(tmdbMovieUrl(157336)).toBe("https://www.themoviedb.org/movie/157336");
   });
 });
+
+describe("tagline handling in tmdb", () => {
+  it("extracts and trims tagline in toCredit when present", () => {
+    const raw = {
+      id: 550,
+      title: "Fight Club",
+      tagline: "  Mischief. Mayhem. Soap.  ",
+      poster_path: "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg",
+      release_date: "1999-10-15",
+    };
+    const credits = shapeCredits({ cast: [raw] });
+    expect(credits[0].tagline).toBe("Mischief. Mayhem. Soap.");
+  });
+
+  it("omits empty or whitespace-only tagline", () => {
+    const rawEmpty = { id: 1, title: "Film A", tagline: "", release_date: "2000-01-01" };
+    const rawSpaces = { id: 2, title: "Film B", tagline: "   ", release_date: "2000-01-01" };
+    const rawMissing = { id: 3, title: "Film C", release_date: "2000-01-01" };
+
+    const credits = shapeCredits({ cast: [rawEmpty, rawSpaces, rawMissing] });
+    expect(credits.find((c) => c.tmdbId === 1)?.tagline).toBeUndefined();
+    expect(credits.find((c) => c.tmdbId === 2)?.tagline).toBeUndefined();
+    expect(credits.find((c) => c.tmdbId === 3)?.tagline).toBeUndefined();
+  });
+});

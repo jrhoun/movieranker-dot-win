@@ -8,10 +8,14 @@ import MarqueeHeading from "@/components/MarqueeHeading";
 import MarqueeInfoModal from "@/components/MarqueeInfoModal";
 import MoviePoster from "@/components/list/MoviePoster";
 import SearchPanel from "@/components/SearchPanel";
+import CuratorRoulette from "@/components/roulette/CuratorRoulette";
+import UpvoteButton from "@/components/community/UpvoteButton";
+import ForkButton from "@/components/community/ForkButton";
 import { FAN_POSTERS } from "@/lib/hero-posters";
 import type { RankedMovie } from "@/lib/ranking";
 import { clearSession, loadSession, saveSession, totalComparisons, type PlaySession } from "@/lib/session";
 import { getNextWeeklyMarqueeRotation, marqueeNumber } from "@/lib/shortlist";
+import type { TrendingListSummary } from "@/lib/trending";
 import {
   clearStagedDraft,
   loadStagedDraft,
@@ -67,27 +71,42 @@ function MarqueeCountdown() {
   );
 }
 
-export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
+export default function HomeClient({
+  tonight,
+  trendingLists = [],
+}: {
+  tonight: TonightStrip;
+  trendingLists?: TrendingListSummary[];
+}) {
   // Hero fan mirrors this week's themed marquee so it previews the weekly
   // rotation; falls back to the curated set when the shortlist fetch came up
   // empty so the marquee never goes dark.
   const liveFan = tonight.movies.length > 0;
   const fanMovies = liveFan ? tonight.movies.slice(0, 8) : [];
-  const fanItems: { m: TmdbMovieCredit; tilt: number }[] = liveFan
-    ? fanMovies.map((m, i) => ({
-        m,
-        // ponytail: linear tilt spread across the row; hand-tuned only if a wide fan looks off
-        tilt: fanMovies.length > 1 ? -6 + (12 * i) / (fanMovies.length - 1) : 0,
-      }))
-    : FAN_POSTERS.map((p) => ({
-        m: {
-          tmdbId: p.tmdbId,
-          title: p.title,
-          posterPath: p.posterPath,
-          releaseYear: p.releaseYear,
-        },
-        tilt: p.tilt,
-      }));
+  const fanItems: { m: TmdbMovieCredit; tilt: number; arcY: number }[] = liveFan
+    ? fanMovies.map((m, i) => {
+        const total = fanMovies.length;
+        const normalized = total > 1 ? (i / (total - 1)) * 2 - 1 : 0; // -1 to 1
+        return {
+          m,
+          tilt: Math.round(normalized * 9.5 * 10) / 10, // -9.5deg to +9.5deg playing card fan
+          arcY: Math.round(Math.pow(Math.abs(normalized), 1.8) * 12), // natural arched curve
+        };
+      })
+    : FAN_POSTERS.map((p, i) => {
+        const total = FAN_POSTERS.length;
+        const normalized = total > 1 ? (i / (total - 1)) * 2 - 1 : 0;
+        return {
+          m: {
+            tmdbId: p.tmdbId,
+            title: p.title,
+            posterPath: p.posterPath,
+            releaseYear: p.releaseYear,
+          },
+          tilt: p.tilt || Math.round(normalized * 9.5 * 10) / 10,
+          arcY: Math.round(Math.pow(Math.abs(normalized), 1.8) * 12),
+        };
+      });
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [participants, setParticipants] = useState<string[]>([]);
@@ -163,6 +182,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
       title: m.title,
       posterPath: m.posterPath,
       releaseYear: m.releaseYear,
+      tagline: m.tagline ?? null,
       elo: 1000,
       comparisons: 0,
       parked: false,
@@ -241,13 +261,17 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
             </div>
           )}
           <ul className="no-scrollbar mt-4 flex justify-start overflow-x-auto px-4 pt-6 pb-4 sm:justify-center">
-            {fanItems.map(({ m, tilt }, i) => {
+            {fanItems.map(({ m, tilt, arcY }, i) => {
               const inTray = candidates.some((c) => c.tmdbId === m.tmdbId);
               return (
                 <li
                   key={m.tmdbId}
-                  style={{ "--tilt": `${tilt}deg`, zIndex: fanItems.length - Math.abs(i - (fanItems.length - 1) / 2) } as React.CSSProperties}
-                  className="group relative -mx-2 w-[7.2rem] shrink-0 origin-bottom rotate-(--tilt) transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform-gpu hover:z-30 hover:rotate-0 hover:-translate-y-3 hover:scale-105 min-[800px]:-mx-3 min-[800px]:w-[8.4rem]"
+                  style={{
+                    "--tilt": `${tilt}deg`,
+                    "--arc-y": `${arcY}px`,
+                    zIndex: fanItems.length - Math.abs(i - (fanItems.length - 1) / 2),
+                  } as React.CSSProperties}
+                  className="group relative -mx-2.5 w-[7.2rem] shrink-0 origin-bottom translate-y-[var(--arc-y)] rotate-[var(--tilt)] transition-all duration-500 ease-out transform-gpu hover:z-40 hover:rotate-0 hover:-translate-y-3 hover:scale-[1.04] sm:-mx-3.5 sm:w-[8.4rem] md:-mx-4"
                 >
                   <button
                     type="button"
@@ -260,7 +284,7 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
                     <MoviePoster
                       title={m.title}
                       posterPath={m.posterPath}
-                      className="shadow-xl transition-shadow duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:shadow-[0_16px_36px_rgba(0,0,0,0.7)] group-hover:ring-2 group-hover:ring-gold/60"
+                      className="shadow-xl transition-all duration-500 ease-out group-hover:shadow-[0_20px_45px_rgba(0,0,0,0.85),0_0_25px_rgba(245,197,24,0.25)] group-hover:ring-2 group-hover:ring-gold/70"
                     />
                     {inTray && (
                       <span
@@ -349,30 +373,33 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-8">
       {confirmResume && (
         <div
-          role="group"
+          role="dialog"
+          aria-modal="true"
           aria-labelledby="resume-title"
           aria-describedby="resume-desc"
-          className="mb-8 rounded-xl border border-accent bg-surface/95 p-5 shadow-2xl ring-1 ring-accent/30"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-sheet-up"
+          onClick={() => setConfirmResume(false)}
         >
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <span aria-hidden="true" className="text-accent">✦</span>
-                <p id="resume-title" className="font-display text-xl uppercase tracking-wide text-text sm:text-2xl">
-                  You have an unfinished ranking
-                </p>
-              </div>
-              <p id="resume-desc" className="mt-1 text-sm text-muted">
-                Starting a new ranking will overwrite your active progress on “{savedSession?.title === "Rain Soaked Cinema" ? "Heavy Rain, Poor Choices" : (savedSession?.title || "Movie ranking")}”.
-              </p>
+          <div
+            className="w-full max-w-md rounded-2xl border border-gold/40 bg-surface p-6 shadow-2xl ring-1 ring-gold/20"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 text-gold">
+              <span aria-hidden="true" className="text-xl">✦</span>
+              <h3 id="resume-title" className="font-display text-2xl uppercase tracking-wide text-text">
+                Unfinished Ranking in Progress
+              </h3>
             </div>
-            <div className="flex items-center gap-2 sm:shrink-0">
+            <p id="resume-desc" className="mt-2 text-xs leading-relaxed text-muted sm:text-sm">
+              Starting a new ranking will overwrite your active progress on “<strong className="text-text">{savedSession?.title === "Rain Soaked Cinema" ? "Heavy Rain, Poor Choices" : (savedSession?.title || "Movie ranking")}</strong>”. Would you like to resume your saved session or start fresh?
+            </p>
+            <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={() => router.push("/r/play")}
-                className="min-h-11 rounded-full bg-gold px-6 text-sm font-bold uppercase tracking-wide text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                className="min-h-11 rounded-full bg-surface-raised px-5 text-sm font-semibold text-text ring-1 ring-white/10 transition-colors hover:bg-white/10 hover:text-gold cursor-pointer"
               >
-                Resume saved
+                Resume Saved
               </button>
               <button
                 type="button"
@@ -382,9 +409,9 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
                   setConfirmResume(false);
                   begin(pendingCuratedRef.current);
                 }}
-                className="min-h-11 rounded-full bg-surface-raised px-5 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-accent-red/20 hover:text-accent-red focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                className="min-h-11 rounded-full bg-gold px-6 text-sm font-bold uppercase tracking-wide text-bg shadow-lg transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-gold cursor-pointer"
               >
-                Start fresh
+                Start Fresh →
               </button>
             </div>
           </div>
@@ -481,6 +508,186 @@ export default function HomeClient({ tonight }: { tonight: TonightStrip }) {
         <p className="mt-4 text-sm text-muted">…then share your ranked wall.</p>
       </section>
       </div>
+
+      {/* Curator Roulette — "Roll the Reel" Instant Start */}
+      <section aria-label="Curator Roulette" className="mt-14">
+        <CuratorRoulette />
+      </section>
+
+      {/* Trending & Popular Showcases */}
+      <section
+        id="community-spotlight"
+        aria-label="Community Spotlight"
+        className="mt-14 scroll-mt-6"
+      >
+        <div className="text-center">
+          <MarqueeHeading as="h2">Community Spotlight</MarqueeHeading>
+          <p className="mt-2 text-xs text-muted sm:text-sm">
+            Trending rankings and head-to-head verdicts from fellow film lovers.
+          </p>
+        </div>
+
+        {(() => {
+          const qualified = trendingLists.filter((l) => (l.upvotesCount ?? 0) > 0);
+          if (qualified.length >= 3) {
+            return (
+              <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {qualified.map((list) => (
+                  <article
+                    key={list.id}
+                    className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-white/5 bg-surface/75 p-5 shadow-xl backdrop-blur-sm ring-1 ring-white/5 transition-all duration-300 hover:border-gold/40 hover:bg-surface hover:shadow-2xl hover:ring-gold/20"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <Link
+                            href={`/l/${list.id}`}
+                            className="font-display text-xl uppercase leading-tight tracking-wide text-text transition-colors hover:text-gold sm:text-2xl"
+                          >
+                            {list.title}
+                          </Link>
+                          <p className="mt-1 text-xs text-muted">
+                            {list.ownerHandle ? (
+                              <>
+                                Curated by{" "}
+                                <Link
+                                  href={`/u/${list.ownerHandle}`}
+                                  className="font-semibold text-gold transition-colors hover:underline"
+                                >
+                                  @{list.ownerHandle}
+                                </Link>
+                              </>
+                            ) : (
+                              <span>Curated by Community Member</span>
+                            )}
+                            <span className="mx-1.5 text-muted/50">·</span>
+                            <span>{list.movieCount} films</span>
+                          </p>
+                        </div>
+                        <UpvoteButton
+                          listId={list.id}
+                          initialCount={list.upvotesCount}
+                          variant="card"
+                          showLabel={false}
+                        />
+                      </div>
+
+                      {list.description && (
+                        <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-muted">
+                          {list.description}
+                        </p>
+                      )}
+
+                      {/* Top 3 Triptych Posters */}
+                      {list.topPosters.length > 0 && (
+                        <div className="mt-4 flex items-center justify-center gap-2 py-2">
+                          {list.topPosters.map((poster, rankIdx) => (
+                            <div
+                              key={poster.tmdbId}
+                              className="relative w-20 shrink-0 transform-gpu transition-transform duration-200 group-hover:scale-[1.02] sm:w-24"
+                            >
+                              <MoviePoster
+                                title={poster.title}
+                                posterPath={poster.posterPath}
+                                className="rounded shadow-md ring-1 ring-white/10"
+                              />
+                              <span
+                                aria-label={`Rank #${rankIdx + 1}`}
+                                className={`absolute top-1 left-1 flex size-5 items-center justify-center rounded-full font-mono text-[10px] font-bold shadow ${
+                                  rankIdx === 0
+                                    ? "bg-gold text-bg ring-1 ring-gold"
+                                    : rankIdx === 1
+                                      ? "bg-slate-300 text-slate-900"
+                                      : "bg-amber-700 text-amber-100"
+                                }`}
+                              >
+                                #{rankIdx + 1}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-5 flex items-center justify-between border-t border-white/5 pt-3.5">
+                      <Link
+                        href={`/l/${list.id}`}
+                        className="text-xs font-bold uppercase tracking-wider text-muted transition-colors hover:text-gold"
+                      >
+                        View Ranking →
+                      </Link>
+                      <ForkButton
+                        list={{
+                          id: list.id,
+                          title: list.title,
+                          movies: list.movies,
+                          themeSlug: list.themeSlug,
+                        }}
+                        ownerHandle={list.ownerHandle}
+                        variant="card"
+                      />
+                    </div>
+                  </article>
+                ))}
+              </div>
+            );
+          }
+
+          return (
+            <div className="relative mt-8 min-h-[300px] overflow-hidden rounded-2xl border border-white/10 bg-surface/40 p-6">
+              {/* Blurred Silhouette Preview Grid */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none select-none filter blur-md opacity-20 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+              >
+                {[1, 2, 3].map((placeholderIdx) => (
+                  <div
+                    key={placeholderIdx}
+                    className="flex flex-col justify-between rounded-2xl border border-white/10 bg-surface/80 p-5"
+                  >
+                    <div>
+                      <div className="h-6 w-3/4 rounded bg-white/20 mb-2" />
+                      <div className="h-3 w-1/2 rounded bg-white/10 mb-4" />
+                      <div className="flex justify-center gap-2 py-4">
+                        <div className="aspect-[2/3] w-20 rounded bg-white/10" />
+                        <div className="aspect-[2/3] w-20 rounded bg-white/15" />
+                        <div className="aspect-[2/3] w-20 rounded bg-white/10" />
+                      </div>
+                    </div>
+                    <div className="h-4 w-1/3 rounded bg-white/10" />
+                  </div>
+                ))}
+              </div>
+
+              {/* Centered Coming Soon Marquee Card */}
+              <div className="absolute inset-0 flex items-center justify-center p-4">
+                <div className="max-w-md rounded-2xl border border-gold/30 bg-surface/95 p-6 sm:p-8 text-center shadow-2xl backdrop-blur-md ring-1 ring-gold/20">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/10 px-3 py-1 font-display text-xs uppercase tracking-widest text-gold ring-1 ring-gold/40">
+                    ✦ Coming Soon ✦
+                  </span>
+                  <h3 className="mt-3 font-display text-2xl uppercase tracking-wider text-text sm:text-3xl">
+                    Community Spotlight
+                  </h3>
+                  <p className="mt-2 text-xs leading-relaxed text-muted sm:text-sm">
+                    Featured community rankings will appear here as lists are created and voted on.
+                  </p>
+                  <div className="mt-5">
+                    <button
+                      type="button"
+                      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+                      className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-bg shadow-lg transition-transform hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+                    >
+                      <span>Start a Ranking</span>
+                      <span aria-hidden="true">→</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+      </section>
+
       <CandidateTray
         candidates={candidates}
         onRemove={(id) =>

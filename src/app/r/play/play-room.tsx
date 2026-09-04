@@ -3,16 +3,30 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import SoundToggle from "@/components/audio/SoundToggle";
+import CurtainCallCelebration from "@/components/celebration/CurtainCallCelebration";
+import LightsDownToggle from "@/components/duel/LightsDownToggle";
 import MatchupStage from "@/components/MatchupStage";
 import MarqueeConnectionGame from "@/components/MarqueeConnectionGame";
 import MoviePoster from "@/components/list/MoviePoster";
 import ParkedStrip from "@/components/ParkedStrip";
 import SaveGateSheet from "@/components/SaveGateSheet";
+import PremierePassCard from "@/components/share/PremierePassCard";
 import { PersonIcon } from "@/components/ParticipantChips";
 import { marqueeDisplayTitle } from "@/lib/marquee-title";
 import { MATCHUP_SETTLE_MS } from "@/lib/matchup-timing";
 import { marqueeNumber } from "@/lib/shortlist";
+import {
+  isLightsDown,
+  isSoundEnabled,
+  playGoldenChime,
+  playShutterClick,
+  setLightsDown,
+  setSoundEnabled,
+} from "@/lib/audio";
+import { resolveBlitzAction, type BlitzState } from "@/lib/keyboard";
 import { getThemeConnectionGame } from "@/lib/shortlist-themes";
+import { getMovieWinStreak } from "@/lib/streak";
 import {
   closeCallProgress,
   countClosePairs,
@@ -145,6 +159,30 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joinedName, setJoinedName] = useState<string | null>(null);
+
+  // Audio and Focus mode states
+  const [soundEnabled, setSoundEnabledState] = useState(false);
+  const [lightsDown, setLightsDownState] = useState(false);
+
+  useEffect(() => {
+    setSoundEnabledState(isSoundEnabled());
+    setLightsDownState(isLightsDown());
+  }, []);
+
+  function handleToggleSound() {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    setSoundEnabledState(next);
+    if (next) {
+      playShutterClick();
+    }
+  }
+
+  function handleToggleLightsDown() {
+    const next = !lightsDown;
+    setLightsDown(next);
+    setLightsDownState(next);
+  }
   // once-flag: has the field EVER significantly reordered? stability requires
   // genuine differentiation, not just a quiet streak over a still-tied list.
   // ponytail: room-level and not persisted — a resume resets it until the next
@@ -330,6 +368,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
 
   function handleVote(winnerId: number, loserId: number) {
     if (!session || settlingLoserId !== null) return;
+    playShutterClick();
     if (typeof window !== "undefined" && "vibrate" in navigator) {
       try {
         navigator.vibrate(10);
@@ -338,6 +377,10 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
       }
     }
     const next = applyVote(session, winnerId, loserId);
+    const winnerStreak = getMovieWinStreak(next.history, winnerId);
+    if (winnerStreak === 3) {
+      playGoldenChime();
+    }
     setSession(next);
     saveSession(next);
     const nextSplit = fieldSplit || next.votesSinceOrderChange === 0;
@@ -346,22 +389,10 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     if (initialClosePairs === null && nextActive.length >= 2 && isStable(nextActive, next.votesSinceOrderChange, nextSplit)) {
       setInitialClosePairs(countClosePairs(nextActive));
     }
+    if (!stable && nextActive.length >= 2 && isStable(nextActive, next.votesSinceOrderChange, nextSplit)) {
+      playGoldenChime();
+    }
     setSettlingLoserId(loserId);
-
-    /*
-     * Wait for the recoil to FINISH, then swap. The delay comes from the same
-     * constant the stylesheet is checked against, because these two drifting
-     * apart is what made the vote feel broken: the timeout said 260ms, the
-     * animation had grown to 380ms, and every vote mounted the next pair while
-     * the loser was still visibly on screen mid-flight.
-     *
-     * NO startViewTransition. It used to wrap this swap, and with no
-     * `view-transition-name` declared anywhere it cross-faded the ENTIRE page
-     * — sticky header, progress bar, VS divider and both posters — over the top
-     * of an already-interrupted recoil. Two soft dissolves stacked on one
-     * gesture, about a quarter-second of extra wall time on a screen you tap
-     * twenty times per list. The posters swap cleanly now.
-     */
     settleTimer.current = setTimeout(() => {
       setSettlingLoserId(null);
       const p = selectNextPair(next, sharpening, pair);
@@ -372,6 +403,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
 
   function handleParkToggle(tmdbId: number, toParked: boolean) {
     if (!session || settlingLoserId !== null) return;
+    playShutterClick();
     const next = parkMovie(session, tmdbId, toParked);
     setSession(next);
     saveSession(next);
@@ -441,6 +473,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
 
   function handleUndo() {
     if (!session?.undoSnapshot || settlingLoserId !== null) return;
+    playShutterClick();
     const prev = session.undoSnapshot;
     // stay in sharpen mode only if the restored list still offers a sharpen pair
     const stillSharpen = sharpening && selectNextPair(prev, true) !== null;
@@ -497,6 +530,62 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     setSharpening(true);
     setPair(selectNextPair(session, true));
   }
+
+  // Keyboard Blitz Controls (Milestone 1, Requirement R1)
+  useEffect(() => {
+    const isModalOpen = exitOpen || unlockOpen || joinOpen || sheetStatus !== null;
+    const isConsensus = stable && !sharpening;
+    const activeCount = session?.movies.filter((m) => !m.parked).length ?? 0;
+
+    const blitzState: BlitzState = {
+      pair,
+      canUndo: !!session?.undoSnapshot && settlingLoserId === null,
+      isSettling: settlingLoserId !== null,
+      isFinished: finished,
+      isConsensus,
+      isModalOpen,
+      activeMoviesCount: activeCount,
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.isComposing) return;
+      const action = resolveBlitzAction(e, blitzState);
+      if (!action) return;
+
+      e.preventDefault();
+
+      switch (action.type) {
+        case "vote_left":
+          handleVote(action.winnerId, action.loserId);
+          break;
+        case "vote_right":
+          handleVote(action.winnerId, action.loserId);
+          break;
+        case "park_candidate":
+          handleParkToggle(action.tmdbId, true);
+          break;
+        case "undo":
+          handleUndo();
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [
+    pair,
+    session,
+    settlingLoserId,
+    finished,
+    stable,
+    sharpening,
+    exitOpen,
+    unlockOpen,
+    joinOpen,
+    sheetStatus,
+  ]);
 
   // Outside click and Escape both mean "keep ranking" (user feedback): they
   // dismiss the leave menu exactly like the positive button. While open, the
@@ -576,11 +665,11 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   const podiumLocked = !stable && isPodiumLocked(active);
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full flex-col">
+    <main className={`mx-auto flex min-h-dvh w-full flex-col transition-colors duration-500 ${lightsDown ? "cinema-lights-down" : ""}`}>
       {/* Slim control strip (user feedback): compact bar, not a banner. The
           wordmark gives a permanent way back to home; Exit stays the
           confirm-flow path out. */}
-      <header className="sticky top-0 z-20 flex items-center gap-2 sm:gap-3 border-b border-gold/15 bg-bg/85 px-3 py-2 sm:px-6 sm:py-2.5 backdrop-blur-md">
+      <header className={`sticky top-0 z-20 flex items-center gap-2 sm:gap-3 border-b border-gold/15 bg-bg/85 px-3 py-2 sm:px-6 sm:py-2.5 backdrop-blur-md transition-opacity duration-300 ${lightsDown ? "cinema-peripheral" : ""}`}>
         {/*
          * THE WORDMARK IS ALSO AN EXIT, so it goes through the same door.
          *
@@ -658,32 +747,33 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
             </p>
           )}
         </div>
-        {/* Two controls, one shape. There were three in three different styles
-            — a ringed chip, a bare underline and another ringed chip — and the
-            Unlock one is gone entirely; see the note where handleUnlock used to
-            be. Undo picks up gold on hover because it is the one you reach for
-            mid-vote; Exit stays muted because leaving is not the job. */}
-        {!finished && (
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <button
-              ref={exitTriggerRef}
-              type="button"
-              onClick={() => setExitOpen((v) => !v)}
-              aria-expanded={exitOpen}
-              className="flex min-h-8 items-center rounded px-2.5 py-0.5 text-xs sm:text-sm font-medium text-muted ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised"
-            >
-              Exit
-            </button>
-            <button
-              type="button"
-              onClick={handleUndo}
-              disabled={!canUndo}
-              className="flex min-h-8 items-center gap-1 rounded bg-surface px-2.5 py-0.5 text-xs sm:text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised disabled:pointer-events-none disabled:opacity-40"
-            >
-              <span aria-hidden="true">↩</span> Undo
-            </button>
-          </div>
-        )}
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <LightsDownToggle isLightsDown={lightsDown} onToggle={handleToggleLightsDown} />
+          <SoundToggle isSoundEnabled={soundEnabled} onToggle={handleToggleSound} />
+          {!finished && (
+            <>
+              <button
+                ref={exitTriggerRef}
+                type="button"
+                onClick={() => setExitOpen((v) => !v)}
+                aria-expanded={exitOpen}
+                className="flex min-h-8 items-center rounded px-2.5 py-0.5 text-xs sm:text-sm font-medium text-muted ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised cursor-pointer"
+              >
+                Exit
+              </button>
+              <button
+                type="button"
+                onClick={handleUndo}
+                disabled={!canUndo}
+                aria-keyshortcuts="z"
+                title="Undo last vote (Z)"
+                className="flex min-h-8 items-center gap-1 rounded bg-surface px-2.5 py-0.5 text-xs sm:text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised cursor-pointer disabled:pointer-events-none disabled:opacity-40"
+              >
+                <span aria-hidden="true">↩</span> Undo
+              </button>
+            </>
+          )}
+        </div>
       </header>
 
       {authNotice && (
@@ -843,7 +933,8 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         )}
 
       {finished ? (
-        <section className="flex flex-1 flex-col items-center justify-center gap-5 px-4 py-8">
+        <section className="relative overflow-hidden flex flex-1 flex-col items-center justify-center gap-6 px-4 py-8">
+          <CurtainCallCelebration title="Curtain Call · Ranking Finalized" />
           <div className="w-full max-w-md rounded bg-surface p-5 ring-1 ring-white/10">
             <div className="flex items-center justify-between pb-2">
               <p className="text-sm uppercase tracking-widest text-accent">Final order</p>
@@ -853,6 +944,28 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
             </div>
             <RankedList movies={active} />
           </div>
+
+          {/* Premiere Pass Golden Ticket Export Card */}
+          <div className="w-full max-w-xl">
+            <PremierePassCard
+              title={session.title || "Movie Ranking Consensus"}
+              items={finalizeRanks(active)
+                .filter((r): r is { tmdbId: number; rank: number } => r.rank !== null)
+                .map((r) => {
+                  const m = active.find((x) => x.tmdbId === r.tmdbId);
+                  return {
+                    rank: r.rank,
+                    title: m?.title ?? "Movie",
+                    releaseYear: m?.releaseYear ?? null,
+                    posterPath: m?.posterPath ?? null,
+                  };
+                })}
+              participants={session.participants}
+              themeTitle={session.title}
+              totalRanked={active.length}
+            />
+          </div>
+
           <div className="flex flex-col items-center gap-2">
             <button
               type="button"
@@ -903,6 +1016,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         </section>
       ) : stable && !sharpening ? (
         <section className="relative overflow-hidden bg-curtain flex flex-1 flex-col items-center justify-center gap-6 px-4 py-8 text-center">
+          <CurtainCallCelebration title="Curtain Call · Consensus Reached" />
           <div aria-hidden="true" className="spotlight-glow pointer-events-none absolute inset-0" />
           <div className="animate-celebrate relative w-full max-w-md rounded bg-surface p-5 ring-1 ring-white/10">
             <p className="text-sm uppercase tracking-widest text-accent">Consensus reached</p>
@@ -969,7 +1083,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         <section className="bg-curtain-soft relative flex flex-1 flex-col px-3 pb-2 pt-1 sm:px-6">
           {/* Mini marquee board: one trusted "X of ~Y votes" number in Bebas
               gold between thin gold rules; close calls demoted to a chip. */}
-          <div className="mt-3 mb-6 sm:mb-8 w-full max-w-5xl mx-auto rounded-xl bg-surface/85 px-4 py-3.5 ring-1 ring-white/10 shadow-lg backdrop-blur-sm">
+          <div className={`mini-marquee-board mt-3 mb-6 sm:mb-8 w-full max-w-5xl mx-auto rounded-xl bg-surface/85 px-4 py-3.5 ring-1 ring-white/10 shadow-lg backdrop-blur-sm transition-opacity duration-300 ${lightsDown ? "cinema-peripheral" : ""}`}>
             <div
               role="progressbar"
               aria-label="Ranking progress"
@@ -1052,6 +1166,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
             <div aria-hidden="true" className="stage-spotlight pointer-events-none absolute -inset-x-6 inset-y-0" />
             <MatchupStage
               pair={pair}
+              history={session.history}
               settlingLoserId={settlingLoserId}
               onVote={handleVote}
               onPark={(id) => handleParkToggle(id, true)}
@@ -1061,7 +1176,9 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
       ) : null}
 
       {!finished && (
-        <ParkedStrip movies={session.movies} onToggle={handleParkToggle} />
+        <div className={`parked-strip-container transition-opacity duration-300 ${lightsDown ? "cinema-peripheral" : ""}`}>
+          <ParkedStrip movies={session.movies} onToggle={handleParkToggle} />
+        </div>
       )}
 
       {sheetStatus && (
