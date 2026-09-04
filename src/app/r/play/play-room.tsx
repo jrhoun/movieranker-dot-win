@@ -533,7 +533,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
 
   // Keyboard Blitz Controls (Milestone 1, Requirement R1)
   useEffect(() => {
-    const isModalOpen = exitOpen || unlockOpen || joinOpen || sheetStatus !== null;
+    const isModalOpen = exitOpen || joinOpen || sheetStatus !== null;
     const isConsensus = stable && !sharpening;
     const activeCount = session?.movies.filter((m) => !m.parked).length ?? 0;
 
@@ -582,7 +582,6 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     stable,
     sharpening,
     exitOpen,
-    unlockOpen,
     joinOpen,
     sheetStatus,
   ]);

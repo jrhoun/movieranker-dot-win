@@ -346,7 +346,7 @@ body {
 /* Directional Hit & Knock-Off Matchup Animations */
 /* Left Winner lunges Rightward into opponent with golden impact */
 .animate-hit-right {
-  animation: hit-right 420ms cubic-bezier(0.2, 0.9, 0.3, 1) forwards !important;
+  animation: hit-right 380ms cubic-bezier(0.2, 0.9, 0.3, 1) forwards !important;
   z-index: 30;
 }
 @keyframes hit-right {
@@ -358,7 +358,7 @@ body {
 
 /* Right Loser gets knocked off violently to the right */
 .animate-recoil-right {
-  animation: recoil-right 420ms cubic-bezier(0.25, 1, 0.5, 1) forwards !important;
+  animation: recoil-right 380ms cubic-bezier(0.25, 1, 0.5, 1) forwards !important;
   z-index: 10;
   pointer-events: none;
 }
@@ -371,7 +371,7 @@ body {
 
 /* Right Winner lunges Leftward into opponent with golden impact */
 .animate-hit-left {
-  animation: hit-left 420ms cubic-bezier(0.2, 0.9, 0.3, 1) forwards !important;
+  animation: hit-left 380ms cubic-bezier(0.2, 0.9, 0.3, 1) forwards !important;
   z-index: 30;
 }
 @keyframes hit-left {
@@ -383,7 +383,7 @@ body {
 
 /* Left Loser gets knocked off violently to the left */
 .animate-recoil-left {
-  animation: recoil-left 420ms cubic-bezier(0.25, 1, 0.5, 1) forwards !important;
+  animation: recoil-left 380ms cubic-bezier(0.25, 1, 0.5, 1) forwards !important;
   z-index: 10;
   pointer-events: none;
 }
@@ -396,7 +396,7 @@ body {
 
 /* Winner poster tight gold halo glow */
 .animate-poster-winner {
-  animation: winner-poster-glow 420ms ease-out forwards !important;
+  animation: winner-poster-glow 380ms ease-out forwards !important;
 }
 @keyframes winner-poster-glow {
   0% { box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 0 0 rgba(245, 197, 24, 0); }
