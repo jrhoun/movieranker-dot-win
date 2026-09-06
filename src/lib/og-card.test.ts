@@ -9,6 +9,7 @@ import { podiumDisplayOrder } from "./list-view";
 import {
   COLORS,
   cardFingerprint,
+  FRAME_STYLE,
   GRADIENT_AVATAR_BACKGROUND,
   OG_RESPONSE_OPTIONS,
   posterRowLayout,
@@ -417,6 +418,37 @@ describe("card rendering", () => {
       inkFraction,
       `profile card covers only ${(inkFraction * 100).toFixed(2)}% of the card`,
     ).toBeGreaterThan(0.02);
+  });
+});
+
+describe("every catalogue frame has a Satori twin", () => {
+  /**
+   * Ten frames are now inline SVG drawn by FrameArt.tsx, not `.cf-*` CSS, and
+   * Satori can render neither. Each therefore needs a hand-made still in
+   * FRAME_STYLE — and the lookup ends in `?? FRAME_STYLE["frame.brass"]`, so a
+   * frame that has art and no twin does not throw, does not blank, and does not
+   * fail the render suite below: it ships as BRASS on every share image, at
+   * HTTP 200, for every user who equipped it.
+   *
+   * That is a failure only an explicit pairing test can see, which is what this
+   * is. Adding a frame to frames.ts without an entry here fails right away.
+   */
+  for (const frame of itemsForSlot("frame")) {
+    it(`${frame.id} has a FRAME_STYLE entry`, () => {
+      expect(
+        FRAME_STYLE[frame.id],
+        `${frame.id} has no FRAME_STYLE twin — its share card silently renders as brass`,
+      ).toBeDefined();
+    });
+  }
+
+  it("has no FRAME_STYLE entry for an id the catalogue does not offer", () => {
+    // The other direction: a twin left behind by a renamed or removed frame is
+    // dead weight that reads as coverage.
+    const frameIds = new Set(itemsForSlot("frame").map((i) => i.id));
+    for (const id of Object.keys(FRAME_STYLE)) {
+      expect(frameIds.has(id), `${id} is styled here but is not in the catalogue`).toBe(true);
+    }
   });
 });
 

@@ -468,7 +468,7 @@ export function OgCard({ eyebrow, headline, headlineSizePx, subline, children }:
 // ---------------------------------------------------------------------------
 
 /** Ring treatments around the avatar poster. Static equivalents of the `.cf-*` classes in globals.css. */
-const FRAME_STYLE: Record<string, React.CSSProperties> = {
+export const FRAME_STYLE: Record<string, React.CSSProperties> = {
   "frame.brass": {
     background: "linear-gradient(145deg,#f0d488,#8a6b1f 45%,#e3c46b)",
     boxShadow: "0 0 0 2px #5c4512",
@@ -506,6 +506,53 @@ const FRAME_STYLE: Record<string, React.CSSProperties> = {
     background: "linear-gradient(135deg,#ff3ba7,#f5c518,#7cff4d,#22e0ff,#9b5cff)",
     boxShadow: "0 0 16px 2px rgba(155,92,255,0.45)",
   },
+
+  /* ILLUSTRATED FRAMES. Ten of the catalogue's frames are inline SVG drawn by
+     src/components/profile/FrameArt.tsx — a brass plate with rivets, a laurel,
+     a bulb-lined marquee. Satori cannot run any of that: it reads no
+     stylesheet and rasterises no arbitrary SVG art here.
+
+     So each one gets a hand-made STILL in its own colours, standing in for the
+     drawing the way `frame.prism`'s linear sweep stands in for a spinning
+     conic. It only has to say WHICH frame this is at thumbnail size in a feed,
+     which a plate colour plus a ring does.
+
+     The lookup below ends in `?? FRAME_STYLE["frame.brass"]`, so a frame added
+     to FRAME_ART and forgotten here does not break — it silently ships as
+     brass, on every share image, at HTTP 200. og-card.test.ts asserts that
+     every catalogue frame id has an entry so that cannot happen quietly. */
+  "frame.deco": {
+    background: "linear-gradient(135deg,#fff1b8,#f5c518 45%,#9a7500)",
+    boxShadow: "0 0 0 2px #6b5205",
+  },
+  "frame.sprocket": {
+    background: "linear-gradient(90deg,#f5c518,#141109 13%,#141109 87%,#f5c518)",
+    boxShadow: "0 0 0 2px #9a7500",
+  },
+  "frame.marquee": {
+    backgroundColor: "#141109",
+    boxShadow: "0 0 0 3px #f5c518, 0 0 18px 4px rgba(245,197,24,0.55)",
+  },
+  "frame.spotlit": {
+    background: "linear-gradient(135deg,#fff1b8,#f5c518 32%,#5c4512)",
+    boxShadow: "0 0 26px 6px rgba(245,197,24,0.5)",
+  },
+  "frame.premiere": {
+    background: "linear-gradient(145deg,#fff1b8,#f5c518 50%,#c99b0c)",
+    boxShadow: "0 0 0 2px #6b5205, 0 0 24px 6px rgba(245,197,24,0.6)",
+  },
+  "frame.laurel": {
+    background: "linear-gradient(160deg,#fff1b8,#f5c518 40%,#7d6a12)",
+    boxShadow: "0 0 0 2px #4a3f0a",
+  },
+  "frame.velvet-rope": {
+    background: "linear-gradient(145deg,#a8323e,#7d1a2c 55%,#4a0f1c)",
+    boxShadow: "0 0 0 2px #f5c518",
+  },
+  "frame.nitrate": {
+    background: "linear-gradient(145deg,#e2e5ec,#9b8a68 58%,#5c4a2e)",
+    boxShadow: "0 0 0 2px #2b2417",
+  },
 };
 
 /** Flat, noise-free stand-ins for the animated `.co-*` overlay classes. */
@@ -522,11 +569,50 @@ const OVERLAY_STYLE: Record<string, React.CSSProperties> = {
 };
 
 /**
+ * The four PAGE-WIDE backgrounds, as flat colour fields.
+ *
+ * These are rooms, not card treatments (see ProfileBackdrop): a beam clipped to
+ * a wedge and blurred, three tiled fields of drifting dust, a masked skyline, a
+ * bulb chase built from stacked opacity layers. Satori has no `clip-path`, no
+ * `filter`, no `mask-image` and no `@keyframes`, and — the reason this is a
+ * table of gradients rather than an attempt — the parts it WOULD silently drop
+ * are exactly the parts that carry the identity, leaving a card that renders at
+ * HTTP 200 looking like the flat root colour with a poster row in it.
+ *
+ * So each one keeps only what a still frame can honestly say: the booth's gold
+ * corner beam, the marquee's two lit edges, nitrate's silver-sepia, midnight's
+ * night-blue. Deliberately NOT poster-composed like the filmstrip twin below —
+ * a poster row under a wash would read as the filmstrip in a different colour,
+ * which is worse than a field that reads as its own thing. Without an entry
+ * here a new background falls through to the filmstrip branch and every one of
+ * them would share one card.
+ */
+const BACKGROUND_STATIC: Record<string, { base: string; wash: string }> = {
+  "background.projector-booth": {
+    base: "#08080b",
+    wash: "linear-gradient(112deg, rgba(245,197,24,0.30) 0%, rgba(245,197,24,0.08) 30%, rgba(8,8,11,0.96) 62%)",
+  },
+  "background.marquee-night": {
+    base: "#0d0d10",
+    wash: "linear-gradient(180deg, rgba(245,197,24,0.26) 0%, rgba(13,13,16,0.93) 8%, rgba(13,13,16,0.88) 92%, rgba(245,197,24,0.26) 100%)",
+  },
+  "background.nitrate": {
+    base: "#15120d",
+    wash: "linear-gradient(150deg, rgba(216,195,154,0.34) 0%, rgba(141,138,128,0.22) 42%, rgba(21,18,13,0.96) 82%)",
+  },
+  "background.midnight": {
+    base: "#04060c",
+    wash: "linear-gradient(180deg, rgba(10,16,48,0.95) 0%, rgba(7,10,24,0.90) 55%, rgba(4,6,12,1) 100%)",
+  },
+};
+
+/**
  * Full-bleed treatment behind the avatar and headline. Static equivalents of
  * the `.cb-*` classes: `background.filmstrip` tiles the owner's OWN posters
  * (never stock art — same rule as the live canvas), `background.spotlight`
  * blurs one poster behind a beam and vignette, `background.velvet` is a flat
- * gradient with nothing to fetch. Anything unrecognised degrades to the
+ * gradient with nothing to fetch, and the page-wide rooms are the flat fields
+ * in `BACKGROUND_STATIC` above. Anything unrecognised degrades to the
  * filmstrip treatment rather than rendering nothing.
  */
 function ProfileBackground({
@@ -538,6 +624,35 @@ function ProfileBackground({
   posterUrls: string[];
   avatarUrl: string | null;
 }) {
+  const flat = BACKGROUND_STATIC[backgroundId];
+  if (flat) {
+    return (
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: "flex",
+          backgroundColor: flat.base,
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: "flex",
+            background: flat.wash,
+          }}
+        />
+      </div>
+    );
+  }
+
   if (backgroundId === "background.spotlight" && avatarUrl) {
     return (
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex" }}>
