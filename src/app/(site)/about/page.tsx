@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "About · MovieRanker" };
 
 export default function AboutPage() {
   return (
-    <main className="mx-auto w-full max-w-md flex-1 px-4 py-10 sm:max-w-2xl">
+    <main className="mx-auto w-full max-w-reading flex-1 px-4 py-10">
       <MarqueeHeading>About the Project</MarqueeHeading>
       <div className="mt-6 rounded-xl bg-surface p-6 ring-1 ring-white/10 sm:p-8 shadow-2xl">
         <div className="space-y-5 text-sm leading-relaxed text-text">

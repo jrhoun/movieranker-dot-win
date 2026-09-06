@@ -153,7 +153,7 @@ export default function LoginPage() {
 
   return (
     <main className="bg-curtain flex flex-1 flex-col items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md rounded-xl bg-surface/95 p-6 sm:p-8 ring-1 ring-white/10 shadow-2xl backdrop-blur-md">
+      <div className="w-full max-w-reading rounded-xl bg-surface/95 p-6 sm:p-8 ring-1 ring-white/10 shadow-2xl backdrop-blur-md">
         {/* Mode Selector Tabs */}
         <div className="mb-6 grid grid-cols-2 rounded-lg bg-surface-raised p-1 ring-1 ring-white/10" role="tablist">
           <button

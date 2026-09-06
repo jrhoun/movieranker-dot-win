@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function ListNotFound() {
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
+    <main className="mx-auto flex w-full max-w-reading flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
       <div className="relative w-full max-w-sm overflow-hidden rounded-xl border border-gold/30 bg-surface shadow-xl">
         <div className="relative aspect-[16/8] w-full overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}

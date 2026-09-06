@@ -7,7 +7,7 @@ const linkCls =
 export default function SiteFooter() {
   return (
     <footer className="border-t border-gold/20 bg-surface/50 backdrop-blur">
-      <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-page px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
           {/* Brand & Mission */}
           <div className="space-y-2">

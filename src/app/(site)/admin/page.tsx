@@ -303,7 +303,7 @@ export default function AdminPage() {
   // wrapped their buttons onto a second line while the page kept wide empty
   // margins on either side.
   return (
-    <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-10">
+    <main className="mx-auto w-full max-w-page flex-1 px-4 py-10">
       <MarqueeHeading as="h2">Admin</MarqueeHeading>
 
       <h3 className="mt-6 border-b border-white/10 pb-1.5 text-xs font-semibold uppercase tracking-wider text-text/80">

@@ -250,7 +250,7 @@ export default async function ComparePage({
   const url = shareUrl(`${a}/${b}`);
 
   return (
-    <main className="mx-auto w-full max-w-md flex-1 px-4 py-8 sm:max-w-2xl">
+    <main className="mx-auto w-full max-w-reading flex-1 px-4 py-8">
       <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
         <MarqueeHeading as="h1">Versus</MarqueeHeading>
         <ShareButton

@@ -32,7 +32,7 @@ export default async function SettingsPage() {
   const email = auth.user.email ?? "";
 
   return (
-    <main className="mx-auto w-full max-w-md flex-1 px-4 py-8 sm:max-w-2xl">
+    <main className="mx-auto w-full max-w-reading flex-1 px-4 py-8">
       <div className="flex items-center justify-between gap-2 mb-2">
         <Link
           href="/u/profile"

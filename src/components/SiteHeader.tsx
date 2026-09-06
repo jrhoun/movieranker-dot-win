@@ -40,7 +40,7 @@ export default async function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-gold/20 bg-bg/85 backdrop-blur-md">
-      <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-1">
+      <div className="mx-auto flex w-full max-w-page items-center justify-between gap-3 px-4 py-1 sm:px-6 lg:px-8">
         {/* Marquee wordmark: Bebas caps, letterspaced, gold ✦. */}
         <Link
           href="/"

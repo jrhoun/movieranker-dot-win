@@ -25,7 +25,7 @@ export default async function CompareHubPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-md flex-1 px-4 py-8 sm:max-w-2xl">
+    <main className="mx-auto w-full max-w-reading flex-1 px-4 py-8">
       <MarqueeHeading>Compare Rankings</MarqueeHeading>
       <p className="mt-2 text-sm text-muted">
         Put two rankings side-by-side to see how your movie tastes line up, where your opinions collide, and calculate your compatibility score.
