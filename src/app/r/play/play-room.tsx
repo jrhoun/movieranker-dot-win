@@ -164,7 +164,10 @@ function Podium({ movies }: { movies: RankedMovie[] }) {
                 {r.rank}
               </span>
             </div>
-            <p className="mt-1.5 truncate text-xs sm:text-sm font-semibold text-text">{m.title}</p>
+            {/* Two lines, not an ellipsis: this is the payoff screen, and
+                "It's a Wonder…" / "The Sound of Mus…" under the winning posters
+                undercut the moment. */}
+            <p className="mt-1.5 line-clamp-2 text-xs leading-tight sm:text-sm font-semibold text-text">{m.title}</p>
             {m.releaseYear != null && (
               <p className="truncate font-mono text-xs text-muted">{m.releaseYear}</p>
             )}
