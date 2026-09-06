@@ -67,7 +67,11 @@ export default function IdentityDropdown({
   }
 
   return (
-    <div ref={rootRef} className="relative">
+    // `min-w-0` on both: the pill is the one thing in the header that carries
+    // user text, and a long handle at 390px pushed the whole row 19px off the
+    // right edge. The handle truncates with an ellipsis instead; the full
+    // handle is still the button's accessible name.
+    <div ref={rootRef} className="relative min-w-0">
       <button
         ref={triggerRef}
         type="button"
@@ -83,16 +87,17 @@ export default function IdentityDropdown({
               ?.focus();
           }
         }}
-        className="flex min-h-9 items-center gap-1.5 rounded-full border border-gold/30 bg-surface/50 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-text transition-colors duration-200 ease-out hover:border-gold hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+        aria-label={handle ? `@${handle}` : "Account"}
+        className="flex min-h-9 max-w-full min-w-0 items-center gap-1.5 rounded-full border border-gold/30 bg-surface/50 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-text transition-colors duration-200 ease-out hover:border-gold hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
       >
-        <span aria-hidden="true" className="text-gold">
+        <span aria-hidden="true" className="shrink-0 text-gold">
           ✦
         </span>
-        {handle ? `@${handle}` : "Account"}
+        <span className="min-w-0 truncate">{handle ? `@${handle}` : "Account"}</span>
         <svg
           aria-hidden="true"
           viewBox="0 0 12 12"
-          className={`h-3 w-3 fill-none stroke-current stroke-[1.5] transition-transform duration-200 ease-out motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+          className={`h-3 w-3 shrink-0 fill-none stroke-current stroke-[1.5] transition-transform duration-200 ease-out motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
         >
           <path d="M2 4l4 4 4-4" />
         </svg>

@@ -22,7 +22,7 @@
 | 8 | Compare Compatibility & Disagreements | Enhanced `/compare/[a]/[b]` with compatibility score and sharpest disagreement / common ground callouts | M2 | R2 |
 | 9 | Community Upvoting System | Supabase migration for `list_upvotes`, `/api/lists/[id]/upvote` toggle endpoint, client toggle with sign-in prompt | M3 | R3 |
 | 10 | Trending & Popular Showcases | Query and display top community lists by upvotes/recency on the homepage | M3 | R3 |
-| 11 | "Fork & Re-rank" Button | 1-click clone and re-rank action on public lists, creating a clean session and launching the duel room | M3 | R3 |
+| 11 | "Rank these yourself" Button | 1-click clone and re-rank action on public lists, creating a clean session and launching the duel room | M3 | R3 |
 | 12 | Curator Roulette ("Roll the Reel") | Thematic micro-packs (90s Cyberpunk, A24 Gems, Noir Classics, Oscar Snubs, etc.) with spinning reel launcher | M3 | R4 |
 | 13 | E2E Testing & Quality Guardrails | Comprehensive Vitest suites covering Tiers 1-4 + Tier 5 adversarial checks, 0 build errors, local isolation | M4 | R5 |
 
@@ -31,7 +31,7 @@
 |---|------|-------|-------------|--------|
 | M1 | Tactile Matchup Dueling & Stage Focus | Features 1, 2, 3, 4, 5 (Keyboard blitz, Taglines, Audio Synth, Streaks, Focus mode) | none | DONE |
 | M2 | Shareable Premiere Pass & Compare | Features 6, 7, 8 (Curtain Call confetti, Ticket canvas, Compare callouts) | none | DONE |
-| M3 | Community Social & Discovery | Features 9, 10, 11, 12 (Upvoting, Trending showcase, Fork & Re-rank, Curator Roulette) | none | DONE |
+| M3 | Community Social & Discovery | Features 9, 10, 11, 12 (Upvoting, Trending showcase, "Rank these yourself", Curator Roulette) | none | DONE |
 | M4 | E2E Testing Suite & Quality Verification | Feature 13 (Tiers 1-5 test suites, full regression verification, zero build errors) | M1, M2, M3 | DONE |
 
 ## Interface Contracts

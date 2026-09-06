@@ -49,7 +49,7 @@ export default async function SiteHeader() {
           <span aria-hidden="true" className="text-gold">✦</span>
           <span>MovieRanker</span>
         </Link>
-        <nav aria-label="Site Navigation" className="flex items-center gap-1.5 sm:gap-3">
+        <nav aria-label="Site Navigation" className="flex min-w-0 items-center gap-1.5 sm:gap-3">
           <Link
             href="/updates"
             className="flex min-h-9 items-center px-2 py-1 text-xs font-semibold uppercase tracking-wider text-muted transition-colors duration-200 ease-out hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
