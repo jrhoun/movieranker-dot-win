@@ -75,9 +75,12 @@ export default function MarqueeInfoModal() {
               them for you to work out.
             </p>
 
+            {/* Numbered steps in the display face rather than emoji bullets
+                (⏳ 📊 ✨): emoji render differently on every platform and sit
+                outside the site's gold/✦/Bebas vocabulary. */}
             <div className="space-y-3 pt-1">
               <div className="flex items-start gap-3 rounded-xl bg-surface-raised p-3.5 ring-1 ring-white/5">
-                <span aria-hidden="true" className="mt-0.5 shrink-0 text-xl">⏳</span>
+                <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center rounded-full bg-gold/15 font-display text-sm text-gold ring-1 ring-gold/40">1</span>
                 <div>
                   <h3 className="font-display text-base uppercase tracking-wide text-gold">
                     A new set every Monday
@@ -90,7 +93,7 @@ export default function MarqueeInfoModal() {
               </div>
 
               <div className="flex items-start gap-3 rounded-xl bg-surface-raised p-3.5 ring-1 ring-white/5">
-                <span aria-hidden="true" className="mt-0.5 shrink-0 text-xl">📊</span>
+                <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center rounded-full bg-gold/15 font-display text-sm text-gold ring-1 ring-gold/40">2</span>
                 <div>
                   <h3 className="font-display text-base uppercase tracking-wide text-gold">
                     Compare with everyone else
@@ -103,7 +106,7 @@ export default function MarqueeInfoModal() {
               </div>
 
               <div className="flex items-start gap-3 rounded-xl bg-surface-raised p-3.5 ring-1 ring-white/5">
-                <span aria-hidden="true" className="mt-0.5 shrink-0 text-xl">✨</span>
+                <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center rounded-full bg-gold/15 font-display text-sm text-gold ring-1 ring-gold/40">3</span>
                 <div>
                   <h3 className="font-display text-base uppercase tracking-wide text-gold">
                     Bonus XP and theme pitches

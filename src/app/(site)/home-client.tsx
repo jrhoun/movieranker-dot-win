@@ -14,6 +14,7 @@ import ForkButton from "@/components/community/ForkButton";
 import { FAN_POSTERS } from "@/lib/hero-posters";
 import type { RankedMovie } from "@/lib/ranking";
 import { clearSession, loadSession, saveSession, totalComparisons, type PlaySession } from "@/lib/session";
+import { marqueeDisplayTitle } from "@/lib/marquee-title";
 import { getNextWeeklyMarqueeRotation, marqueeNumber } from "@/lib/shortlist";
 import type { TrendingListSummary } from "@/lib/trending";
 import {
@@ -26,8 +27,9 @@ import {
 import type { TmdbMovieCredit } from "@/lib/tmdb";
 
 export interface TonightStrip {
+  /** The real theme title. Never rendered here (spoiler rule); used only to
+      name the saved session when a Marquee run starts. */
   title: string;
-  blurb: string;
   /** Theme slug (shortlist rotation id); null when the fetch came up empty. */
   themeSlug: string | null;
   movies: TmdbMovieCredit[];
@@ -35,7 +37,6 @@ export interface TonightStrip {
   proposedBy: string | null;
   /** Done lists sharing >=3 movies with this week's theme (0 = show nothing). */
   settledCount: number;
-  previews: { id: string; title: string }[];
   /** The logged in user's finished list ID for this theme, if already ranked. */
   userThemeListId?: string | null;
 }
@@ -54,7 +55,13 @@ function MarqueeCountdown() {
       const days = Math.floor(diff / 86_400_000);
       const hours = Math.floor((diff % 86_400_000) / 3_600_000);
       const mins = Math.floor((diff % 3_600_000) / 60_000);
-      setTimeLeft(`${days}d ${hours}h ${mins}m`);
+      // Leading zero units are noise: "0d 22h 41m" reads as a countdown that
+      // has not started. Show only the units that carry information.
+      const parts: string[] = [];
+      if (days > 0) parts.push(`${days}d`);
+      if (days > 0 || hours > 0) parts.push(`${hours}h`);
+      parts.push(`${mins}m`);
+      setTimeLeft(parts.join(" "));
     }
     update();
     const interval = setInterval(update, 60_000);
@@ -65,7 +72,9 @@ function MarqueeCountdown() {
 
   return (
     <div className="inline-flex items-center gap-2 rounded-full bg-surface-raised px-4 py-1.5 text-sm font-medium text-text ring-1 ring-white/15 shadow-sm">
-      <span aria-hidden="true" className="text-base text-gold">⏳</span>
+      {/* The site's one glyph, not an hourglass emoji — the only emoji in the
+          hero, and emoji render differently on every platform. */}
+      <span aria-hidden="true" className="text-xs text-gold">✦</span>
       <span>New set Monday · <strong className="font-mono font-bold text-gold">{timeLeft}</strong></span>
     </div>
   );
@@ -82,6 +91,17 @@ export default function HomeClient({
   // rotation; falls back to the curated set when the shortlist fetch came up
   // empty so the marquee never goes dark.
   const liveFan = tonight.movies.length > 0;
+  /* WHERE THE REEL LIVES. The Curator Roulette used to be a third hero-weight
+     card on every visit, under "Start ranking" and "Build your own list" — a
+     third door on a page that should have one, doing the Marquee's job (a
+     curated set, instant start) without the Marquee's two hooks (the weekly
+     appointment and the puzzle), and painting itself in each pack's accent
+     colour on a gold-on-velvet page. It earns its place in exactly two
+     moments: when a returning player has already ranked this week and has
+     nothing else to do here, and when the Community Spotlight has nothing to
+     show and needs an action instead of a "Coming Soon" card. Anywhere else it
+     is competition for the marquee. */
+  const alreadyRankedThisWeek = !!tonight.userThemeListId;
   const fanMovies = liveFan ? tonight.movies.slice(0, 8) : [];
   const fanItems: { m: TmdbMovieCredit; tilt: number; arcY: number }[] = liveFan
     ? fanMovies.map((m, i) => {
@@ -108,6 +128,12 @@ export default function HomeClient({
         };
       });
   const router = useRouter();
+  /* THE SPOILER RULE applies to the resume card and the resume dialog too. The
+     saved session's title IS the theme title for a Marquee run, and both of
+     those surfaces printed it in Bebas caps directly under a hero that goes to
+     lengths to withhold it. Same helper the play room's header uses. */
+  const savedDisplayTitle = (s: PlaySession | null) =>
+    s ? marqueeDisplayTitle(s.title || "Untitled ranking", s.themeSlug, marqueeNumber()) : "";
   const [title, setTitle] = useState("");
   const [participants, setParticipants] = useState<string[]>([]);
   const [candidates, setCandidates] = useState<TmdbMovieCredit[]>([]);
@@ -212,29 +238,41 @@ export default function HomeClient({
             bottom corners, crossing behind the marquee. Purely decorative CSS;
             reduced-motion renders them static at base angle. */}
         <div aria-hidden="true" className="searchlights pointer-events-none absolute inset-0 overflow-hidden" />
-        <div className="relative mx-auto w-full max-w-7xl px-4 py-10 text-center sm:py-14 sm:px-6 lg:px-8">
-          {/* Marquee wordmark: Bebas caps, warm gold sweep clipped to the
-              glyphs (one-shot shimmer, reduced-motion-safe), ✦ bulbs flanking. */}
-          <div className="mx-auto inline-block rounded-lg bg-bg/80 px-6 py-5 shadow-lg ring-1 ring-white/10 backdrop-blur-[2px] sm:px-8">
-            {/* Wordmark is the visual anchor but not the document heading: the
-                h1 below carries the descriptive phrase search engines index. */}
-            <p
-              role="presentation"
-              /* The wordmark line overflowed the viewport below ~430px: at the
-                 old clamp floor, fifteen Bebas caps plus 0.1em tracking and two
-                 flanking stars measured wider than the screen, so the whole
-                 page scrolled sideways. Tracking is the expensive part on a
-                 narrow screen, so it only opens up once there is room. */
-              className="font-display text-[clamp(2rem,9.5vw,6rem)] uppercase leading-none tracking-wide sm:tracking-widest"
-            >
-              <span aria-hidden="true" className="mr-2 align-middle text-gold text-[0.34em] sm:text-[0.5em]">✦</span>
-              <span className="marquee-gold drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)]">movieranker.win</span>
-              <span aria-hidden="true" className="ml-2 align-middle text-gold text-[0.34em] sm:text-[0.5em]">✦</span>
-            </p>
-            <h1 className="mt-3 text-xl font-medium text-text sm:text-2xl">
-              Rank movies head-to-head. Solo or with friends.
-            </h1>
-          </div>
+        {/* Soft scrim behind the headline. Replaces the boxed placard; see the
+            note on the h1 below. */}
+        <div aria-hidden="true" className="hero-scrim pointer-events-none absolute inset-0" />
+        <div className="relative mx-auto w-full max-w-page px-4 pt-8 pb-10 text-center sm:pt-12 sm:pb-14 sm:px-6 lg:px-8">
+          {/* ONE display beat. This used to be a dark placard — a rounded
+              bg-bg/80 box with a ring — holding the wordmark at up to 96px and
+              the hook at 44px, both in gold caps, both shouting. Two problems:
+              a hard rectangle floating on velvet reads as a sign bolted onto a
+              set rather than as type on a stage, and the site's NAME was the
+              biggest thing on a page whose header already says the name.
+
+              Now the wordmark is an eyebrow and the hook is the headline. The
+              legibility the box provided comes from `.hero-scrim` (a soft
+              radial darkening behind the text, painted on the header) plus a
+              text shadow, so the words still never sit on a bare fold crest —
+              DESIGN.md's rule — without a box edge anywhere. The gold shimmer
+              moves onto the phrase that matters. */}
+          <p
+            role="presentation"
+            className="font-display text-sm uppercase tracking-[0.32em] text-gold/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)] sm:text-base"
+          >
+            <span aria-hidden="true" className="mr-2 text-[0.75em]">✦</span>
+            movieranker.win
+            <span aria-hidden="true" className="ml-2 text-[0.75em]">✦</span>
+          </p>
+          {/* The document heading and the hook are the same line, so the promise
+              is the first thing read and the head-to-head phrasing the title and
+              meta description are indexed on stays in the h1. Bebas needs almost
+              no tracking at this size; the clamp keeps it to two lines from 360px
+              up without ever breaking inside a phrase. */}
+          <h1 className="mx-auto mt-3 max-w-4xl font-display text-[clamp(2.2rem,7vw,5rem)] uppercase leading-[0.95] tracking-[0.03em] text-text drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)]">
+            Rank them head-to-head.
+            <br />
+            <span className="marquee-gold">Find the connection.</span>
+          </h1>
           {/* Fanned marquee of real posters: overlapping, tilted -8°..8°,
               straighten+lift on hover (200ms ease-out; killed by reduced-motion).
               Slightly dimmed at rest so the Bebas headline above stays dominant. */}
@@ -249,7 +287,7 @@ export default function HomeClient({
               started. The week is named by its number; the films do the
               inviting. */}
           {liveFan && (
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-2.5">
+            <div className="mt-7 flex flex-wrap items-center justify-center gap-2.5">
               {/* A div, not a p: MarqueeInfoModal renders a <dialog>, which is
                   flow content and cannot legally sit inside a paragraph. The
                   display styling stays on the label so the dialog does not
@@ -260,7 +298,7 @@ export default function HomeClient({
               <MarqueeInfoModal />
             </div>
           )}
-          <ul className="no-scrollbar mt-4 flex justify-start overflow-x-auto px-4 pt-6 pb-4 sm:justify-center">
+          <ul className="no-scrollbar fan-scroll mt-4 flex justify-start overflow-x-auto px-4 pt-6 pb-4 sm:justify-center">
             {fanItems.map(({ m, tilt, arcY }, i) => {
               const inTray = candidates.some((c) => c.tmdbId === m.tmdbId);
               return (
@@ -269,9 +307,12 @@ export default function HomeClient({
                   style={{
                     "--tilt": `${tilt}deg`,
                     "--arc-y": `${arcY}px`,
+                    /* Deal order, left to right, 65ms apart: the whole hand is
+                       down inside a second. See `.poster-deal` in globals.css. */
+                    "--deal-delay": `${i * 65}ms`,
                     zIndex: fanItems.length - Math.abs(i - (fanItems.length - 1) / 2),
                   } as React.CSSProperties}
-                  className="group relative -mx-2.5 w-[7.2rem] shrink-0 origin-bottom translate-y-[var(--arc-y)] rotate-[var(--tilt)] transition-all duration-500 ease-out transform-gpu hover:z-40 hover:rotate-0 hover:-translate-y-3 hover:scale-[1.04] sm:-mx-3.5 sm:w-[8.4rem] md:-mx-4"
+                  className="poster-deal group relative -mx-2.5 w-[7.2rem] shrink-0 origin-bottom translate-y-[var(--arc-y)] rotate-[var(--tilt)] transition-all duration-500 ease-out transform-gpu hover:z-40 hover:rotate-0 hover:-translate-y-3 hover:scale-[1.04] sm:-mx-3.5 sm:w-[8.4rem] md:-mx-4"
                 >
                   <button
                     type="button"
@@ -303,14 +344,14 @@ export default function HomeClient({
               the puzzle asks at the end, and it only works because the theme is
               withheld above. Two display beats in this hero — the name and the
               question — and everything else stays quiet. */}
+          {/* The hook and the document heading both moved up into the wordmark
+              block, so what is left below the posters is one action and one
+              status line. This used to carry six stacked text blocks (a gold
+              display line, a sub-line, the countdown pill, a settled count, a
+              proposer credit and a "build your own" link), which is what made
+              the hero read as a wall of copy. */}
           {liveFan ? (
-            <div className="mt-5 flex flex-col items-center gap-3">
-              <p className="font-display text-3xl uppercase leading-none tracking-[0.06em] text-gold drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)] sm:text-4xl">
-                Rank them. Find the connection.
-              </p>
-              <p className="max-w-sm text-sm leading-relaxed text-text/85">
-                Then see how your order compares to everyone else&apos;s.
-              </p>
+            <div className="mt-6 flex flex-col items-center gap-3">
               {tonight.userThemeListId ? (
                 <div className="flex flex-col items-center gap-2.5">
                   <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-4 py-1.5 text-sm font-semibold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/40">
@@ -323,6 +364,14 @@ export default function HomeClient({
                   >
                     See how you compared
                   </Link>
+                  {/* The one visitor for whom a random pack is the right offer:
+                      this week is done and Monday is hours away. */}
+                  <a
+                    href="#reel"
+                    className="text-xs text-muted underline decoration-white/25 underline-offset-4 transition-colors hover:text-gold hover:decoration-gold focus-visible:outline-2 focus-visible:outline-gold"
+                  >
+                    or spin a reel while you wait &rarr;
+                  </a>
                 </div>
               ) : (
                 <button
@@ -339,23 +388,32 @@ export default function HomeClient({
               <MarqueeCountdown />
               {/* Social proof belongs where the decision is made. This sat in a
                   panel a thousand pixels further down, which is nowhere. */}
-              {tonight.settledCount > 0 && (
+              {/* Social proof and provenance, on ONE line. These were two
+                  separate stacked paragraphs; both are secondary and neither
+                  earns its own row under the fold. The "or build your own list"
+                  link that used to close the stack is gone as redundant — the
+                  full "Build your own list" section is the very next thing on
+                  the page, with its own marquee heading. */}
+              {(tonight.settledCount > 0 || tonight.proposedBy) && (
                 <p className="text-xs text-muted" data-testid="settled-count">
-                  {tonight.settledCount} ranking{tonight.settledCount === 1 ? "" : "s"} already
-                  settled this week
+                  {tonight.settledCount > 0 && (
+                    <span>
+                      {tonight.settledCount} ranking{tonight.settledCount === 1 ? "" : "s"} settled
+                      this week
+                    </span>
+                  )}
+                  {tonight.settledCount > 0 && tonight.proposedBy && (
+                    <span aria-hidden="true" className="mx-1.5 text-muted/50">
+                      ·
+                    </span>
+                  )}
+                  {tonight.proposedBy && (
+                    <span>
+                      theme by <span className="font-medium text-gold">@{tonight.proposedBy}</span>
+                    </span>
+                  )}
                 </p>
               )}
-              {tonight.proposedBy && (
-                <p className="text-xs text-muted">
-                  Theme proposed by <span className="font-medium text-gold">@{tonight.proposedBy}</span>
-                </p>
-              )}
-              <a
-                href="#start"
-                className="text-xs text-muted underline decoration-white/25 underline-offset-4 transition-colors hover:text-gold hover:decoration-gold focus-visible:outline-2 focus-visible:outline-gold"
-              >
-                or build your own list →
-              </a>
             </div>
           ) : (
             <a
@@ -370,7 +428,7 @@ export default function HomeClient({
       {/* Body below the curtain hero: one focal composition (search card),
           no duplicated hero heading and no whitespace voids — the docked tray
           plus its helper line carry the empty state. */}
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-page flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-8">
       {confirmResume && (
         <div
           role="dialog"
@@ -391,7 +449,7 @@ export default function HomeClient({
               </h3>
             </div>
             <p id="resume-desc" className="mt-2 text-xs leading-relaxed text-muted sm:text-sm">
-              Starting a new ranking will overwrite your active progress on “<strong className="text-text">{savedSession?.title === "Rain Soaked Cinema" ? "Heavy Rain, Poor Choices" : (savedSession?.title || "Movie ranking")}</strong>”. Would you like to resume your saved session or start fresh?
+              Starting a new ranking will overwrite your active progress on “<strong className="text-text">{savedDisplayTitle(savedSession) || "Movie ranking"}</strong>”. Would you like to resume your saved session or start fresh?
             </p>
             <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-end">
               <button
@@ -436,7 +494,7 @@ export default function HomeClient({
                 )}
               </div>
               <h3 className="mt-1 truncate font-display text-2xl uppercase tracking-wide text-text sm:text-3xl">
-                {savedSession.title === "Rain Soaked Cinema" ? "Heavy Rain, Poor Choices" : (savedSession.title || "Untitled ranking")}
+                {savedDisplayTitle(savedSession)}
               </h3>
               <p className="mt-1 text-xs text-muted sm:text-sm">
                 {savedSession.movies.length} movies · {Math.floor(totalComparisons(savedSession) / 2)} votes completed
@@ -494,10 +552,11 @@ export default function HomeClient({
         aria-label="Build your own list"
         className="rounded-lg bg-surface p-5 ring-1 ring-white/10 sm:p-6"
       >
-        <p className="text-sm text-muted">
-          Search any actor, director, studio — settle anything.
-        </p>
-        <div id="start" className="mt-4 scroll-mt-6">
+        {/* No helper sentence above the panel and none below it. There were
+            three around one input ("Search any actor, director, studio — settle
+            anything." / the panel's own line / "…then share your ranked wall.");
+            the tabs and the placeholder already say what this is. */}
+        <div id="start" className="scroll-mt-6">
           <SearchPanel
             onPick={toggleCandidate}
             onAddAll={(movies) => setCandidates((prev) => mergeCandidates(prev, movies))}
@@ -505,14 +564,8 @@ export default function HomeClient({
             isSelected={(m) => candidates.some((c) => c.tmdbId === m.tmdbId)}
           />
         </div>
-        <p className="mt-4 text-sm text-muted">…then share your ranked wall.</p>
       </section>
       </div>
-
-      {/* Curator Roulette — "Roll the Reel" Instant Start */}
-      <section aria-label="Curator Roulette" className="mt-14">
-        <CuratorRoulette />
-      </section>
 
       {/* Trending & Popular Showcases */}
       <section
@@ -528,7 +581,14 @@ export default function HomeClient({
         </div>
 
         {(() => {
-          const qualified = trendingLists.filter((l) => (l.upvotesCount ?? 0) > 0);
+          /* The gate used to be `upvotesCount > 0`, which meant real public
+             rankings stayed invisible until somebody had upvoted three of them
+             — so on a young site the "Coming Soon" placeholder below was the
+             DEFAULT state of a section that already had content to show.
+             Ordering (hot score, upvotes, recency) is decided upstream in
+             getTrendingLists; this only decides whether there is enough to
+             fill a row. */
+          const qualified = trendingLists;
           if (qualified.length >= 3) {
             return (
               <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -633,60 +693,29 @@ export default function HomeClient({
             );
           }
 
+          /* Empty Spotlight. This was a blurred placeholder grid under a gold
+             "Coming Soon" card — a decorated absence. An empty section should
+             offer the thing that fills it: a ready-made reel to rank right now,
+             which is the one context where the roulette is the right door. */
           return (
-            <div className="relative mt-8 min-h-[300px] overflow-hidden rounded-2xl border border-white/10 bg-surface/40 p-6">
-              {/* Blurred Silhouette Preview Grid */}
-              <div
-                aria-hidden="true"
-                className="pointer-events-none select-none filter blur-md opacity-20 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
-              >
-                {[1, 2, 3].map((placeholderIdx) => (
-                  <div
-                    key={placeholderIdx}
-                    className="flex flex-col justify-between rounded-2xl border border-white/10 bg-surface/80 p-5"
-                  >
-                    <div>
-                      <div className="h-6 w-3/4 rounded bg-white/20 mb-2" />
-                      <div className="h-3 w-1/2 rounded bg-white/10 mb-4" />
-                      <div className="flex justify-center gap-2 py-4">
-                        <div className="aspect-[2/3] w-20 rounded bg-white/10" />
-                        <div className="aspect-[2/3] w-20 rounded bg-white/15" />
-                        <div className="aspect-[2/3] w-20 rounded bg-white/10" />
-                      </div>
-                    </div>
-                    <div className="h-4 w-1/3 rounded bg-white/10" />
-                  </div>
-                ))}
-              </div>
-
-              {/* Centered Coming Soon Marquee Card */}
-              <div className="absolute inset-0 flex items-center justify-center p-4">
-                <div className="max-w-md rounded-2xl border border-gold/30 bg-surface/95 p-6 sm:p-8 text-center shadow-2xl backdrop-blur-md ring-1 ring-gold/20">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/10 px-3 py-1 font-display text-xs uppercase tracking-widest text-gold ring-1 ring-gold/40">
-                    ✦ Coming Soon ✦
-                  </span>
-                  <h3 className="mt-3 font-display text-2xl uppercase tracking-wider text-text sm:text-3xl">
-                    Community Spotlight
-                  </h3>
-                  <p className="mt-2 text-xs leading-relaxed text-muted sm:text-sm">
-                    Featured community rankings will appear here as lists are created and voted on.
-                  </p>
-                  <div className="mt-5">
-                    <button
-                      type="button"
-                      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-                      className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-bg shadow-lg transition-transform hover:-translate-y-0.5 active:scale-95 cursor-pointer"
-                    >
-                      <span>Start a Ranking</span>
-                      <span aria-hidden="true">→</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
+            <div id="reel" className="mt-8 scroll-mt-6">
+              <p className="mb-4 text-center text-xs text-muted sm:text-sm">
+                Nothing settled here yet. Rank a reel and be the first on the board.
+              </p>
+              <CuratorRoulette />
             </div>
           );
         })()}
       </section>
+
+      {/* Returning player, populated Spotlight: the reel is the only thing
+          left to offer, so it gets the last slot rather than a hero slot. When
+          the Spotlight is empty it has already rendered the reel itself. */}
+      {alreadyRankedThisWeek && trendingLists.length >= 3 && (
+        <section id="reel" aria-label="Spin a reel" className="mt-14 scroll-mt-6">
+          <CuratorRoulette />
+        </section>
+      )}
 
       <CandidateTray
         candidates={candidates}
