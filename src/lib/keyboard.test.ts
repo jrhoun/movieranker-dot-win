@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   isEditableElement,
   resolveBlitzAction,
+  resolvePendingIntent,
+  resolveSettlingIntent,
+  sideOfPair,
   type BlitzState,
   type KeyboardEventLike,
+  type PendingIntent,
 } from "./keyboard";
 import type { RankedMovie } from "./ranking";
 
@@ -341,5 +345,175 @@ describe("isEditableElement", () => {
         getAttribute: (attr: string) => (attr === "contenteditable" ? "false" : null),
       } as unknown as EventTarget)
     ).toBe(false);
+  });
+});
+
+/*
+ * THE SETTLE QUEUE. These cover the semantics the room relies on to stop
+ * dropping fast input: a key pressed inside the 380ms lock becomes a SIDE, and
+ * that side is resolved against the pair that mounts next — never against the
+ * outgoing pair, whose result is already decided.
+ */
+
+// A second pair, used to prove the queued side is resolved against the NEW
+// movies rather than the ones that were on screen when the key was pressed.
+const movieC: RankedMovie = {
+  tmdbId: 201,
+  title: "Heat",
+  posterPath: "/heat.jpg",
+  releaseYear: 1995,
+  elo: 1210,
+  comparisons: 3,
+  parked: false,
+};
+
+const movieD: RankedMovie = {
+  tmdbId: 202,
+  title: "The Insider",
+  posterPath: "/insider.jpg",
+  releaseYear: 1999,
+  elo: 1190,
+  comparisons: 3,
+  parked: false,
+};
+
+const settlingState: BlitzState = { ...baseState, isSettling: true };
+
+describe("sideOfPair", () => {
+  it("maps the left movie to 'left' and the right movie to 'right'", () => {
+    expect(sideOfPair([movieA, movieB], 101)).toBe("left");
+    expect(sideOfPair([movieA, movieB], 102)).toBe("right");
+  });
+
+  it("returns null for a movie that is not in the pair, rather than guessing", () => {
+    expect(sideOfPair([movieA, movieB], 999)).toBeNull();
+  });
+
+  it("returns null when there is no pair", () => {
+    expect(sideOfPair(null, 101)).toBeNull();
+  });
+});
+
+describe("resolvePendingIntent", () => {
+  it("resolves a queued left side against the NEW pair, not the old one", () => {
+    const intent: PendingIntent = { kind: "vote", side: "left" };
+    expect(resolvePendingIntent(intent, [movieC, movieD])).toEqual({
+      type: "vote_left",
+      winnerId: 201,
+      loserId: 202,
+    });
+  });
+
+  it("resolves a queued right side against the NEW pair", () => {
+    const intent: PendingIntent = { kind: "vote", side: "right" };
+    expect(resolvePendingIntent(intent, [movieC, movieD])).toEqual({
+      type: "vote_right",
+      winnerId: 202,
+      loserId: 201,
+    });
+  });
+
+  it("never replays the pair that was on screen when the key was pressed", () => {
+    const action = resolvePendingIntent({ kind: "vote", side: "left" }, [movieC, movieD]);
+    expect(action).not.toBeNull();
+    if (action && "winnerId" in action) {
+      expect([action.winnerId, action.loserId]).not.toContain(movieA.tmdbId);
+      expect([action.winnerId, action.loserId]).not.toContain(movieB.tmdbId);
+    }
+  });
+
+  it("resolves a queued skip to parking the movie on that side of the new pair", () => {
+    expect(resolvePendingIntent({ kind: "skip", side: "left" }, [movieC, movieD])).toEqual({
+      type: "park_candidate",
+      tmdbId: 201,
+    });
+    expect(resolvePendingIntent({ kind: "skip", side: "right" }, [movieC, movieD])).toEqual({
+      type: "park_candidate",
+      tmdbId: 202,
+    });
+  });
+
+  it("returns null when nothing is queued or no pair mounted", () => {
+    expect(resolvePendingIntent(null, [movieC, movieD])).toBeNull();
+    expect(resolvePendingIntent({ kind: "vote", side: "left" }, null)).toBeNull();
+  });
+});
+
+describe("resolveSettlingIntent", () => {
+  it("queues a left side for every left hotkey", () => {
+    for (const event of [
+      { key: "ArrowLeft" },
+      { key: "a" },
+      { key: "A" },
+      { code: "KeyA", key: "Unidentified" },
+    ] as KeyboardEventLike[]) {
+      expect(resolveSettlingIntent(event, settlingState)).toEqual({ kind: "vote", side: "left" });
+    }
+  });
+
+  it("queues a right side for every right hotkey", () => {
+    for (const event of [
+      { key: "ArrowRight" },
+      { key: "d" },
+      { key: "D" },
+      { code: "KeyD", key: "Unidentified" },
+    ] as KeyboardEventLike[]) {
+      expect(resolveSettlingIntent(event, settlingState)).toEqual({ kind: "vote", side: "right" });
+    }
+  });
+
+  it("does not look at the pair — the same key queues the same side either way", () => {
+    const otherPair: BlitzState = { ...settlingState, pair: [movieC, movieD] };
+    expect(resolveSettlingIntent({ key: "d" }, settlingState)).toEqual(
+      resolveSettlingIntent({ key: "d" }, otherPair),
+    );
+  });
+
+  it("ignores undo mid-flight — you cannot undo a vote that is still animating", () => {
+    expect(resolveSettlingIntent({ key: "z" }, settlingState)).toBeNull();
+    expect(resolveSettlingIntent({ key: "Z", ctrlKey: true }, settlingState)).toBeNull();
+  });
+
+  it("ignores Space, which is not a hotkey outside the lock either", () => {
+    expect(resolveSettlingIntent({ key: " " }, settlingState)).toBeNull();
+    expect(resolveSettlingIntent({ key: "Space" }, settlingState)).toBeNull();
+  });
+
+  it("returns null when not settling, so a key is never handled twice", () => {
+    expect(resolveSettlingIntent({ key: "a" }, baseState)).toBeNull();
+  });
+
+  it("respects the same guards as resolveBlitzAction", () => {
+    expect(resolveSettlingIntent({ key: "a", isComposing: true }, settlingState)).toBeNull();
+    expect(
+      resolveSettlingIntent(
+        { key: "a", target: { tagName: "INPUT" } as unknown as EventTarget },
+        settlingState,
+      ),
+    ).toBeNull();
+    expect(resolveSettlingIntent({ key: "a" }, { ...settlingState, isModalOpen: true })).toBeNull();
+    expect(resolveSettlingIntent({ key: "a" }, { ...settlingState, isFinished: true })).toBeNull();
+    expect(resolveSettlingIntent({ key: "a" }, { ...settlingState, isConsensus: true })).toBeNull();
+    expect(resolveSettlingIntent({ key: "a" }, { ...settlingState, pair: null })).toBeNull();
+    expect(
+      resolveSettlingIntent({ key: "a" }, { ...settlingState, activeMoviesCount: 1 }),
+    ).toBeNull();
+  });
+
+  it("ignores browser shortcuts so Ctrl+A / Cmd+D never enter the queue", () => {
+    expect(resolveSettlingIntent({ key: "a", ctrlKey: true }, settlingState)).toBeNull();
+    expect(resolveSettlingIntent({ key: "a", metaKey: true }, settlingState)).toBeNull();
+    expect(resolveSettlingIntent({ key: "d", altKey: true }, settlingState)).toBeNull();
+  });
+
+  it("a burst inside one lock collapses to the LAST intent (cap of one)", () => {
+    // The room stores the result of each call in a single ref, so this models
+    // the room's own write: three keys in, one queued side out.
+    let queued: PendingIntent | null = null;
+    for (const key of ["a", "d", "a"]) {
+      const intent = resolveSettlingIntent({ key }, settlingState);
+      if (intent) queued = intent;
+    }
+    expect(queued).toEqual({ kind: "vote", side: "left" });
   });
 });

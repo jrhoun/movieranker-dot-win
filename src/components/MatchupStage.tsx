@@ -55,41 +55,97 @@ function Side({
 
   return (
     <div
-      className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-2 sm:gap-3 transform-gpu ${animClass}`}
+      className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1.5 sm:gap-3 transform-gpu ${animClass}`}
       aria-hidden={isLosing}
     >
-      {/* Laurel Badge indicator for 3+ win streaks */}
-      <div className="h-8 flex items-center justify-center">
+      {/* Festival laurel indicator for 3+ win streaks. The fixed-height wrapper
+          (h-6 on phones, h-8 from sm) reserves the row whether or not a streak
+          exists, so the poster below never jumps the moment one appears.
+
+          WHY THIS REPLACED WHAT SHIPPED HERE, so it is not walked back: the old
+          badge read "🔥 4-WIN UNDEFEATED STREAK 🔥" in black `font-black` on an
+          amber gradient with `animate-pulse`. Three problems, all really the
+          same problem. It was a notification pill — the SaaS-panel vocabulary
+          DESIGN.md rules out — sitting directly above the two posters that are
+          supposed to be the brightest thing on this screen. It reached for emoji
+          where the design system already has a gold/✦ vocabulary and a real
+          display face. And PROJECT.md describes this feature as an "understated
+          gold laurel indicator", which is exactly what the LaurelBranchLeft /
+          LaurelBranchRight SVGs at the top of this file were drawn for; they had
+          never been wired to anything and eslint had been reporting both as
+          unused. They flank the count now, the way a festival laurel does.
+
+          ESCALATION WITHOUT A LOOP: `animate-pulse` is gone. globals.css does
+          now kill Tailwind's pulse under prefers-reduced-motion, so this is not
+          an accessibility patch — it is that a pulse running for as long as a
+          streak lasts is not the "single beat" DESIGN.md allows a celebration,
+          and an indicator that throbs indefinitely next to a poster is exactly
+          the notification-tray reflex the theme is meant to resist. So the two
+          tiers separate on WEIGHT instead, which reads the same for every user
+          in either motion setting: at 3 it is bare letterspaced gold
+          between small laurels; at 4+ the laurels grow, the type goes
+          full-strength gold, and the whole thing gains a plaque — fill, ring and
+          a gold bloom. The type and laurels do step up a size at 4, but
+          `transition-colors` rather than `transition-all` means only the colour
+          and ring animate — the size change lands at once instead of the badge
+          growing in place, which is what made the old version feel restless.
+
+          The long sentence stays in aria-label/title. That is where a screen
+          reader wants the full phrasing, and it is the reason the visible copy
+          can afford to be two words. */}
+      <div className="h-6 sm:h-8 flex items-center justify-center">
         {streak >= 3 ? (
           <div
-            className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1 text-xs font-black tracking-wider uppercase transition-all ${
+            className={`inline-flex items-center rounded-full font-display uppercase leading-none tracking-widest transition-colors duration-500 ease-out ${
               streak >= 4
-                ? "bg-gradient-to-r from-amber-500 via-gold to-amber-500 text-bg ring-2 ring-gold shadow-[0_0_24px_rgba(245,197,24,0.7)] animate-pulse"
-                : "bg-gold/20 text-gold ring-1.5 ring-gold/60 shadow-[0_0_15px_rgba(245,197,24,0.3)]"
+                ? "gap-2 bg-gold/15 px-3 py-1 text-sm text-gold ring-1 ring-gold/45 shadow-[0_0_22px_rgba(245,197,24,0.3)]"
+                : "gap-1.5 px-1.5 text-xs text-gold/75"
             }`}
             aria-label={`${movie.title} is on a ${streak}-win streak`}
             title={`${movie.title} has won ${streak} consecutive matchups`}
           >
-            <span aria-hidden="true">{streak >= 4 ? "🔥" : "✦"}</span>
-            <span>{streak}-WIN UNDEFEATED STREAK</span>
-            <span aria-hidden="true">{streak >= 4 ? "🔥" : "✦"}</span>
+            <LaurelBranchLeft className={streak >= 4 ? "h-4 w-4" : "h-3.5 w-3.5"} />
+            <span>{streak >= 4 ? `Undefeated · ${streak}` : `${streak} Wins`}</span>
+            <LaurelBranchRight className={streak >= 4 ? "h-4 w-4" : "h-3.5 w-3.5"} />
           </div>
         ) : null}
       </div>
 
       {/* Only the poster frame is the vote target — titles/meta stay outside so
-          stray taps near the card edges don't cast a vote. */}
+          stray taps near the card edges don't cast a vote.
+
+          THE BUTTON IS NEVER DISABLED ANY MORE. It used to carry
+          `disabled={isLosing || settlingLoserId !== null}`, which killed BOTH
+          posters for the 380ms of the settle animation. On a phone that is
+          indistinguishable from the app dropping taps: a player tapping at a
+          natural pace lost roughly every second tap, exactly as the keyboard
+          did. The room now queues a mid-flight tap as a SIDE and replays it
+          against the pair that mounts next (see lib/keyboard.ts PendingIntent),
+          so the button has to stay live for the queue to receive anything.
+
+          Double-voting the SAME pair is not the risk it looks like: handleVote
+          diverts to the queue while settling instead of applying a second vote,
+          and the queue holds one intent, so a mashed poster produces one vote
+          per settle no matter how many taps land.
+
+          tabIndex -1 WHILE LOSING is the a11y half of that trade. The losing
+          column is `aria-hidden` for its flight, and a focusable control inside
+          an aria-hidden subtree is a defect — previously masked by `disabled`,
+          though the "Haven't seen" button below has always had it. Removing it
+          from the tab order for those 380ms keeps pointers working without
+          letting keyboard focus walk into hidden content; keyboard players have
+          the A/D/←/→ queue and never need to reach these by Tab. */}
       <button
         type="button"
         onClick={() => onVote(movie.tmdbId, otherId)}
         aria-label={`Pick ${movie.title} as the winner`}
         aria-keyshortcuts={keyShortcut}
+        tabIndex={isLosing ? -1 : undefined}
         style={{ touchAction: "manipulation" }}
-        className="group relative mx-auto block w-fit select-none rounded-xl sm:rounded-2xl transition-all duration-500 ease-out transform-gpu hover:scale-[1.02] focus:outline-none focus-visible:outline-none active:scale-[0.98] disabled:pointer-events-none cursor-pointer"
-        disabled={isLosing || settlingLoserId !== null}
+        className="group relative mx-auto block w-fit select-none rounded-xl sm:rounded-2xl transition-all duration-500 ease-out transform-gpu hover:scale-[1.02] focus:outline-none focus-visible:outline-none active:scale-[0.98] cursor-pointer"
       >
         <div
-          className={`aspect-[2/3] h-[min(52svh,40vw)] sm:h-[min(58svh,36vw)] md:h-[min(65svh,34vw,650px)] lg:h-[min(70svh,32vw,750px)] overflow-hidden rounded-xl sm:rounded-2xl bg-surface transition-all duration-500 ease-out group-focus-visible:ring-2 group-focus-visible:ring-gold group-active:ring-gold ${
+          className={`aspect-[2/3] h-[min(50svh,64vw)] sm:h-[min(58svh,36vw)] md:h-[min(65svh,34vw,650px)] lg:h-[min(70svh,32vw,750px)] overflow-hidden rounded-xl sm:rounded-2xl bg-surface transition-all duration-500 ease-out group-focus-visible:ring-2 group-focus-visible:ring-gold group-active:ring-gold ${
             isWinning
               ? "animate-poster-winner ring-2 ring-gold"
               : streak >= 4
@@ -126,7 +182,7 @@ function Side({
       </button>
 
       {/* Movie Title */}
-      <p className="w-full max-w-[15rem] sm:max-w-xs md:max-w-sm lg:max-w-md text-center text-base sm:text-xl md:text-2xl font-bold leading-tight line-clamp-2">
+      <p className="w-full max-w-[15rem] sm:max-w-xs md:max-w-sm lg:max-w-md text-center text-sm sm:text-xl md:text-2xl font-bold leading-tight line-clamp-2">
         <a
           href={tmdbMovieUrl(movie.tmdbId)}
           target="_blank"
@@ -140,13 +196,13 @@ function Side({
 
       {/* Movie Tagline (when available from TMDB) */}
       {movie.tagline ? (
-        <p className="w-full max-w-[15rem] sm:max-w-xs md:max-w-sm lg:max-w-md text-center text-xs italic text-muted/80 leading-snug line-clamp-2 -mt-0.5">
+        <p className="w-full max-w-[15rem] sm:max-w-xs md:max-w-sm lg:max-w-md text-center text-[11px] sm:text-xs italic text-muted/80 leading-snug line-clamp-1 sm:line-clamp-2 -mt-0.5">
           {movie.tagline}
         </p>
       ) : null}
 
       {/* Release Year & TMDB External Link */}
-      <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-muted">
+      <div className="flex items-center justify-center gap-1.5 sm:gap-2 text-[11px] sm:text-sm text-muted">
         <span>{movie.releaseYear ?? "—"}</span>
         <span aria-hidden="true" className="text-white/20">·</span>
         <a
@@ -164,7 +220,8 @@ function Side({
       <button
         type="button"
         onClick={() => onPark(movie.tmdbId)}
-        className="mt-0.5 inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-surface-raised/90 px-4 py-1 text-xs font-semibold text-text/80 ring-1 ring-white/20 transition-all duration-150 ease-out hover:bg-surface-raised hover:text-gold hover:ring-gold/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-95 cursor-pointer"
+        tabIndex={isLosing ? -1 : undefined}
+        className="mt-0.5 inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-surface-raised/90 px-3 py-1 sm:px-4 text-xs font-semibold text-text/80 ring-1 ring-white/20 transition-all duration-150 ease-out hover:bg-surface-raised hover:text-gold hover:ring-gold/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-95 cursor-pointer"
       >
         <span>Haven&apos;t seen</span>
       </button>
@@ -189,10 +246,44 @@ export default function MatchupStage({
   const streakA = getMovieWinStreak(history, a.tmdbId);
   const streakB = getMovieWinStreak(history, b.tmdbId);
 
+  /*
+   * PHONE LAYOUT (< sm) IS DELIBERATELY TIGHT, and every `sm:`-prefixed number
+   * in this section exists to buy width for the posters.
+   *
+   * At 390px the old stage spent roughly 72px of its 374px content box on
+   * `gap-3` either side of a `px-1` VS column rendering Bebas at text-2xl, and
+   * the poster frames — `h-[min(52svh,40vw)]`, which after the 2:3 ratio is
+   * only ~27vw WIDE — used barely half the screen. Two thumbnails with a canyon
+   * between them, on the one screen where the posters ARE the game.
+   *
+   * `gap-1.5` plus a zero-padding VS column reclaims ~40px, and that goes
+   * straight into the frame at `h-[min(50svh,64vw)]`: ~42.7vw of width each,
+   * ~85vw for the pair, side by side with a tight VS exactly as asked.
+   *
+   * The numbers are measured, not guessed — the VS column at its phone type
+   * (Bebas at text-lg) renders 14.5px wide, so the budget is
+   * `vw - 14.5 - 2×gap - 2×padding` split in two. That leaves 18.7px of slack
+   * at 390px, 14.3px at 360px and 8.5px even at 320px, so nothing overflows
+   * anywhere in the phone range and the VS is never squeezed. Going much past
+   * 64vw runs the 320px case negative.
+   *
+   * The 50svh term only binds on unusually short viewports, which is the point
+   * of keeping it: it is the guard against a phone held in landscape, where
+   * 64vw of a 800px-wide screen would be taller than the screen itself.
+   *
+   * The metadata under each poster condenses to match (text-sm title, one-line
+   * tagline, 11px year row, narrower "Haven't seen"), which keeps the column
+   * around 390px tall on an 844px phone — the two posters and their vote
+   * targets clear the fold with the progress board above them, and only the
+   * YOUR MOVIES tray sits below it.
+   *
+   * Everything from sm: up is untouched. This is a phone fix, not a resize of
+   * the desktop stage.
+   */
   return (
     <section
       aria-label="Which movie is better?"
-      className="matchup-stage-container mx-auto flex w-full max-w-6xl xl:max-w-7xl flex-1 items-center justify-center gap-3 sm:gap-10 md:gap-14 lg:gap-20 px-2 py-2 select-none"
+      className="matchup-stage-container mx-auto flex w-full max-w-6xl xl:max-w-7xl flex-1 items-center justify-center gap-1.5 sm:gap-10 md:gap-14 lg:gap-20 px-1.5 sm:px-2 py-2 select-none"
     >
       <Side
         key={a.tmdbId}
@@ -206,13 +297,13 @@ export default function MatchupStage({
       />
       <div
         aria-hidden="true"
-        className="flex shrink-0 flex-col items-center gap-1 sm:gap-2 px-1 sm:px-3"
+        className="flex shrink-0 flex-col items-center gap-0.5 sm:gap-2 px-0 sm:px-3"
       >
-        <span className="text-xs sm:text-sm text-gold/70">✦</span>
-        <p className="font-display text-2xl leading-none tracking-widest text-gold drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)] sm:text-4xl lg:text-5xl">
+        <span className="text-[10px] sm:text-sm text-gold/70">✦</span>
+        <p className="font-display text-lg leading-none tracking-wide text-gold drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)] sm:text-4xl sm:tracking-widest lg:text-5xl">
           VS
         </p>
-        <span className="text-xs sm:text-sm text-gold/70">✦</span>
+        <span className="text-[10px] sm:text-sm text-gold/70">✦</span>
       </div>
       <Side
         key={b.tmdbId}
