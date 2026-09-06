@@ -73,11 +73,13 @@ describe("launchMicroPackSession", () => {
     store.clear();
   });
 
-  it("creates a clean curated PlaySession from slug and persists to localStorage", () => {
+  it("creates a clean, non-Marquee PlaySession from slug and persists to localStorage", () => {
     const session = launchMicroPackSession("studio-ghibli");
     expect(session.title).toBe("Studio Ghibli Magic");
-    expect(session.themeSlug).toBe("studio-ghibli");
-    expect(session.curated).toBe(true);
+    // No theme slug and no roster lock: a pack must never read as a weekly
+    // Marquee downstream (XP, title masking, connection game).
+    expect(session.themeSlug).toBeNull();
+    expect(session.curated).toBe(false);
     expect(session.participants).toEqual([]);
     expect(session.votesSinceOrderChange).toBe(0);
     expect(session.nudgeShown).toBe(false);
@@ -89,7 +91,7 @@ describe("launchMicroPackSession", () => {
     const loaded = loadSession();
     expect(loaded).not.toBeNull();
     expect(loaded?.title).toBe("Studio Ghibli Magic");
-    expect(loaded?.themeSlug).toBe("studio-ghibli");
+    expect(loaded?.themeSlug).toBeNull();
   });
 
   it("uses provided movieDetails when supplied", () => {

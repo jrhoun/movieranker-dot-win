@@ -270,6 +270,39 @@ describe("Web Audio API Pure Synthesis", () => {
     expect(mockCtx.createGain).toHaveBeenCalledTimes(3);
   });
 
+  it("scales shutter click gain by the intensity parameter", () => {
+    setSoundEnabled(true);
+    const mockCtx = createMockAudioContext();
+    playShutterClick(mockCtx as unknown as AudioContext, 0.5);
+
+    const noiseGain = mockCtx._gains[0];
+    expect(noiseGain.gain.setValueAtTime).toHaveBeenCalledWith(0.09, mockCtx.currentTime);
+
+    const oscGain = mockCtx._gains[1];
+    expect(oscGain.gain.setValueAtTime).toHaveBeenCalledWith(0.11, mockCtx.currentTime);
+  });
+
+  it("defaults shutter click intensity to full volume when omitted", () => {
+    setSoundEnabled(true);
+    const mockCtx = createMockAudioContext();
+    playShutterClick(mockCtx as unknown as AudioContext);
+
+    expect(mockCtx._gains[0].gain.setValueAtTime).toHaveBeenCalledWith(0.18, mockCtx.currentTime);
+    expect(mockCtx._gains[1].gain.setValueAtTime).toHaveBeenCalledWith(0.22, mockCtx.currentTime);
+  });
+
+  it("clamps out-of-range intensity values instead of throwing", () => {
+    setSoundEnabled(true);
+    const overCtx = createMockAudioContext();
+    expect(() => playShutterClick(overCtx as unknown as AudioContext, 5)).not.toThrow();
+    expect(overCtx._gains[0].gain.setValueAtTime).toHaveBeenCalledWith(0.18, overCtx.currentTime);
+
+    const underCtx = createMockAudioContext();
+    expect(() => playShutterClick(underCtx as unknown as AudioContext, -3)).not.toThrow();
+    // Floored just above 0 so the exponential ramp that follows never starts at exactly 0.
+    expect(underCtx._gains[0].gain.setValueAtTime).toHaveBeenCalledWith(0.0001, underCtx.currentTime);
+  });
+
   it("resumes AudioContext if suspended when unlocking", async () => {
     const mockCtx = createMockAudioContext();
     mockCtx.state = "suspended";

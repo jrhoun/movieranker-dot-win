@@ -106,13 +106,20 @@ export function setLightsDown(enabled: boolean): void {
 /**
  * Synthesizes a vintage 35mm mechanical shutter click.
  * Combines high-passed white noise with a pitch-swept mechanical thud.
+ *
+ * @param intensity Volume scale from 0 (silent) to 1 (full click), default 1.
+ *   Lets rapid-fire callers (e.g. a spinning reel) taper early ticks down so
+ *   many clicks in quick succession read as a ratchet rather than a machine
+ *   gun. Clamped to [0, 1]; out-of-range values are pulled back in rather
+ *   than thrown.
  */
-export function playShutterClick(customCtx?: AudioContext | null): void {
+export function playShutterClick(customCtx?: AudioContext | null, intensity = 1): void {
   if (!isSoundEnabled()) return;
   const ctx = customCtx ?? getAudioContext();
   if (!ctx) return;
   void unlockAudioContext(ctx);
 
+  const level = Math.min(1, Math.max(0, intensity));
   const now = ctx.currentTime;
 
   try {
@@ -133,7 +140,9 @@ export function playShutterClick(customCtx?: AudioContext | null): void {
     noiseFilter.Q.setValueAtTime(1.8, now);
 
     const noiseGain = ctx.createGain();
-    noiseGain.gain.setValueAtTime(0.18, now);
+    // exponentialRampToValueAtTime throws if the ramp starts at exactly 0, so
+    // an intensity of 0 is floored just above it rather than truly muted.
+    noiseGain.gain.setValueAtTime(Math.max(0.0001, 0.18 * level), now);
     noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.022);
 
     noiseSource.connect(noiseFilter);
@@ -154,7 +163,7 @@ export function playShutterClick(customCtx?: AudioContext | null): void {
     lowFilter.frequency.setValueAtTime(300, now);
 
     const oscGain = ctx.createGain();
-    oscGain.gain.setValueAtTime(0.22, now);
+    oscGain.gain.setValueAtTime(Math.max(0.0001, 0.22 * level), now);
     oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.038);
 
     osc.connect(lowFilter);

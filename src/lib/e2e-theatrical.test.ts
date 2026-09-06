@@ -1237,11 +1237,11 @@ describe("Tier 1: Feature Specifications", () => {
       }
     });
 
-    it("launchMicroPackSession initializes and saves a curated PlaySession", () => {
+    it("launchMicroPackSession initializes and saves a non-Marquee PlaySession", () => {
       const session = launchMicroPackSession("a24-gems");
       expect(session.title).toBe("A24 Modern Gems");
-      expect(session.curated).toBe(true);
-      expect(session.themeSlug).toBe("a24-gems");
+      expect(session.curated).toBe(false);
+      expect(session.themeSlug).toBeNull();
       expect(session.movies.length).toBeGreaterThanOrEqual(5);
       expect(session.movies[0].elo).toBe(1000);
       expect(session.movies[0].comparisons).toBe(0);
@@ -1514,7 +1514,9 @@ describe("Tier 3: Cross-Feature User Journeys", () => {
     const pack = getMicroPackBySlug("noir-classics");
     expect(pack).toBeDefined();
     const session = launchMicroPackSession(pack!);
-    expect(session.curated).toBe(true);
+    // A pack seeds a personal list, not a locked Marquee roster.
+    expect(session.curated).toBe(false);
+    expect(session.themeSlug).toBeNull();
 
     // 2. Enable Lights Down and Sound Effects
     setLightsDown(true);

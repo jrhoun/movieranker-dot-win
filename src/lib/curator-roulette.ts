@@ -458,14 +458,28 @@ export function launchMicroPackSession(
     parked: false,
   }));
 
+  /* NOT A MARQUEE. This used to set `themeSlug: pack.slug, curated: true`,
+     and `themeSlug` means exactly one thing everywhere else in the codebase:
+     weekly Marquee provenance. Every consumer trusted it — `toXpLists` paid
+     MARQUEE_COMPLETION_XP for a spin of the reel and counted it toward
+     `marqueeWeeks` (Season Ticket, The Programmer), `maskListTitle` hid the
+     saved list as "Weekly Marquee #N", and /l/[id] rendered the connection
+     game under a "What connects these films?" heading for a pack that has no
+     puzzle. A micro pack is a starting roster for a personal list; it carries
+     no week, no puzzle and no bonus, so it carries no theme slug. `curated` is
+     off for the same reason: the roster lock exists to keep a Marquee ranking
+     comparable across players, and the play room labels it "Marquee". If pack
+     provenance is ever worth recording, it needs its own field, not this one.
+     Rows saved under the old behaviour are repaired by
+     supabase/migrations/20260905_roulette_lists_are_not_marquees.sql. */
   const session: PlaySession = {
     title: pack.title,
     participants: [],
     movies,
     votesSinceOrderChange: 0,
     nudgeShown: false,
-    themeSlug: pack.slug,
-    curated: true,
+    themeSlug: null,
+    curated: false,
   };
 
   saveSession(session);

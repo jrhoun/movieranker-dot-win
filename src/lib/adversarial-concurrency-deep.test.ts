@@ -15,25 +15,17 @@ import {
   countClosePairs,
   estimateRemainingVotes,
   expectedConsensusVotes,
-  finalizeRanks,
   isPodiumLocked,
-  isStable,
   nextMatchup,
-  recordMatchupResult,
-  sharpenNextPair,
-  stabilityVotesN,
   type RankedMovie,
 } from "./ranking";
 
 import {
   applyVote,
   changedMovies,
-  clearSession,
   loadSession,
   parkMovie,
   saveSession,
-  selectNextPair,
-  snapshotForUndo,
   totalComparisons,
   type PlaySession,
 } from "./session";
@@ -43,14 +35,11 @@ import {
   compatibilityTier,
   computeVersus,
   extractListId,
-  findSharpestClash,
-  findSharedFavorites,
   type VersusEntry,
 } from "./versus";
 
 import {
   CURATOR_MICRO_PACKS,
-  getMicroPackBySlug,
   getRandomMicroPack,
   launchMicroPackSession,
 } from "./curator-roulette";
@@ -58,36 +47,18 @@ import {
 import { createForkSession } from "./fork";
 
 import {
-  getMovieWinStreak,
-  hasLaurelBadge,
-  STREAK_LAUREL_THRESHOLD,
 } from "./streak";
 
 import {
   drawBarcode,
-  formatTicketDate,
-  generatePremierePassCanvas,
   generateTicketSerialNumber,
-  type TicketRenderOptions,
 } from "./ticket-canvas";
 
 import {
-  isEditableElement,
-  isInputOrEditableFocused,
-  resolveBlitzAction,
-  type BlitzState,
-  type KeyboardEventLike,
 } from "./keyboard";
 
 import {
-  isLightsDown,
-  isSoundEnabled,
-  playGoldenChime,
-  playShutterClick,
   setAudioContextForTesting,
-  setLightsDown,
-  setSoundEnabled,
-  unlockAudioContext,
 } from "./audio";
 
 // Setup storage mocks
@@ -149,7 +120,6 @@ describe("Empirical Challenger 2: Concurrency & Boundary Verification", () => {
           const [left, right] = pair;
 
           // Action 1: Apply vote
-          const prev = session;
           session = applyVote(session, left.tmdbId, right.tmdbId);
           expect(session.undoSnapshot).toBeDefined();
 
@@ -387,8 +357,9 @@ describe("Empirical Challenger 2: Concurrency & Boundary Verification", () => {
 
       const session = launchMicroPackSession(pack.slug, customDetails);
       expect(session.title).toBe(pack.title);
-      expect(session.curated).toBe(true);
-      expect(session.themeSlug).toBe(pack.slug);
+      // Packs are personal lists, not Marquees — see launchMicroPackSession.
+      expect(session.curated).toBe(false);
+      expect(session.themeSlug).toBeNull();
       expect(session.movies[0].tagline).toBe("Welcome to the Real World.");
       expect(session.movies[0].posterPath).toBe("/matrix.jpg");
     });
