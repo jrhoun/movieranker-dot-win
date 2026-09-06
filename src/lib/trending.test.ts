@@ -3,8 +3,25 @@ import {
   calculateHotScore,
   formatTrendingLists,
   getTrendingLists,
+  HOT_CANDIDATE_POOL,
   type RawDbListRow,
 } from "./trending";
+
+/** Minimal chainable query-builder mock for getTrendingLists's Supabase param (typed any; see trending.ts). */
+function createMockQueryBuilder(response: {
+  data: unknown[] | null;
+  error: { message: string } | null;
+}) {
+  const builder: Record<string, unknown> = {};
+  for (const method of ["select", "eq", "order", "limit", "in"]) {
+    builder[method] = vi.fn(() => builder);
+  }
+  builder.then = (
+    onFulfilled?: (v: unknown) => unknown,
+    onRejected?: (e: unknown) => unknown,
+  ) => Promise.resolve(response).then(onFulfilled, onRejected);
+  return builder as Record<string, ReturnType<typeof vi.fn>> & PromiseLike<unknown>;
+}
 
 describe("formatTrendingLists", () => {
   const sampleLists: RawDbListRow[] = [
@@ -195,20 +212,13 @@ describe("getTrendingLists", () => {
 
     const mockSupabase = {
       from: vi.fn((table: string) => {
-        const builder: Record<string, any> = {};
-        for (const method of ["select", "eq", "order", "limit", "in"]) {
-          builder[method] = vi.fn(() => builder);
+        if (table === "lists") {
+          return createMockQueryBuilder({ data: mockLists, error: null });
         }
-        builder.then = (onFulfilled: any) => {
-          if (table === "lists") {
-            return Promise.resolve({ data: mockLists, error: null }).then(onFulfilled);
-          }
-          if (table === "profiles") {
-            return Promise.resolve({ data: mockProfiles, error: null }).then(onFulfilled);
-          }
-          return Promise.resolve({ data: [], error: null }).then(onFulfilled);
-        };
-        return builder;
+        if (table === "profiles") {
+          return createMockQueryBuilder({ data: mockProfiles, error: null });
+        }
+        return createMockQueryBuilder({ data: [], error: null });
       }),
     };
 
@@ -223,22 +233,91 @@ describe("getTrendingLists", () => {
 
   it("returns empty array on database failure", async () => {
     const mockSupabase = {
-      from: vi.fn(() => {
-        const builder: Record<string, any> = {};
-        for (const method of ["select", "eq", "order", "limit", "in"]) {
-          builder[method] = vi.fn(() => builder);
-        }
-        builder.then = (onFulfilled: any) => {
-          return Promise.resolve({ data: null, error: { message: "db error" } }).then(
-            onFulfilled,
-          );
-        };
-        return builder;
-      }),
+      from: vi.fn(() =>
+        createMockQueryBuilder({ data: null, error: { message: "db error" } }),
+      ),
     };
 
     const trending = await getTrendingLists(mockSupabase, 5);
     expect(trending).toEqual([]);
+  });
+
+  it("fetches the candidate pool ordered by recency (created_at DESC), not upvotes, by default (hot mode)", async () => {
+    const listsBuilder = createMockQueryBuilder({ data: [], error: null });
+    const mockSupabase = {
+      from: vi.fn((table: string) => {
+        if (table === "lists") return listsBuilder;
+        return createMockQueryBuilder({ data: [], error: null });
+      }),
+    };
+
+    await getTrendingLists(mockSupabase, 6);
+
+    // Recency-ordered, wide candidate pool -- not a database-side upvotes sort.
+    expect(listsBuilder.order).toHaveBeenCalledWith("created_at", { ascending: false });
+    expect(listsBuilder.order).not.toHaveBeenCalledWith(
+      "upvotes_count",
+      expect.anything(),
+    );
+    expect(listsBuilder.limit).toHaveBeenCalledWith(HOT_CANDIDATE_POOL);
+  });
+
+  it("lets a newer, unupvoted list outrank an older, higher-upvoted one under the default hot sort", async () => {
+    const now = new Date();
+    const fiveDaysAgo = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+
+    const mockLists = [
+      {
+        id: "old-popular",
+        title: "Old Popular List",
+        description: null,
+        owner_id: "u-old",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 50,
+        theme_slug: null,
+        created_at: fiveDaysAgo,
+        list_movies: [],
+      },
+      {
+        id: "new-unvoted",
+        title: "New Unvoted List",
+        description: null,
+        owner_id: "u-new",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 0,
+        theme_slug: null,
+        created_at: oneHourAgo,
+        list_movies: [],
+      },
+    ];
+
+    const mockSupabase = {
+      from: vi.fn((table: string) => {
+        if (table === "lists") return createMockQueryBuilder({ data: mockLists, error: null });
+        return createMockQueryBuilder({ data: [], error: null });
+      }),
+    };
+
+    const trending = await getTrendingLists(mockSupabase, 6);
+    expect(trending.map((l) => l.id)).toEqual(["new-unvoted", "old-popular"]);
+  });
+
+  it("keeps 'top' mode querying upvotes-first, capped directly at limit", async () => {
+    const listsBuilder = createMockQueryBuilder({ data: [], error: null });
+    const mockSupabase = {
+      from: vi.fn((table: string) => {
+        if (table === "lists") return listsBuilder;
+        return createMockQueryBuilder({ data: [], error: null });
+      }),
+    };
+
+    await getTrendingLists(mockSupabase, 6, "top");
+
+    expect(listsBuilder.order).toHaveBeenCalledWith("upvotes_count", { ascending: false });
+    expect(listsBuilder.limit).toHaveBeenCalledWith(6);
   });
 });
 
@@ -272,6 +351,27 @@ describe("calculateHotScore & Reddit Hot Algorithm", () => {
 
     // The fresh list with strong early momentum outranks the 3-day-old list
     expect(newScore).toBeGreaterThan(oldScore);
+  });
+
+  it("pins the intended trade-off: 10 upvotes buys roughly one day of freshness", () => {
+    const base = "2026-09-03T00:00:00Z";
+
+    // 100 upvotes, posted at `base`.
+    const olderMoreUpvoted = calculateHotScore(100, base);
+
+    // 10x fewer upvotes (10), but posted exactly one half-life (1 day) later:
+    // the freshness gain should almost exactly cancel the 10x upvote deficit.
+    const oneDayLater = "2026-09-04T00:00:00Z";
+    const newerFewerUpvotes = calculateHotScore(10, oneDayLater);
+    expect(Math.abs(newerFewerUpvotes - olderMoreUpvoted)).toBeLessThan(1e-6);
+
+    // Two days later more than compensates for the same 10x upvote deficit.
+    const twoDaysLater = "2026-09-05T00:00:00Z";
+    expect(calculateHotScore(10, twoDaysLater)).toBeGreaterThan(olderMoreUpvoted);
+
+    // Half a day later does not yet compensate for it.
+    const twelveHoursLater = "2026-09-03T12:00:00Z";
+    expect(calculateHotScore(10, twelveHoursLater)).toBeLessThan(olderMoreUpvoted);
   });
 
   it("handles zero and safe fallback gracefully", () => {
