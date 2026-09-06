@@ -27,11 +27,30 @@ export interface ForkableListInput {
  * - Clears participants
  * - Prefixes title with "Re-rank: "
  * - Automatically saves the clean session to localStorage
+ *
+ * NO SOURCE-CURATOR ATTRIBUTION, deliberately. This function used to accept an
+ * `ownerHandle` and drop it on the floor, and the obvious repair — seeding
+ * `participants` with it so the original curator gets credit — is wrong, because
+ * `participants` is not a credits list. It is the list of PEOPLE WHO VOTED, and
+ * three other systems read it as exactly that:
+ *
+ *   1. `toXpLists` in career-xp.ts sets `coCurated: participants.length > 0`,
+ *      which pays out CO_CURATION_XP. Seeding a stranger's handle would mint
+ *      +5 XP for a solo re-rank with no co-curator.
+ *   2. The `double_feature` achievement is "Finished a ranking that credits a
+ *      co-curator" — it would unlock just for forking somebody else's list.
+ *   3. `participant_attributions` lets a signed-in user CLAIM a participant
+ *      chip on any readable list, so the source curator could claim authorship
+ *      credit on a fork they had no hand in.
+ *
+ * Fork lineage is a real and worthwhile feature, but it needs its own field
+ * (a `forkedFrom` on PlaySession, persisted and surfaced as provenance rather
+ * than as participation) and its own decision about whether lineage should be
+ * visible on the finished list. Until then, crediting nobody is the honest
+ * answer: an un-passed parameter is dead weight, but a parameter wired to the
+ * wrong field is a phantom XP source.
  */
-export function createForkSession(
-  list: ForkableListInput,
-  ownerHandle?: string | null,
-): PlaySession {
+export function createForkSession(list: ForkableListInput): PlaySession {
   const cleanMovies: RankedMovie[] = (list.movies ?? []).map((m) => ({
     tmdbId: m.tmdbId,
     title: m.title,
@@ -50,6 +69,8 @@ export function createForkSession(
 
   const session: PlaySession = {
     title: forkTitle,
+    // Empty on purpose — see the note on this function about why source-curator
+    // attribution must not ride on `participants`.
     participants: [],
     movies: cleanMovies,
     votesSinceOrderChange: 0,

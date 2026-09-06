@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import MoviePoster from "@/components/list/MoviePoster";
 import {
   copyPremierePassToClipboard,
@@ -21,7 +21,6 @@ export interface PremierePassCardProps {
   themeTitle?: string | null;
   totalRanked?: number;
   className?: string;
-  compact?: boolean;
 }
 
 export default function PremierePassCard({
@@ -33,7 +32,6 @@ export default function PremierePassCard({
   themeTitle,
   totalRanked,
   className = "",
-  compact = false,
 }: PremierePassCardProps) {
   const [sharing, setSharing] = useState(false);
   const [copying, setCopying] = useState(false);

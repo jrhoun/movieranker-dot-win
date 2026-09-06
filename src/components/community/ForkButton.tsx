@@ -7,6 +7,13 @@ import { loadSession, clearSession, type PlaySession } from "@/lib/session";
 
 export interface ForkButtonProps {
   list: ForkableListInput & { id?: string };
+  /**
+   * The source list's curator, used ONLY to name them in this button's
+   * accessible label and tooltip. It is deliberately NOT forwarded into the
+   * forked session: `createForkSession` explains at length why crediting a
+   * curator through `PlaySession.participants` would mint co-curation XP and
+   * the `double_feature` achievement for a solo re-rank.
+   */
   ownerHandle?: string | null;
   variant?: "primary" | "secondary" | "pill" | "compact" | "card";
   className?: string;
@@ -39,7 +46,7 @@ export default function ForkButton({
   }
 
   function executeFork() {
-    createForkSession(list, ownerHandle);
+    createForkSession(list);
     onFork?.();
     router.push("/r/play");
   }
@@ -76,7 +83,15 @@ export default function ForkButton({
       <button
         type="button"
         onClick={handleClick}
-        aria-label={`Fork and re-rank ${list.title}`}
+        /* Naming the curator matters most for the card variant, where several
+           of these buttons sit in a grid and "Fork & Re-rank" is the only
+           visible text on every one of them — so the label is the only thing
+           telling a screen-reader user WHICH ranking each button forks. */
+        aria-label={
+          ownerHandle
+            ? `Fork and re-rank ${list.title} by @${ownerHandle}`
+            : `Fork and re-rank ${list.title}`
+        }
         title={`Fork and start a fresh ranking duel with these ${list.movies?.length ?? 0} films`}
         className={`${buttonStyles} ${className} cursor-pointer`}
       >

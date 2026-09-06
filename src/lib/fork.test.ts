@@ -60,7 +60,12 @@ describe("createForkSession", () => {
     expect(session.movies.every((m) => m.parked === false)).toBe(true);
   });
 
-  it("clears participants to an empty array", () => {
+  // A fork credits NOBODY, and that is load-bearing rather than incidental:
+  // `participants` is the who-voted list, and `toXpLists` turns a non-empty one
+  // into `coCurated`, which pays CO_CURATION_XP and unlocks `double_feature`.
+  // Seeding it with the source curator would mint XP and an achievement for a
+  // solo re-rank. See the note on createForkSession.
+  it("leaves participants empty so a fork cannot mint co-curation XP", () => {
     const session = createForkSession(sampleList);
     expect(session.participants).toEqual([]);
   });
