@@ -83,20 +83,22 @@ export default function ForkButton({
       <button
         type="button"
         onClick={handleClick}
-        /* Naming the curator matters most for the card variant, where several
-           of these buttons sit in a grid and "Fork & Re-rank" is the only
-           visible text on every one of them — so the label is the only thing
-           telling a screen-reader user WHICH ranking each button forks. */
+        /* "Fork" was the label here — a version-control word on a page for
+           people who love movies. The action is plainer than that: take this
+           list and rank it yourself. Naming the curator matters most for the
+           card variant, where several of these buttons sit in a grid with
+           identical visible text, so the label is the only thing telling a
+           screen-reader user WHICH ranking each button starts from. */
         aria-label={
           ownerHandle
-            ? `Fork and re-rank ${list.title} by @${ownerHandle}`
-            : `Fork and re-rank ${list.title}`
+            ? `Rank the films in ${list.title} yourself (curated by @${ownerHandle})`
+            : `Rank the films in ${list.title} yourself`
         }
-        title={`Fork and start a fresh ranking duel with these ${list.movies?.length ?? 0} films`}
+        title={`Start your own ranking of these ${list.movies?.length ?? 0} films`}
         className={`${buttonStyles} ${className} cursor-pointer`}
       >
         <span aria-hidden="true" className="text-base">✦</span>
-        <span>Fork &amp; Re-rank</span>
+        <span>Rank these yourself</span>
       </button>
 
       {showConfirmModal && (
@@ -123,7 +125,7 @@ export default function ForkButton({
             <p className="mt-2 text-xs leading-relaxed text-muted sm:text-sm">
               You already have an active ranking duel in progress for &ldquo;
               <strong className="text-text">{existingSession?.title || "Movie ranking"}</strong>
-              &rdquo;. Would you like to resume your existing session or start fresh by forking &ldquo;
+              &rdquo;. Would you like to resume it, or start fresh with the films from &ldquo;
               <strong className="text-gold">{list.title}</strong>&rdquo;?
             </p>
             <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-end">
@@ -139,7 +141,7 @@ export default function ForkButton({
                 onClick={handleStartFresh}
                 className="min-h-11 rounded-full bg-gold px-6 text-sm font-bold uppercase tracking-wide text-bg shadow-lg transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-gold"
               >
-                Start Fresh with Fork
+                Start with these films
               </button>
             </div>
           </div>

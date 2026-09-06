@@ -439,7 +439,7 @@ export default async function PublicListPage({
           </div>
           {/* ONE PRIMARY ACTION (DESIGN.md). Share is the whole point of this
               page, so it is the only gold thing up here and the only action
-              that sits beside the title. Upvote, Fork and Compare used to sit
+              that sits beside the title. Upvote, Rank-these-yourself and Compare used to sit
               at equal weight in the same cluster — four buttons that wrapped
               onto a second row at 390px and made the title look like the
               caption on a toolbar. They are still one tap away, one row down

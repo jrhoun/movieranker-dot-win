@@ -244,7 +244,7 @@ export default function HomeClient({
         {/* Soft scrim behind the headline. Replaces the boxed placard; see the
             note on the h1 below. */}
         <div aria-hidden="true" className="hero-scrim pointer-events-none absolute inset-0" />
-        <div className="relative mx-auto w-full max-w-page px-4 pt-8 pb-10 text-center sm:pt-12 sm:pb-14 sm:px-6 lg:px-8">
+        <div className="relative mx-auto w-full max-w-page px-4 pt-8 text-center sm:pt-12 sm:px-6 lg:px-8">
           {/* ONE display beat. This used to be a dark placard — a rounded
               bg-bg/80 box with a ring — holding the wordmark at up to 96px and
               the hook at 44px, both in gold caps, both shouting. Two problems:
@@ -318,14 +318,24 @@ export default function HomeClient({
               is held to ≤18% of a face — DESIGN.md's ">=82% visible" rule,
               which the old -mx-4 on a 134px card broke at 24%.
 
-              Centering: a `w-max` list inside a scroll container centres
-              itself when it fits and scrolls from the first card when it does
-              not. `justify-center` directly on an overflowing flex row clips
-              BOTH ends and cannot be scrolled back — that was a latent "the
-              posters are cut off" at widths where the fan outgrew the column. */}
-          <div className="no-scrollbar fan-scroll relative mt-4 overflow-x-auto px-4">
+              Centering: `justify-content: safe center`. Plain `justify-center`
+              on an overflowing flex row clips BOTH ends and cannot be scrolled
+              back — a latent "the posters are cut off" wherever the fan outgrew
+              the column. The `safe` keyword centres while the row fits and
+              falls back to start-aligned scrolling when it does not. (A `w-max`
+              list with `mx-auto` was tried first and sat ~70px right of centre
+              with the last card clipped: max-content width does not net out the
+              cards' negative margins, so the centred box was wider than the
+              drawn fan.) */}
+        </div>
+        {/* The fan sits OUTSIDE the max-w-page text column, at the full width of
+            the stage: seven viewport-scaled cards are wider than a 72rem column
+            from ~1300px up, and inside it they overflowed and start-aligned —
+            "the posters are cut off", the desktop edition. The hero band is
+            full-bleed anyway; only the words need the column. */}
+        <div className="relative mt-4 text-center">
             <div aria-hidden="true" className="stage-pool pointer-events-none absolute inset-x-0 bottom-0 h-2/3" />
-            <ul className="relative mx-auto flex w-max pt-6 pb-8">
+            <ul className="no-scrollbar fan-scroll relative flex overflow-x-auto px-6 pt-6 pb-8 sm:px-4">
             {fanItems.map(({ m, tilt, arcY }, i) => {
               const inTray = candidates.some((c) => c.tmdbId === m.tmdbId);
               return (
@@ -366,8 +376,9 @@ export default function HomeClient({
                 </li>
               );
             })}
-          </ul>
-          </div>
+            </ul>
+        </div>
+        <div className="relative mx-auto w-full max-w-page px-4 pb-10 text-center sm:pb-14 sm:px-6 lg:px-8">
           {/* The question is the hook and the honest one: it is the same thing
               the puzzle asks at the end, and it only works because the theme is
               withheld above. Two display beats in this hero — the name and the

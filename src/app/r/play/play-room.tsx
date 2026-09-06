@@ -897,7 +897,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         </Link>
         <div aria-hidden="true" className="h-5 w-px shrink-0 bg-white/10" />
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             {/* THE SPOILER RULE. For a marquee room `session.title` is the theme
                 title, which paraphrases the answer to the connection quiz on
                 the completion screen — this header used to name it for the
@@ -908,21 +908,30 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
 
                 The stored title is untouched: the saved list really is that
                 theme, and the quiz reveals it once answered. */}
-            <h1 className="truncate text-sm sm:text-base font-bold leading-tight">
+            {/* Below sm the row is wordmark + four controls and the title was
+                truncating to "W…" — worse than no title. Kept for assistive
+                tech (it is the page heading) but out of the visual row on
+                phones; the progress card immediately below names the state. */}
+            <h1 className="truncate text-sm sm:text-base font-bold leading-tight max-sm:sr-only">
               {marqueeDisplayTitle(session.title, session.themeSlug, marqueeNumber())}
             </h1>
             {session.themeSlug && (
               // The unlocked variant stays: `curated: false` with a themeSlug is
               // still reachable in sessions saved before the Unlock control was
               // removed, and those must not render as locked.
+              // Hidden below sm: the h1 beside it already says "Weekly Marquee",
+              // and on a 390px header the pill was being drawn under the Dim
+              // Lights toggle because this column could not shrink (it needed
+              // min-w-0 for the h1's truncate to work). The lock is text, not
+              // an emoji: DESIGN.md's "labels over icons".
               <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                className={`hidden shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold sm:inline ${
                   session.curated
                     ? "bg-gold/15 text-gold ring-1 ring-gold/40"
                     : "bg-surface-raised text-muted ring-1 ring-white/10"
                 }`}
               >
-                {session.curated ? "🔒 Marquee" : "🔓 Marquee"}
+                {session.curated ? "✦ Marquee · locked" : "Marquee · unlocked"}
               </span>
             )}
           </div>

@@ -270,6 +270,13 @@ body {
    to be cut off dead at the viewport edge, which reads as cropped rather than
    scrollable. A mask fade on the trailing edge is the affordance. Only below
    sm — from there the fan fits and is centred. */
+.fan-scroll {
+  /* `safe center`: centred while the row fits, start-aligned (and so fully
+     scrollable) once it overflows. Plain `center` on an overflowing flex row
+     clips both ends with no way to scroll back. Written here rather than as a
+     Tailwind arbitrary value because `justify-[safe_center]` is not emitted. */
+  justify-content: safe center;
+}
 @media (max-width: 639px) {
   .fan-scroll {
     -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 82%, transparent 100%);
