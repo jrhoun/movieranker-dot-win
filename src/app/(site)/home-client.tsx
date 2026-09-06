@@ -109,8 +109,11 @@ export default function HomeClient({
         const normalized = total > 1 ? (i / (total - 1)) * 2 - 1 : 0; // -1 to 1
         return {
           m,
-          tilt: Math.round(normalized * 9.5 * 10) / 10, // -9.5deg to +9.5deg playing card fan
-          arcY: Math.round(Math.pow(Math.abs(normalized), 1.8) * 12), // natural arched curve
+          // ±7°: at ±11° a 300px card's top corner swung ~57px over its
+          // neighbour and hid nearly a third of every face. The fan still
+          // reads as a hand; the films read as films.
+          tilt: Math.round(normalized * 7 * 10) / 10,
+          arcY: Math.round(Math.pow(Math.abs(normalized), 1.8) * 14), // natural arched curve
         };
       })
     : FAN_POSTERS.map((p, i) => {
@@ -123,8 +126,8 @@ export default function HomeClient({
             posterPath: p.posterPath,
             releaseYear: p.releaseYear,
           },
-          tilt: p.tilt || Math.round(normalized * 9.5 * 10) / 10,
-          arcY: Math.round(Math.pow(Math.abs(normalized), 1.8) * 12),
+          tilt: p.tilt || Math.round(normalized * 7 * 10) / 10,
+          arcY: Math.round(Math.pow(Math.abs(normalized), 1.8) * 14),
         };
       });
   const router = useRouter();
@@ -257,7 +260,8 @@ export default function HomeClient({
               moves onto the phrase that matters. */}
           <p
             role="presentation"
-            className="font-display text-sm uppercase tracking-[0.32em] text-gold/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)] sm:text-base"
+            style={{ "--rise-delay": "0ms" } as React.CSSProperties}
+            className="rise font-display text-sm uppercase tracking-[0.32em] text-gold/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)] sm:text-base"
           >
             <span aria-hidden="true" className="mr-2 text-[0.75em]">✦</span>
             movieranker.win
@@ -269,9 +273,15 @@ export default function HomeClient({
               no tracking at this size; the clamp keeps it to two lines from 360px
               up without ever breaking inside a phrase. */}
           <h1 className="mx-auto mt-3 max-w-4xl font-display text-[clamp(2.2rem,7vw,5rem)] uppercase leading-[0.95] tracking-[0.03em] text-text drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)]">
-            Rank them head-to-head.
-            <br />
-            <span className="marquee-gold">Find the connection.</span>
+            <span className="rise block" style={{ "--rise-delay": "120ms" } as React.CSSProperties}>
+              Rank them head-to-head.
+            </span>
+            {/* Wrapped, not combined: .marquee-gold carries its own animation
+                (the shimmer) and a second `animation` declaration on the same
+                element would replace it. */}
+            <span className="rise block" style={{ "--rise-delay": "260ms" } as React.CSSProperties}>
+              <span className="marquee-gold">Find the connection.</span>
+            </span>
           </h1>
           {/* Fanned marquee of real posters: overlapping, tilted -8°..8°,
               straighten+lift on hover (200ms ease-out; killed by reduced-motion).
@@ -287,7 +297,10 @@ export default function HomeClient({
               started. The week is named by its number; the films do the
               inviting. */}
           {liveFan && (
-            <div className="mt-7 flex flex-wrap items-center justify-center gap-2.5">
+            <div
+              className="rise mt-7 flex flex-wrap items-center justify-center gap-2.5"
+              style={{ "--rise-delay": "400ms" } as React.CSSProperties}
+            >
               {/* A div, not a p: MarqueeInfoModal renders a <dialog>, which is
                   flow content and cannot legally sit inside a paragraph. The
                   display styling stays on the label so the dialog does not
@@ -298,7 +311,21 @@ export default function HomeClient({
               <MarqueeInfoModal />
             </div>
           )}
-          <ul className="no-scrollbar fan-scroll mt-4 flex justify-start overflow-x-auto px-4 pt-6 pb-4 sm:justify-center">
+          {/* THE FAN. Poster width scales with the viewport (13vw, floored for
+              phones and capped for very wide screens) so the cards are the
+              largest thing under the headline on any desktop, instead of a
+              fixed 8.4rem that read as thumbnails on a 1440px stage. Overlap
+              is held to ≤18% of a face — DESIGN.md's ">=82% visible" rule,
+              which the old -mx-4 on a 134px card broke at 24%.
+
+              Centering: a `w-max` list inside a scroll container centres
+              itself when it fits and scrolls from the first card when it does
+              not. `justify-center` directly on an overflowing flex row clips
+              BOTH ends and cannot be scrolled back — that was a latent "the
+              posters are cut off" at widths where the fan outgrew the column. */}
+          <div className="no-scrollbar fan-scroll relative mt-4 overflow-x-auto px-4">
+            <div aria-hidden="true" className="stage-pool pointer-events-none absolute inset-x-0 bottom-0 h-2/3" />
+            <ul className="relative mx-auto flex w-max pt-6 pb-8">
             {fanItems.map(({ m, tilt, arcY }, i) => {
               const inTray = candidates.some((c) => c.tmdbId === m.tmdbId);
               return (
@@ -309,10 +336,10 @@ export default function HomeClient({
                     "--arc-y": `${arcY}px`,
                     /* Deal order, left to right, 65ms apart: the whole hand is
                        down inside a second. See `.poster-deal` in globals.css. */
-                    "--deal-delay": `${i * 65}ms`,
+                    "--deal-delay": `${520 + i * 65}ms`,
                     zIndex: fanItems.length - Math.abs(i - (fanItems.length - 1) / 2),
                   } as React.CSSProperties}
-                  className="poster-deal group relative -mx-2.5 w-[7.2rem] shrink-0 origin-bottom translate-y-[var(--arc-y)] rotate-[var(--tilt)] transition-all duration-500 ease-out transform-gpu hover:z-40 hover:rotate-0 hover:-translate-y-3 hover:scale-[1.04] sm:-mx-3.5 sm:w-[8.4rem] md:-mx-4"
+                  className="poster-deal group relative -mx-1 w-[clamp(7rem,13vw,12.5rem)] shrink-0 origin-bottom translate-y-[var(--arc-y)] rotate-[var(--tilt)] transition-all duration-500 ease-out transform-gpu hover:z-40 hover:rotate-0 hover:-translate-y-4 hover:scale-[1.05] md:-mx-2"
                 >
                   <button
                     type="button"
@@ -340,6 +367,7 @@ export default function HomeClient({
               );
             })}
           </ul>
+          </div>
           {/* The question is the hook and the honest one: it is the same thing
               the puzzle asks at the end, and it only works because the theme is
               withheld above. Two display beats in this hero — the name and the
@@ -351,7 +379,10 @@ export default function HomeClient({
               proposer credit and a "build your own" link), which is what made
               the hero read as a wall of copy. */}
           {liveFan ? (
-            <div className="mt-6 flex flex-col items-center gap-3">
+            <div
+              className="rise mt-6 flex flex-col items-center gap-3"
+              style={{ "--rise-delay": "1000ms" } as React.CSSProperties}
+            >
               {tonight.userThemeListId ? (
                 <div className="flex flex-col items-center gap-2.5">
                   <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-4 py-1.5 text-sm font-semibold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/40">
