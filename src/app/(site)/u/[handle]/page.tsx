@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import ProfileCanvas from "@/components/profile/ProfileCanvas";
+import ProfileCanvas, { profileStatsLine } from "@/components/profile/ProfileCanvas";
+import ListCard from "@/components/profile/ListCard";
+import MarqueeHeading from "@/components/MarqueeHeading";
+import { Laurel } from "@/components/Laurel";
 import ParticipantChips from "@/components/ParticipantChips";
-import MoviePoster from "@/components/list/MoviePoster";
 import { normalizeHandle } from "@/lib/handles";
 import { evaluateAchievements } from "@/lib/gamification";
 import { maskListTitle } from "@/lib/marquee-title";
@@ -74,19 +76,24 @@ export async function generateMetadata({
   };
 }
 
-// Triptych art shared by the featured card and regular grid cards.
-function Triptych({ card, className = "" }: { card: PublicListCardData; className?: string }) {
+/** One card on the poster wall; the featured ranking gets a wider strip. */
+function RankingCard({ card, featured = false }: { card: PublicListCardData; featured?: boolean }) {
   return (
-    <span className={`grid grid-cols-3 gap-px bg-surface-raised ${className}`}>
-      {[0, 1, 2].map((i) => {
-        const slot = card.posters[i];
-        return slot ? (
-          <MoviePoster key={i} title={slot.title} posterPath={slot.posterPath} className="rounded-none ring-0" />
-        ) : (
-          <span key={i} className="aspect-[2/3] w-full bg-surface" aria-hidden="true" />
-        );
-      })}
-    </span>
+    <ListCard
+      href={`/l/${card.id}`}
+      title={card.title}
+      meta={card.createdAt}
+      caption={
+        card.chips && card.chips.length > 0 ? (
+          <>
+            With <ParticipantChips chips={card.chips} />
+          </>
+        ) : undefined
+      }
+      posters={card.posters}
+      slots={featured ? 5 : 3}
+      featured={featured}
+    />
   );
 }
 
@@ -247,7 +254,12 @@ export default async function PublicProfilePage({
     marqueeConnectionsSolved: solveCount ?? 0,
     ...standing,
   };
-  const allAchievements = evaluateAchievements(achievementStats).filter((a) => a.unlocked);
+  const evaluated = evaluateAchievements(achievementStats);
+  const allAchievements = evaluated.filter((a) => a.unlocked);
+  // Counted, not listed: the public page names what someone HAS won. What is
+  // still out there is one number, so a visitor can see there is more to the
+  // game without reading a locked catalogue on someone else's profile.
+  const stillToEarn = evaluated.length - allAchievements.length;
 
   // NOT resolveEquipped: this page's achievement stats above are inherently
   // RLS-limited (shapePublicProfile counts only public done lists, and
@@ -287,213 +299,125 @@ export default async function PublicProfilePage({
     ...allAchievements.filter((a) => pinnedKeys.has(a.key)),
     ...allAchievements.filter((a) => !pinnedKeys.has(a.key)),
   ];
+  const pinned = allAchievements
+    .filter((a) => pinnedKeys.has(a.key))
+    .map((a) => ({ name: a.name }));
   const joined = new Date(profile.created_at).toLocaleDateString("en-US", {
     month: "long",
     year: "numeric",
     timeZone: "UTC", // server renders UTC; client must match to avoid hydration mismatch
   });
+  // The stats band is gone; this is what it said, in a sentence.
+  const statsLine = profileStatsLine({
+    rank: level.title,
+    level: level.level,
+    prestige: level.prestige ?? 0,
+    moviesRanked,
+    lists: cards.length,
+    joined,
+  });
 
   return (
-    <main className="mx-auto w-full max-w-page flex-1 px-4 py-10 sm:px-6 lg:px-8">
-      {isOwner && profile.visibility !== "public" && (
-        <div className="mb-6 rounded-xl bg-accent/15 p-4 ring-1 ring-accent/40 text-center text-xs text-text">
-          <p className="font-bold text-accent uppercase tracking-wider mb-0.5">
-            🔒 Private Preview Mode
-          </p>
-          <p className="text-muted">
-            Your profile is currently set to <strong>Private</strong> and is only visible to you. To make it visible to the public web, switch to Public in{" "}
-            <Link href="/settings" className="text-gold underline hover:text-white">
-              Settings
+    <>
+      {/*
+        THE STAGE MOMENT, and the only one on this page (DESIGN.md: velvet on
+        stage moments, dark house under the content). The marquee card sits in
+        the band; everything below it is house black.
+      */}
+      <header className="bg-curtain-soft relative overflow-hidden">
+        {/* Same width and gutters as the content below it, so the card's edge
+            lines up with the poster wall; the drape reads above and below. */}
+        <div className="relative mx-auto w-full max-w-page px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+          <ProfileCanvas
+            handle={profile.handle}
+            level={level.level}
+            equipped={canvasEquipped}
+            posters={cards.flatMap((c) => c.posters).slice(0, 6)}
+            taglineText={taglineText}
+            statsLine={statsLine}
+            pinned={pinned}
+            handleAs="h1"
+          />
+        </div>
+      </header>
+
+      <main className="mx-auto w-full max-w-page flex-1 px-4 py-10 sm:px-6 lg:px-8">
+        {isOwner && profile.visibility !== "public" && (
+          // One sentence, not a warning placard: the owner is the only person
+          // who can ever read it, and they already know what a private
+          // profile is — what they need is the way to change it.
+          <p className="mb-10 text-sm text-muted">
+            Only you can see this profile.{" "}
+            <Link
+              href="/settings"
+              className="text-gold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-gold"
+            >
+              Make it public in settings
             </Link>
             .
           </p>
-        </div>
-      )}
-      <header>
-        <ProfileCanvas
-          handle={profile.handle}
-          level={level.level}
-          equipped={canvasEquipped}
-          posters={cards.flatMap((c) => c.posters).slice(0, 6)}
-          taglineText={taglineText}
-        />
-        {/* Single-line Level & Rank badge */}
-        <div className="mt-2 flex items-center justify-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/15 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-gold ring-1 ring-gold/40 shadow-sm">
-            <span aria-hidden="true">✦</span>
-            <span>Level {level.level} – {level.title}</span>
-            {(level.prestige ?? 0) > 0 && (
-              <span className="text-accent ml-0.5">
-                {"✦".repeat(level.prestige!)}
-              </span>
-            )}
-          </span>
-        </div>
-        <p className="mt-1.5 text-center text-xs text-muted">Joined {joined}</p>
+        )}
 
-        {/* Stats band: 3 balanced, aligned columns.
-            The labels lost `truncate` and gained tighter mobile tracking. At
-            390px "THEATER USHER" was rendering as "THEATER US…", which is not a
-            word — a stat nobody can read is not a stat. Two short lines are
-            fine here; the column heights are equalised by the grid anyway. */}
-        <dl className="mt-5 grid grid-cols-3 gap-2 rounded-xl bg-surface p-5 ring-1 ring-gold/30 font-mono text-sm">
-          <div className="flex flex-col items-center justify-center gap-1 text-center">
-            <dd className="font-display text-3xl leading-none text-gold [text-shadow:0_0_24px_rgba(245,197,24,0.35)] tabular-nums">
-              {moviesRanked}
-            </dd>
-            <dt className="text-[11px] uppercase leading-tight tracking-[0.06em] text-muted sm:text-xs sm:tracking-[0.14em]">
-              Movies ranked
-            </dt>
-          </div>
-          <div className="flex flex-col items-center justify-center gap-1 text-center">
-            <dd className="font-display text-3xl leading-none text-gold [text-shadow:0_0_24px_rgba(245,197,24,0.35)] tabular-nums">
-              {cards.length}
-            </dd>
-            <dt className="text-[11px] uppercase leading-tight tracking-[0.06em] text-muted sm:text-xs sm:tracking-[0.14em]">
-              Public lists
-            </dt>
-          </div>
-          {/* The third cell is a LEVEL, and it used to read "7 / THEATER USHER"
-              beside "142 / MOVIES RANKED" and "9 / PUBLIC LISTS" — i.e. as
-              "seven theater ushers". The numeral is the level and the rank is
-              what that level is CALLED, so the label now says both, in that
-              order, and the rank sits on its own line where it has room. */}
-          <div className="flex flex-col items-center justify-center gap-1 text-center">
-            <dd className="font-display text-3xl leading-none text-gold [text-shadow:0_0_24px_rgba(245,197,24,0.35)] tabular-nums">
-              {level.level}
-            </dd>
-            <dt className="text-[11px] uppercase leading-tight tracking-[0.06em] text-muted sm:text-xs sm:tracking-[0.14em]">
-              Level
-              <span className="block text-text/80">{level.title}</span>
-            </dt>
-          </div>
-        </dl>
-
-        {/* Steam-style Achievement Showcase Box */}
-        {achievements.length > 0 && (
-          <section
-            aria-labelledby="public-achievements-heading"
-            className="mt-6 rounded-2xl border border-white/10 bg-surface/80 p-5 ring-1 ring-gold/20 shadow-xl backdrop-blur-md"
-          >
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-base" aria-hidden="true">🏆</span>
-                <h2
-                  id="public-achievements-heading"
-                  className="font-display text-sm uppercase tracking-[0.14em] text-gold"
-                >
-                  Achievement Showcase
-                </h2>
-              </div>
-              <span className="rounded-full bg-gold/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-gold ring-1 ring-gold/30">
-                {achievements.length} Unlocked
-              </span>
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-              {achievements.map((a) => {
-                const pinned = pinnedKeys.has(a.key);
-                return (
-                  <div
-                    key={a.key}
-                    className={`flex items-start gap-3 rounded-xl p-3 transition-all ${
-                      pinned
-                        ? "bg-gold/10 ring-1 ring-gold/50 shadow-sm"
-                        : "bg-surface-raised ring-1 ring-white/10"
-                    }`}
+        <section aria-labelledby="rankings-heading">
+          <MarqueeHeading as="h2">Rankings</MarqueeHeading>
+          {cards.length === 0 ? (
+            <p className="mt-6 text-sm text-muted">
+              {isOwner ? (
+                <>
+                  You haven&apos;t published a ranking yet.{" "}
+                  <Link
+                    href="/"
+                    className="text-gold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-gold"
                   >
-                    <div
-                      className={`flex size-10 shrink-0 items-center justify-center rounded-xl text-lg shadow-inner ring-1 ${
-                        a.rarity === "legendary"
-                          ? "bg-gold/20 text-gold ring-gold/50"
-                          : a.rarity === "rare"
-                            ? "bg-purple-500/20 text-purple-300 ring-purple-500/30"
-                            : "bg-white/10 text-text ring-white/15"
-                      }`}
-                    >
-                      {a.icon}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <h3 className="text-xs font-bold text-text truncate">{a.name}</h3>
-                        {pinned && (
-                          <span
-                            title="Featured on Showcase"
-                            className="text-gold text-[11px]"
-                            aria-label="Pinned achievement"
-                          >
-                            ★
-                          </span>
-                        )}
-                        {a.rarity === "legendary" && (
-                          <span className="rounded bg-gold/20 px-1 text-[9px] font-bold uppercase tracking-wider text-gold">
-                            Legendary
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-0.5 text-[11px] leading-tight text-muted">{a.description}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                    Start with this week&apos;s marquee
+                  </Link>
+                  .
+                </>
+              ) : (
+                <>@{profile.handle} hasn&apos;t published a ranking yet.</>
+              )}
+            </p>
+          ) : (
+            <ul className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
+              {featured && (
+                <li className="sm:col-span-2">
+                  <RankingCard card={featured} featured />
+                </li>
+              )}
+              {restCards.map((card) => (
+                <li key={card.id}>
+                  <RankingCard card={card} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {achievements.length > 0 && (
+          <section aria-labelledby="achievements-heading" className="mt-14">
+            <MarqueeHeading as="h2">Achievements</MarqueeHeading>
+            {/*
+              Laurels, wrapped. This was a ringed "ACHIEVEMENT SHOWCASE" panel
+              of emoji tiles, each with its own tinted square, rarity chip and
+              description — a notification tray on a page that is meant to
+              read as a lobby. A laurel is what a film wears when it has won
+              something, and the name is the whole point; the description is
+              an instruction for EARNING one, which nobody reading a stranger's
+              profile needs.
+            */}
+            <ul className="mt-6 flex flex-wrap gap-x-7 gap-y-4">
+              {achievements.map((a) => (
+                <li key={a.key}>
+                  <Laurel className="text-base">{a.name}</Laurel>
+                </li>
+              ))}
+            </ul>
+            {stillToEarn > 0 && (
+              <p className="mt-5 text-sm text-muted">Still to earn: {stillToEarn}</p>
+            )}
           </section>
         )}
-      </header>
-
-      {cards.length === 0 ? (
-        <p className="mt-8 rounded bg-surface p-8 text-center text-sm text-muted ring-1 ring-white/10">
-          No public rankings yet.
-        </p>
-      ) : (
-        <>
-          {featured && (
-            <Link
-              href={`/l/${featured.id}`}
-              className="mt-8 block overflow-hidden rounded bg-surface p-1 ring-2 ring-gold shadow-[0_0_32px_rgba(245,197,24,0.12)] transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold motion-reduce:transition-none"
-            >
-              {/* ✦ FEATURED tag on a thin gold rule (marquee treatment). */}
-              <span className="flex items-center gap-2 px-3 pt-2">
-                <span className="font-display text-xs uppercase tracking-[0.24em] text-gold">
-                  ✦ Featured ranking
-                </span>
-                <span aria-hidden="true" className="h-px flex-1 bg-gold/30" />
-              </span>
-              <Triptych card={featured} className="mt-2" />
-              <span className="flex min-h-[3.75rem] flex-col justify-center gap-0.5 p-3">
-                <span className="truncate font-semibold">{featured.title}</span>
-                {featured.chips && featured.chips.length > 0 && (
-                  <span className="truncate text-xs text-muted">
-                    With <ParticipantChips chips={featured.chips} />
-                  </span>
-                )}
-                <span className="text-xs text-muted">{featured.createdAt}</span>
-              </span>
-            </Link>
-          )}
-          <ul className={(featured ? "mt-4" : "mt-8") + " grid grid-cols-1 gap-4 sm:grid-cols-2"}>
-            {restCards.map((card) => (
-              <li key={card.id}>
-                <Link
-                  href={`/l/${card.id}`}
-                  className="flex flex-col overflow-hidden rounded bg-surface ring-1 ring-white/10 transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                >
-                  <Triptych card={card} />
-                  <span className="flex min-h-[3.25rem] flex-col justify-center gap-0.5 p-3">
-                    <span className="truncate font-semibold">{card.title}</span>
-                    {card.chips && card.chips.length > 0 && (
-                      <span className="truncate text-xs text-muted">
-                        With <ParticipantChips chips={card.chips} />
-                      </span>
-                    )}
-                    <span className="text-xs text-muted">{card.createdAt}</span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-    </main>
+      </main>
+    </>
   );
 }

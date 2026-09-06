@@ -20,6 +20,14 @@ export interface PremierePassCardProps {
   date?: string | Date;
   themeTitle?: string | null;
   totalRanked?: number;
+  /**
+   * Absolute URL of the saved list, e.g. "https://www.movieranker.win/l/id".
+   * When present, the exported/shared ticket prints a real QR code back to
+   * this list instead of the seeded decorative barcode, and native share
+   * shares this URL rather than the current page's. Absent on the play-room
+   * finale screen, which renders before a list exists to link to.
+   */
+  listUrl?: string | null;
   className?: string;
 }
 
@@ -31,6 +39,7 @@ export default function PremierePassCard({
   date,
   themeTitle,
   totalRanked,
+  listUrl,
   className = "",
 }: PremierePassCardProps) {
   const [sharing, setSharing] = useState(false);
@@ -54,13 +63,15 @@ export default function PremierePassCard({
     themeTitle,
     totalRanked: totalCount,
     serialNumber: serial,
+    listUrl: listUrl || undefined,
   };
 
   const handleShare = async () => {
     setSharing(true);
     setFeedback(null);
     try {
-      const shareUrl = typeof window !== "undefined" ? window.location.href : "https://movieranker.win";
+      const shareUrl =
+        listUrl || (typeof window !== "undefined" ? window.location.href : "https://movieranker.win");
       const shareTitle = `${title} – Movie Ranking`;
       const shareText = champion
         ? `Check out my #1 ranking: ${champion.title} (${title}) on MovieRanker!`
@@ -94,11 +105,11 @@ export default function PremierePassCard({
             url: shareUrl,
           });
         }
-        setFeedback("✦ Shared successfully!");
+        setFeedback("Shared");
       } else {
         // Fallback to clipboard copy
         await navigator.clipboard.writeText(shareUrl);
-        setFeedback("✦ Link copied to clipboard!");
+        setFeedback("Link copied");
       }
     } catch (err) {
       if ((err as Error)?.name !== "AbortError") {
@@ -116,14 +127,14 @@ export default function PremierePassCard({
     try {
       const success = await copyPremierePassToClipboard(renderOptions);
       if (success) {
-        setFeedback("✦ Premiere Pass image copied to clipboard!");
+        setFeedback("Image copied");
       } else {
         // Graceful fallback to download if clipboard image write isn't supported
         await downloadPremierePass(renderOptions);
-        setFeedback("✦ Downloaded Premiere Pass PNG");
+        setFeedback("Downloaded");
       }
     } catch {
-      setFeedback("Couldn't copy image — downloading PNG instead");
+      setFeedback("Couldn't copy image, downloading PNG instead");
       await downloadPremierePass(renderOptions);
     } finally {
       setCopying(false);
@@ -135,9 +146,9 @@ export default function PremierePassCard({
     setDownloading(true);
     try {
       await downloadPremierePass(renderOptions);
-      setFeedback("✦ Downloaded Premiere Pass PNG");
+      setFeedback("Downloaded");
     } catch {
-      setFeedback("Failed to download Premiere Pass");
+      setFeedback("Couldn't download");
     } finally {
       setDownloading(false);
       setTimeout(() => setFeedback(null), 3000);
@@ -159,7 +170,7 @@ export default function PremierePassCard({
           <div className="flex items-center gap-2">
             <span className="text-gold font-display text-lg" aria-hidden="true">✦</span>
             <span className="font-display text-sm uppercase tracking-widest text-gold sm:text-base">
-              Official Premiere Pass
+              Admit one
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -227,8 +238,8 @@ export default function PremierePassCard({
           {/* Ticket Stub (Right 1 col) */}
           <div className="flex flex-col items-center justify-between border-t border-dashed border-gold/30 pt-4 sm:border-t-0 sm:border-l sm:pl-4 sm:pt-0 text-center">
             <div className="space-y-1">
-              <p className="font-display text-lg uppercase tracking-widest text-gold">OFFICIAL PASS</p>
-              <p className="text-[10px] uppercase tracking-wider text-muted">VERIFIED VERDICT</p>
+              <p className="font-display text-lg uppercase tracking-widest text-gold">Standard admission</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted">Ranked head-to-head</p>
             </div>
 
             <div className="my-3 rounded-lg bg-gold/10 px-3 py-2 ring-1 ring-gold/30">
@@ -248,13 +259,15 @@ export default function PremierePassCard({
         </div>
       </div>
 
-      {/* 1-Click Share & Export Actions */}
-      <div className="flex flex-wrap items-center justify-center gap-3">
+      {/* 1-Click Share & Export Actions. ONE primary action (Share); Copy image
+          and Download PNG are quiet gold text links beneath it, not equal-weight
+          buttons — DESIGN.md's "one primary action per view" rule. */}
+      <div className="flex flex-col items-center gap-3">
         <button
           type="button"
           onClick={handleShare}
           disabled={sharing}
-          className="inline-flex items-center gap-2 min-h-11 rounded-full bg-gold px-5 text-sm font-bold uppercase tracking-wider text-bg shadow-md transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+          className="inline-flex items-center gap-2 min-h-11 rounded-full bg-gold px-5 font-semibold text-bg shadow-md transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98] disabled:opacity-50 cursor-pointer"
         >
           <svg
             className="size-4 shrink-0"
@@ -272,41 +285,28 @@ export default function PremierePassCard({
             <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
             <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
           </svg>
-          <span>{sharing ? "Sharing…" : "Share Pass"}</span>
+          <span>{sharing ? "Sharing…" : "Share"}</span>
         </button>
 
-        <button
-          type="button"
-          onClick={handleCopy}
-          disabled={copying}
-          className="inline-flex items-center gap-2 min-h-11 rounded-full bg-surface-raised px-4 text-sm font-semibold text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-        >
-          <span aria-hidden="true">✦</span>
-          <span>{copying ? "Generating…" : "Copy Image"}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={handleDownload}
-          disabled={downloading}
-          className="inline-flex items-center gap-2 min-h-11 rounded-full bg-surface-raised px-4 text-sm font-semibold text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-        >
-          <svg
-            className="size-4 shrink-0 text-muted"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
+        <div className="flex items-center gap-3 text-sm">
+          <button
+            type="button"
+            onClick={handleCopy}
+            disabled={copying}
+            className="font-semibold text-gold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:opacity-50 cursor-pointer"
           >
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          <span>{downloading ? "Saving…" : "Download PNG"}</span>
-        </button>
+            {copying ? "Copying…" : "Copy image"}
+          </button>
+          <span aria-hidden="true" className="h-3 w-px bg-white/15" />
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={downloading}
+            className="font-semibold text-gold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:opacity-50 cursor-pointer"
+          >
+            {downloading ? "Downloading…" : "Download PNG"}
+          </button>
+        </div>
       </div>
 
       {/* Feedback Toast Banner */}

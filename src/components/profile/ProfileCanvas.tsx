@@ -1,11 +1,21 @@
 import Nameplate from "./Nameplate";
+import { Laurel } from "@/components/Laurel";
 import { avatarAssetPath, posterAvatarTmdbId } from "@/lib/cosmetics/avatars";
 import { FRAME_CLASS, gradientAvatarClass, OVERLAY_CLASS } from "@/lib/cosmetics/classes";
 import type { Equipped } from "@/lib/cosmetics/equipped";
 
 const POSTER = "https://image.tmdb.org/t/p/w342";
 
-const AVATAR_BOX = "block h-[117px] w-[78px] rounded-sm";
+/**
+ * The avatar, at the size a marquee card wants: 120px wide on a phone (and
+ * inside the customise dialog's live mirror), 180px on a desktop profile.
+ *
+ * Sized by CONTAINER, not viewport: this card is rendered both as a full-width
+ * page hero and as a ~600px preview inside a dialog, and a `sm:` variant
+ * answers the window in both cases — which is exactly how the old layout put a
+ * 78px avatar in a 1090px box.
+ */
+const AVATAR_BOX = "block aspect-[2/3] w-[120px] rounded-sm @2xl:w-[180px]";
 
 /**
  * The three kinds of avatar, all drawn into the same 2:3 box.
@@ -33,12 +43,65 @@ function AvatarArt({ id, posterPath }: { id: string | null; posterPath: string |
   return <span aria-hidden className={`${AVATAR_BOX} bg-surface-raised`} />;
 }
 
+/** Pluralise a count into prose: `2 films`, `1 film`. */
+function count(n: number, singular: string, plural = `${singular}s`) {
+  return `${n} ${n === 1 ? singular : plural}`;
+}
+
+/**
+ * The card's one line of numbers, as a SENTENCE.
+ *
+ * This replaces a band of three stat tiles ("25 / MOVIES RANKED", "4 / PUBLIC
+ * LISTS", "18 / LEVEL — FILM BUFF") which read as an analytics widget and,
+ * worse, printed the level three times on the owner's own page. Everything
+ * those tiles said is here in end-user words, so the numbers are information
+ * rather than furniture.
+ *
+ * Exported so /u/[handle] and /u/profile build the identical sentence from
+ * their own (deliberately different) source data — the public page counts only
+ * public finished lists, the owner's page counts everything they have.
+ */
+export function profileStatsLine({
+  rank,
+  level,
+  prestige = 0,
+  moviesRanked,
+  lists,
+  listNoun = "public list",
+  joined,
+}: {
+  /** Career rank title, e.g. "Film Buff". */
+  rank: string;
+  level: number;
+  prestige?: number;
+  moviesRanked: number;
+  lists: number;
+  /** Singular noun for the list count, e.g. "public list", "ranking". */
+  listNoun?: string;
+  /** Month and year, e.g. "August 2026"; omitted when unknown. */
+  joined?: string | null;
+}): string {
+  const standing =
+    prestige > 0
+      ? `${rank}, level ${level}, prestige ${prestige}.`
+      : `${rank}, level ${level}.`;
+  const since = joined ? ` since ${joined}` : "";
+  const body =
+    moviesRanked === 0
+      ? `Nothing ranked yet${joined ? `, here since ${joined}` : ""}.`
+      : `${count(moviesRanked, "film")} ranked across ${count(lists, listNoun)}${since}.`;
+  return `${standing} ${body}`;
+}
+
 export default function ProfileCanvas({
   handle,
   level,
   equipped,
   posters,
   taglineText,
+  statsLine,
+  pinned,
+  handleAs = "p",
 }: {
   handle: string;
   level: number;
@@ -51,6 +114,19 @@ export default function ProfileCanvas({
    * when absent.
    */
   taglineText?: string | null;
+  /**
+   * Rank, level, counts and joining date as ONE sentence — build it with
+   * `profileStatsLine`. Absent inside the customise dialog's live mirror,
+   * which has no stats to show and only previews the cosmetics.
+   */
+  statsLine?: string;
+  /** Pinned achievements, shown as laurels; at most three by policy. */
+  pinned?: { name: string }[];
+  /**
+   * The handle is the page title on a public profile (`h1`) and a caption on
+   * the owner's dashboard, whose own `h1` is the page heading.
+   */
+  handleAs?: "h1" | "p";
 }) {
   const frameClass = FRAME_CLASS[equipped.frame ?? ""] ?? "cf-brass";
   const overlayClass = OVERLAY_CLASS[equipped.overlay ?? ""];
@@ -65,7 +141,7 @@ export default function ProfileCanvas({
   const avatarId = equipped.avatar ?? null;
 
   return (
-    <div className="relative isolate overflow-hidden rounded-2xl border border-white/10">
+    <div className="@container relative isolate mx-auto max-w-4xl overflow-hidden rounded-2xl border border-white/10">
       {background === "background.filmstrip" && (
         <>
           <div aria-hidden className="absolute inset-0 z-0 flex items-center gap-1 px-2 opacity-30">
@@ -106,22 +182,43 @@ export default function ProfileCanvas({
       )}
       {background === "background.velvet" && <div aria-hidden className="cb-velvet absolute inset-0 z-0" />}
 
-      <div className="relative z-[2] flex flex-col items-center gap-3 px-6 py-8">
+      {/*
+        Stacked on a phone (and in the dialog mirror), side by side once the
+        CARD is wide enough to hold a 180px avatar beside a readable sentence.
+      */}
+      <div className="relative z-[2] flex flex-col items-center gap-5 px-5 py-7 text-center @2xl:flex-row @2xl:items-center @2xl:gap-9 @2xl:px-9 @2xl:py-9 @2xl:text-left">
         {/*
           Poster-shaped for all three kinds, never cropped to a circle: posters
           set their title in the lower third and a round crop destroys it. The
           identical box also means the frame fits the same whichever kind is
           equipped.
         */}
-        <span className={`inline-block rounded-md p-[3px] leading-none ${frameClass}`}>
+        <span className={`inline-block shrink-0 rounded-md p-[3px] leading-none ${frameClass}`}>
           <AvatarArt id={avatarId} posterPath={avatarPoster} />
         </span>
-        <Nameplate handle={handle} level={level} size="compact" />
-        {taglineText && (
-          <p className="max-w-[28ch] text-center text-xs italic text-muted">
-            &ldquo;{taglineText}&rdquo;
-          </p>
-        )}
+
+        <div className="min-w-0">
+          <Nameplate handle={handle} level={level} as={handleAs} />
+          {statsLine && (
+            <p className="mt-2.5 max-w-[52ch] text-base leading-relaxed text-text/90">
+              {statsLine}
+            </p>
+          )}
+          {taglineText && (
+            <p className="mt-2 max-w-[52ch] text-base italic text-[#fff1b8]">
+              &ldquo;{taglineText}&rdquo;
+            </p>
+          )}
+          {pinned && pinned.length > 0 && (
+            <ul className="mt-4 flex flex-wrap justify-center gap-x-5 gap-y-2 @2xl:justify-start">
+              {pinned.map((p) => (
+                <li key={p.name}>
+                  <Laurel>{p.name}</Laurel>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
 
       {overlayClass && (

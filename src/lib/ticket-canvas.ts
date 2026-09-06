@@ -3,6 +3,8 @@
  * Renders retro perforated cinema ticket stubs for sharing rankings with 1-click PNG export.
  */
 
+import qrcode from "qrcode-generator";
+
 export interface TicketMovieItem {
   rank: number;
   title: string;
@@ -20,6 +22,18 @@ export interface TicketRenderOptions {
   totalRanked?: number;
   serialNumber?: string;
   siteUrl?: string;
+  /**
+   * Absolute URL of the SAVED list this ticket represents, e.g.
+   * "https://www.movieranker.win/l/VxqnCFFfbm". When present, the stub prints
+   * a real scannable QR code encoding this URL (see `drawQrCode`) instead of
+   * the seeded decorative barcode, so the PNG — the artefact people actually
+   * drop into group chats — carries a way back to the list it came from.
+   *
+   * Absent on the finale screen in play-room.tsx: that ticket renders BEFORE
+   * the list has been saved, so there is no URL yet to encode. The seeded
+   * barcode still renders there — see `drawBarcode` and `seededBarWidths`.
+   */
+  listUrl?: string;
 }
 
 /**
@@ -163,6 +177,69 @@ export function drawBarcode(
 }
 
 /**
+ * Format an absolute URL into the short, human-readable form printed under
+ * the ticket's QR code: strip the scheme (any `scheme://`, not just http/https)
+ * and a leading "www.", e.g. "https://www.movieranker.win/l/VxqnCFFfbm" ->
+ * "movieranker.win/l/VxqnCFFfbm". Printed in the ticket's mono face so it
+ * reads like a real ticket's printed serial line, not a pasted link.
+ */
+export function formatShortLink(url: string): string {
+  return url.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "").replace(/^www\./i, "");
+}
+
+/**
+ * Draw a real, scannable QR code encoding `data` into a square no larger than
+ * `maxSize`, top-left anchored at (x, y). Returns the actual rendered side
+ * length (<= maxSize) so callers can lay out anything printed beneath it.
+ *
+ * Deliberately hand-drawn with fillRect rather than an <img>/data-URI of a
+ * library-rendered QR PNG: canvas-drawing each module as an integer-aligned
+ * rect keeps every edge pixel-crisp at any DPI and avoids a second async
+ * image load in a pipeline that already juggles poster fetches with timeouts.
+ *
+ * Error correction level M and a >=2-module quiet zone are load-bearing, not
+ * cosmetic: M tolerates the poster/text overlays a future revision might add
+ * without redesigning the code, and scanners that find less than ~4 modules
+ * of quiet zone around the finder patterns can fail to lock on at all.
+ */
+export function drawQrCode(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  maxSize: number,
+  data: string,
+  color: string,
+): number {
+  const qr = qrcode(0, "M");
+  qr.addData(data);
+  qr.make();
+  const moduleCount = qr.getModuleCount();
+  const quietZoneModules = 2;
+  const totalModules = moduleCount + quietZoneModules * 2;
+  // Integer module size + Math.round'ed origins: every rect lands on a whole
+  // pixel, so the browser never anti-aliases a module edge into a soft grey
+  // smear that a camera scanner would misread as a lighter module.
+  const moduleSize = Math.max(1, Math.floor(maxSize / totalModules));
+  const actualSize = moduleSize * totalModules;
+  const originX = Math.round(x);
+  const originY = Math.round(y);
+
+  ctx.save();
+  ctx.fillStyle = color;
+  for (let row = 0; row < moduleCount; row++) {
+    for (let col = 0; col < moduleCount; col++) {
+      if (qr.isDark(row, col)) {
+        const px = originX + (col + quietZoneModules) * moduleSize;
+        const py = originY + (row + quietZoneModules) * moduleSize;
+        ctx.fillRect(px, py, moduleSize, moduleSize);
+      }
+    }
+  }
+  ctx.restore();
+  return actualSize;
+}
+
+/**
  * Render the full vintage Premiere Pass on an HTML5 canvas element
  */
 export async function generatePremierePassCanvas(
@@ -286,7 +363,7 @@ export async function generatePremierePassCanvas(
   ctx.font = 'bold 15px "Bebas Neue", "Outfit", sans-serif';
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
-  ctx.fillText("✦ MOVIERANKER OFFICIAL PREMIERE PASS ✦", leftX + 16, margin + 40);
+  ctx.fillText("✦ MOVIERANKER — ADMIT ONE ✦", leftX + 16, margin + 40);
   ctx.restore();
 
   // List Title
@@ -461,16 +538,17 @@ export async function generatePremierePassCanvas(
   const stubW = W - margin - stubX - 16;
 
   ctx.save();
-  // "OFFICIAL PASS" Header
+  // "STANDARD ADMISSION" Header — vintage admission-stamp wording (spec §8),
+  // matching the preview card's rename of the same two lines.
   ctx.fillStyle = "#f5c518";
   ctx.font = 'bold 36px "Bebas Neue", sans-serif';
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.fillText("OFFICIAL PASS", stubX + stubW / 2, margin + 40);
+  ctx.fillText("STANDARD ADMISSION", stubX + stubW / 2, margin + 40);
 
   ctx.fillStyle = "#8b8b94";
   ctx.font = '12px "Outfit", sans-serif';
-  ctx.fillText("VERIFIED VERDICT", stubX + stubW / 2, margin + 85);
+  ctx.fillText("RANKED HEAD-TO-HEAD", stubX + stubW / 2, margin + 85);
 
   // Serial Number
   const serial = options.serialNumber || generateTicketSerialNumber(options.title, options.date);
@@ -503,19 +581,48 @@ export async function generatePremierePassCanvas(
   ctx.strokeStyle = "rgba(245, 197, 24, 0.25)";
   ctx.stroke();
 
-  ctx.fillStyle = "#f5c518";
-  ctx.font = '20px "Outfit", sans-serif';
-  ctx.fillText("✦", stubX + stubW / 2, emblemY + 28);
+  if (options.listUrl) {
+    // The barcode used to be pure decoration, seeded from the title so it at
+    // least LOOKED different per ticket. A saved list has a real URL, so this
+    // is the one spot on the whole ticket that can carry someone back to it —
+    // this PNG travels alone through native share, with no attached link.
+    const qrCenterX = stubX + stubW / 2;
+    const qrMaxSize = Math.min(stubW - 48, emblemH - 40);
+    const qrTopY = emblemY + 14;
+    const qrSize = drawQrCode(
+      ctx,
+      qrCenterX - qrMaxSize / 2,
+      qrTopY,
+      qrMaxSize,
+      options.listUrl,
+      "#f5c518",
+    );
 
-  ctx.font = 'bold 16px "Bebas Neue", sans-serif';
-  ctx.fillText("OFFICIAL VERDICT", stubX + stubW / 2, emblemY + 56);
+    ctx.fillStyle = "#f5c518";
+    ctx.font = '11px "Courier New", monospace, sans-serif';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillText(formatShortLink(options.listUrl), qrCenterX, qrTopY + qrSize + 10);
+  } else {
+    // Unsaved case (play-room.tsx finale, before a list exists to link to):
+    // keep today's seeded decorative barcode. Do NOT QR-encode the bare
+    // homepage here — a QR that always resolves to "movieranker.win" with no
+    // list behind it teaches people that this ticket's codes aren't worth
+    // scanning, which is worse than no code at all.
+    ctx.fillStyle = "#f5c518";
+    ctx.font = '20px "Outfit", sans-serif';
+    ctx.fillText("✦", stubX + stubW / 2, emblemY + 28);
 
-  ctx.font = '11px "Outfit", sans-serif';
-  ctx.fillStyle = "#8b8b94";
-  ctx.fillText("HEAD-TO-HEAD CONSENSUS", stubX + stubW / 2, emblemY + 78);
+    ctx.font = 'bold 16px "Bebas Neue", sans-serif';
+    ctx.fillText("OFFICIAL VERDICT", stubX + stubW / 2, emblemY + 56);
 
-  // Clean mini ticket code line
-  drawBarcode(ctx, stubX + 24, emblemY + 98, stubW - 48, 24, serial);
+    ctx.font = '11px "Outfit", sans-serif';
+    ctx.fillStyle = "#8b8b94";
+    ctx.fillText("HEAD-TO-HEAD CONSENSUS", stubX + stubW / 2, emblemY + 78);
+
+    // Clean mini ticket code line
+    drawBarcode(ctx, stubX + 24, emblemY + 98, stubW - 48, 24, serial);
+  }
 
   // Site Watermark Brand
   ctx.fillStyle = "#f5c518";

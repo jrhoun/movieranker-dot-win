@@ -115,9 +115,7 @@ export default function UpvoteButton({
         </span>
         <span className="font-mono font-semibold">{count}</span>
         {showLabel && variant !== "compact" && (
-          <span className="text-xs uppercase tracking-wider font-semibold">
-            {count === 1 ? "Upvote" : "Upvotes"}
-          </span>
+          <span className="font-semibold">{count === 1 ? "upvote" : "upvotes"}</span>
         )}
       </button>
 

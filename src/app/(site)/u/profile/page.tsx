@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import ClaimHandleCard from "@/components/profile/ClaimHandleCard";
-import ProfileCanvas from "@/components/profile/ProfileCanvas";
+import ProfileCanvas, { profileStatsLine } from "@/components/profile/ProfileCanvas";
 import CustomiseModal from "@/components/profile/CustomiseModal";
 import CollectionGallery from "@/components/profile/CollectionGallery";
 import LevelProgressionModal from "@/components/profile/LevelProgressionModal";
@@ -73,12 +73,10 @@ export default async function MyListsPage() {
   // Profile row (handle + visibility + showcase). Created on demand by the claim flow.
   const { data: profile } = await supabase
     .from("profiles")
-    .select("handle,visibility,showcase")
+    .select("handle,visibility,showcase,created_at")
     .eq("id", auth.user.id)
     .maybeSingle();
   const claimed = profile != null;
-  const profileVisibility =
-    profile?.visibility === "public" ? "public" : "private";
   const showcase = parseShowcase(profile?.showcase) ?? EMPTY_SHOWCASE;
 
   // Owner-scoped EXPLICITLY — RLS does not do it for us, and cannot. `lists`
@@ -240,7 +238,7 @@ export default async function MyListsPage() {
   };
   const achievements = evaluateAchievements(achievementStats);
   const level = levelFor(progress.current);
-  const { unlocked, locked } = unlockedAt(level.level);
+  const { locked } = unlockedAt(level.level);
 
   // The cheapest unlock still ahead. Taken by MINIMUM rather than as locked[0]:
   // `unlockedAt` filters UNLOCKS and preserves its order, so the first locked
@@ -250,6 +248,20 @@ export default async function MyListsPage() {
     locked.length > 0
       ? locked.reduce((lowest, u) => (u.atLevel < lowest.atLevel ? u : lowest))
       : null;
+
+  // The progression strip's one sentence: what the next level costs, and what
+  // crossing it (or the level after) gets you. This replaces a "Level Unlocks
+  // (next up)" panel, a "Quick Stats" panel, a six-times-larger level numeral
+  // and a second copy of the career-guide trigger — four boxes saying what
+  // fits in two clauses.
+  const nextLevelSentence = progress.next
+    ? progress.prestige > 0
+      ? `${progress.next.xp - progress.current} XP to prestige ${progress.prestige + 1}.`
+      : `${progress.next.xp - progress.current} XP to level ${progress.next.level}.`
+    : "You hold the highest prestige rank.";
+  const nextUnlockSentence = nextUnlock
+    ? ` Next unlock: ${nextUnlock.name.charAt(0).toLowerCase()}${nextUnlock.name.slice(1)} at level ${nextUnlock.atLevel}.`
+    : " Every level unlock is yours.";
 
   // Same rows /api/profile's equip validator reads (owner_id + status=done,
   // oldest first): ownedItemIds replays canister drops in this order, so any
@@ -290,6 +302,29 @@ export default async function MyListsPage() {
   const canvasPosters = doneCards.flatMap((c) => c.posters).slice(0, 6);
   const taglineTexts = taglineTextMap(achievementStats);
 
+  // The card's sentence, built the same way /u/[handle] builds it — from this
+  // user's OWN counts, which include the drafts and private lists the public
+  // page cannot see.
+  const joined = profile?.created_at
+    ? new Date(profile.created_at as string).toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC", // server renders UTC; client must match to avoid hydration mismatch
+      })
+    : null;
+  const statsLine = profileStatsLine({
+    rank: level.title,
+    level: progress.level,
+    prestige: progress.prestige,
+    moviesRanked,
+    lists: doneCards.length,
+    listNoun: "finished ranking",
+    joined,
+  });
+  const pinnedLaurels = achievements
+    .filter((a) => a.unlocked && showcase.achievementKeys.includes(a.key))
+    .map((a) => ({ name: a.name }));
+
   // Avatar picker source: this user's own finished films, built straight from
   // the raw rows (title/poster_path/tmdb_id travel together per movie) rather
   // than zipping ListRowData's `posters` against its `movieIds` — those two
@@ -326,170 +361,92 @@ export default async function MyListsPage() {
       console.error("[profile] lifetimeXp ratchet failed:", e);
     });
   }
+  const pct = Math.round(progress.progress01 * 100);
+
   return (
-    <main className="mx-auto w-full max-w-page flex-1 px-4 py-8 sm:px-6 lg:px-8">
-      {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <MarqueeHeading>My Profile & Lists</MarqueeHeading>
-          {!claimed && (
-            <p className="mt-1 text-xs text-muted">
-              Track your ranking progress, achievements, and movie collections.
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {claimed && profile?.handle && (
+    <>
+      {/*
+        THE STAGE MOMENT: the page heading, the marquee card, and the one
+        control that edits it. Everything that used to crowd this — a level
+        numeral six times the size of the type beside it, a two-tile stat
+        grid, an XP readout in mono, a referral chip — either moved below or
+        went into the card's own sentence.
+      */}
+      <header className="bg-curtain-soft relative overflow-hidden">
+        <div className="relative mx-auto w-full max-w-page px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+          <MarqueeHeading>Your profile</MarqueeHeading>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-x-8 gap-y-2">
+            {claimed && profile?.handle && (
+              <Link
+                href={`/u/${profile.handle}`}
+                className="text-base text-gold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-gold"
+              >
+                View public profile
+              </Link>
+            )}
             <Link
-              href={`/u/${profile.handle}`}
-              className="rounded-full bg-gold/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-gold ring-1 ring-gold/40 hover:bg-gold/20 transition-colors"
+              href="/settings"
+              className="text-base text-gold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-gold"
             >
-              Preview Profile ↗
+              Settings
             </Link>
+          </div>
+
+          {!claimed && (
+            <div className="mx-auto mt-6 max-w-reading">
+              <ClaimHandleCard />
+            </div>
           )}
-          <Link
-            href="/settings"
-            className="rounded-full bg-surface-raised px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted ring-1 ring-white/10 hover:text-gold hover:ring-gold/40 transition-colors"
-          >
-            Settings ⚙
-          </Link>
+
+          {claimed && profile?.handle && (
+            <div className="mt-8">
+              <ProfileCanvas
+                handle={profile.handle}
+                level={progress.level}
+                equipped={canvasEquipped}
+                posters={canvasPosters}
+                taglineText={taglineText}
+                statsLine={statsLine}
+                pinned={pinnedLaurels}
+              />
+              {/* The one primary action on this page, directly under the card
+                  it edits. It used to sit in a "Collection" section several
+                  screens below the avatar it changes. */}
+              <div className="mt-5 flex justify-center">
+                <CustomiseModal
+                  handle={profile.handle}
+                  level={progress.level}
+                  equipped={canvasEquipped}
+                  owned={ownedCosmeticIds}
+                  posters={canvasPosters}
+                  claims={showcase.avatarClaims ?? []}
+                  films={avatarFilms}
+                  taglineTexts={taglineTexts}
+                />
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      </header>
 
-      {!claimed && (
-        <div className="mt-4">
-          <ClaimHandleCard />
-        </div>
-      )}
-
-      {/* THE HERO: who you are, beside how far you have got.
-
-          The canvas used to sit alone in a max-w-sm block with the rest of the
-          row empty, and the level banner ran full-bleed underneath it — so the
-          page opened with a small card marooned in whitespace above a wide bar.
-          They are the same subject and now share a row.
-
-          The canvas keeps a fixed column rather than stretching: it is a
-          composed card at a set aspect, and widening it pulls the nameplate
-          away from the art it belongs to. */}
-      <div
-        className={`mt-4 grid gap-4 ${
-          claimed && profile?.handle
-            ? "lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)] lg:items-start"
-            : "grid-cols-1"
-        }`}
-      >
-        {claimed && profile?.handle && (
-          // Capped below lg, where the grid collapses to one column and the
-          // canvas would otherwise run the full page width — leaving a 78px
-          // avatar adrift in a 600px card. Above lg the column itself is the
-          // constraint, so the cap comes off.
-          <div className="flex max-w-sm flex-col gap-3 lg:max-w-none">
-            <ProfileCanvas
-              handle={profile.handle}
-              level={progress.level}
-              equipped={canvasEquipped}
-              posters={canvasPosters}
-              taglineText={taglineText}
-            />
-            {/* Directly under the card it edits. This lived down in the
-                Collection section, several screens below the avatar it
-                changes — so the control and its subject were never on screen
-                together. It also gives this column something to do: a canvas
-                alone left the left half of the hero underfilled beside a dense
-                stats panel. */}
-            <CustomiseModal
-              handle={profile.handle}
-              level={progress.level}
-              equipped={canvasEquipped}
-              owned={ownedCosmeticIds}
-              posters={canvasPosters}
-              claims={showcase.avatarClaims ?? []}
-              films={avatarFilms}
-              taglineTexts={taglineTexts}
-            />
-          </div>
-        )}
-
-        <section
-          aria-labelledby="stats-heading"
-          className="rounded-xl bg-surface p-5 ring-1 ring-gold/30 shadow-xl sm:p-6"
-        >
-          {/* Stacked, not a justify-between row. The old inner layout put the
-              rank text and a 256px stat grid on one line, which fits the full
-              page width it used to have and overflows the ~19rem-narrower
-              column it has now. Breakpoints answer the VIEWPORT, not the
-              column, so no `sm:` variant could have rescued that. */}
-          <div className="flex items-center gap-5">
-            <div aria-hidden="true" className="flex shrink-0 flex-col items-center">
-              <span className="font-display text-6xl leading-none text-gold [text-shadow:0_0_24px_rgba(245,197,24,0.35)]">
-                {progress.level}
-              </span>
-              <span className="font-display mt-1 text-xs uppercase tracking-[0.2em] text-muted">
-                {progress.prestige > 0 ? `Level · P${progress.prestige}` : "Level"}
-              </span>
-            </div>
-            <div className="min-w-0">
-              <span className="font-display flex flex-wrap items-center gap-1.5 text-xl uppercase tracking-[0.14em] text-gold sm:text-2xl">
-                Level {progress.level} – {level.title}
-                {progress.prestige > 0 && (
-                  <span className="text-sm text-accent">
-                    {"✦".repeat(progress.prestige)}
-                  </span>
-                )}
-              </span>
-              <p className="text-xs text-muted mt-0.5">
-                {progress.next
-                  ? progress.prestige > 0
-                    ? `${progress.next.xp - progress.current} XP to Prestige ${progress.prestige + 1}`
-                    : `${progress.next.xp - progress.current} XP to Level ${progress.level + 1}`
-                  : "You hold the highest prestige rank."}
-              </p>
-            </div>
-          </div>
-
-          <dl className="mt-5 grid grid-cols-2 gap-3 font-mono text-sm">
-            <div className="rounded-lg bg-surface-raised p-3 ring-1 ring-white/5 text-center">
-              <dt className="text-xs uppercase tracking-wider text-muted">Movies Ranked</dt>
-              <dd className="mt-1 font-display text-2xl text-text tabular-nums">{moviesRanked}</dd>
-            </div>
-            <div className="rounded-lg bg-surface-raised p-3 ring-1 ring-white/5 text-center">
-              <dt className="text-xs uppercase tracking-wider text-muted">Lists Created</dt>
-              <dd className="mt-1 font-display text-2xl text-text tabular-nums">{cards.length}</dd>
-            </div>
-          </dl>
-
-        {/* XP Progress Bar & Guide */}
-        <div className="mt-5 space-y-2">
-          <div className="flex items-center justify-between text-xs font-mono text-muted">
-            <span className="flex items-center gap-1.5">
-              <span>XP Progress:</span>
-              <strong className="text-gold font-bold">{progress.current}</strong>
-              <span>/</span>
-              <span>{progress.next?.xp ?? progress.current} XP</span>
-            </span>
-            <span>
-              {progress.next
-                ? `${progress.next.xp - progress.current} XP to Level ${progress.next.level}`
-                : "Max Level reached"}
-            </span>
-          </div>
-
+      <main className="mx-auto w-full max-w-page flex-1 px-4 py-10 sm:px-6 lg:px-8">
+        {/* THE PROGRESSION STRIP: a bar, a sentence, a way to read the rules. */}
+        <section aria-label="Career progress">
           <div
             role="progressbar"
-            aria-label={progress.next ? `XP toward next rank` : "Top rank reached"}
-            aria-valuenow={Math.round(progress.progress01 * 100)}
+            aria-label={progress.next ? "XP toward the next level" : "Top rank reached"}
+            aria-valuenow={pct}
             aria-valuemin={0}
             aria-valuemax={100}
-            className="h-2.5 overflow-hidden rounded-full bg-surface-raised ring-1 ring-white/10"
+            className="h-1.5 w-full overflow-hidden rounded-full bg-surface-raised"
           >
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-gold/80 to-gold transition-[width] duration-700 ease-out motion-reduce:transition-none shadow-[0_0_12px_rgba(245,197,24,0.4)]"
-              style={{ width: `${Math.round(progress.progress01 * 100)}%` }}
-            />
+            <div className="h-full rounded-full bg-gold" style={{ width: `${pct}%` }} />
           </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+          <p className="mt-3 max-w-[70ch] text-base leading-relaxed text-text/90">
+            {nextLevelSentence}
+            {nextUnlockSentence}
+          </p>
+          <div className="mt-2">
             <LevelProgressionModal
               currentLevel={level.level}
               currentXp={lifetimeXp}
@@ -503,174 +460,71 @@ export default async function MyListsPage() {
                   unlocked: a.unlocked,
                 }))}
             />
-            {referralStats.activeReferrals > 0 && (
-              <span className="text-[11px] font-mono text-gold/80 flex items-center gap-1">
-                <span>🎟️</span>
-                <span>
-                  +{referralStats.bonusXp} XP from {referralStats.activeReferrals} active referral
-                  {referralStats.activeReferrals === 1 ? "" : "s"}
-                </span>
-              </span>
-            )}
           </div>
-        </div>
         </section>
-      </div>
 
-      {/* Row 2 (2 Cols): Left = Unlockables & Trophies, Right = Invite Card & Quick Stats */}
-      <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
-        {/* Left Col: Unlocks & Achievement Showcase */}
-        <div className="space-y-4">
-          <section aria-labelledby="unlocks-heading" className="rounded-xl bg-surface p-5 ring-1 ring-white/10 shadow-lg">
-            <div className="flex items-center justify-between">
-              <h2 id="unlocks-heading" className="font-display text-sm uppercase tracking-[0.14em] text-gold">
-                Level Unlocks
-              </h2>
-              <span className="font-mono text-[11px] text-muted">
-                {unlocked.length}/{unlocked.length + locked.length}
-              </span>
-            </div>
-            {/* THE NEXT ONE, NOT ALL OF THEM. This listed every unlock inline,
-                which was both the tallest block in the column and a verbatim
-                duplicate of the "Ranks & unlocks" tab in the career guide
-                below — the same UNLOCKS array, the same markup, rendered
-                twice on one page. What is actually actionable is the next
-                thing to cross, so that is what this says; the full roadmap is
-                one click away and no longer competes with it.
+        <section aria-labelledby="achievements-heading" className="mt-14">
+          <MarqueeHeading as="h2">Achievements</MarqueeHeading>
+          <div className="mt-6">
+            <ShowcaseCard achievements={achievements} initialKeys={showcase.achievementKeys} />
+          </div>
+        </section>
 
-                Still no blur and no "Coming Soon": the next unlock is named
-                and priced. */}
-            {nextUnlock ? (
-              <div className="mt-3 rounded-lg bg-surface-raised/40 p-3 ring-1 ring-white/5">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-[10px] uppercase tracking-wider text-muted">Next up</span>
-                  <span className="shrink-0 font-mono text-[10px] text-muted">
-                    Lv {nextUnlock.atLevel}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs font-semibold text-text">{nextUnlock.name}</p>
-                <p className="mt-0.5 text-[11px] leading-snug text-muted">{nextUnlock.effect}</p>
-              </div>
-            ) : (
-              <p className="mt-3 rounded-lg bg-gold/10 p-3 text-xs text-gold ring-1 ring-gold/30">
-                Every level unlock is yours.
-              </p>
-            )}
+        <section aria-labelledby="invite-heading" className="mt-14">
+          <MarqueeHeading as="h2">Invite friends</MarqueeHeading>
+          <div className="mt-6">
+            <ReferralInviteCard handle={profile?.handle ?? null} stats={referralStats} />
+          </div>
+        </section>
 
-            <div className="mt-3">
-              <LevelProgressionModal
-                currentLevel={level.level}
-                currentXp={lifetimeXp}
-                breakdown={breakdown}
-                initialTab="ranks"
-                label="See all level unlocks →"
-                challenges={achievements
-                  .filter((a) => a.challenge)
-                  .map((a) => ({
-                    name: a.name,
-                    description: a.description,
-                    icon: a.icon,
-                    unlocked: a.unlocked,
-                  }))}
-              />
-            </div>
+        {/*
+          The browsable half of the cosmetics: everything in the game, owned or
+          not, with the specific path to each locked item. The control that
+          equips them lives under the card at the top of the page.
+        */}
+        {claimed && profile?.handle && (
+          <section aria-labelledby="collection-heading" className="mt-14">
+            <MarqueeHeading as="h2">Collection</MarqueeHeading>
+            <CollectionGallery
+              owned={ownedCosmeticIds}
+              claims={showcase.avatarClaims ?? []}
+              films={avatarFilms}
+              taglineTexts={taglineTexts}
+            />
           </section>
+        )}
 
-          <ShowcaseCard achievements={achievements} initialKeys={showcase.achievementKeys} />
-        </div>
-
-        {/* Right Col: Invite Card & Quick Status */}
-        <div className="space-y-4">
-          <ReferralInviteCard handle={profile?.handle ?? null} stats={referralStats} />
-
-          <div className="rounded-xl bg-surface p-5 ring-1 ring-white/10 shadow-lg">
-            <h2 className="font-display text-sm uppercase tracking-[0.14em] text-gold">
-              Quick Stats
-            </h2>
-            <div className="mt-3 space-y-2 text-xs text-muted">
-              <div className="flex justify-between py-1 border-b border-white/5">
-                <span>Completed Rankings:</span>
-                <span className="font-mono text-text font-semibold">{cards.filter((c) => c.status === "done").length}</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-white/5">
-                <span>In-Progress Drafts:</span>
-                <span className="font-mono text-text font-semibold">{cards.filter((c) => c.status === "draft").length}</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-white/5">
-                <span>Profile Visibility:</span>
-                <span className="font-mono uppercase text-gold font-semibold">{profileVisibility}</span>
-              </div>
-            </div>
-            <div className="mt-4 pt-2">
-              <Link
-                href="/settings"
-                className="text-xs text-gold hover:underline flex items-center gap-1 font-medium"
-              >
-                Manage handle, email & privacy settings →
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/*
-        Customise + collection. One button opens a modal that previews the
-        whole draft live and saves once, replacing the five inline pickers
-        that each saved on every click and never refreshed the canvas above.
-        The gallery below it is the browsable half: everything in the game,
-        owned or not, with the specific path to each locked item.
-      */}
-      {claimed && profile?.handle && (
-        <section
-          aria-labelledby="customise-heading"
-          className="mt-6 rounded-xl bg-surface p-5 ring-1 ring-white/10 shadow-lg"
-        >
-          {/* The Customise control used to live here. It now sits under the
-              canvas at the top of the page, next to the thing it edits — this
-              section is for browsing what you have, which is a different job. */}
-          <h2
-            id="customise-heading"
-            className="font-display text-sm uppercase tracking-[0.14em] text-gold"
-          >
-            Collection
-          </h2>
-          <CollectionGallery
-            owned={ownedCosmeticIds}
-            claims={showcase.avatarClaims ?? []}
-            films={avatarFilms}
-            taglineTexts={taglineTexts}
-          />
-        </section>
-      )}
-
-      {/* Row 3 (1 Col): All My Lists */}
-      <section aria-labelledby="lists-heading" className="mt-8">
-        <div className="flex items-center justify-between gap-4 mb-4">
-          <h2 id="lists-heading" className="font-display text-2xl uppercase tracking-[0.12em] text-text">
-            All My Lists ({cards.length})
-          </h2>
-          <Link
-            href="/"
-            className="rounded-full bg-gold px-4 py-1 text-xs font-bold uppercase tracking-wider text-bg hover:opacity-90 transition-opacity"
-          >
-            + New Ranking
-          </Link>
-        </div>
-
-        {cards.length === 0 ? (
-          <div className="flex flex-col items-center gap-4 rounded-xl bg-surface p-10 text-center ring-1 ring-white/10 shadow-xl">
-            <p className="text-sm text-muted">You haven&apos;t created any movie lists yet.</p>
+        <section aria-labelledby="rankings-heading" className="mt-14">
+          <MarqueeHeading as="h2">Your rankings</MarqueeHeading>
+          <p className="mt-5">
             <Link
               href="/"
-              className="min-h-11 rounded-full bg-gold px-6 leading-[44px] text-xs font-bold uppercase tracking-wider text-bg shadow-lg hover:opacity-90 transition-opacity"
+              className="text-base text-gold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-gold"
             >
-              Start Ranking →
+              Start a new ranking
             </Link>
-          </div>
-        ) : (
-          <ShowcaseLists cards={cards} initialFavoriteId={showcase.favoriteListId} userLevel={level.level} />
-        )}
-      </section>
-    </main>
+          </p>
+
+          {cards.length === 0 ? (
+            <p className="mt-5 text-base text-muted">
+              You haven&apos;t ranked anything yet.{" "}
+              <Link
+                href="/"
+                className="text-gold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-gold"
+              >
+                Start with this week&apos;s marquee
+              </Link>
+              .
+            </p>
+          ) : (
+            <ShowcaseLists
+              cards={cards}
+              initialFavoriteId={showcase.favoriteListId}
+              userLevel={level.level}
+            />
+          )}
+        </section>
+      </main>
+    </>
   );
 }

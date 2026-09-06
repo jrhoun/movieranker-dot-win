@@ -305,8 +305,8 @@ export default function HomeClient({
                   flow content and cannot legally sit inside a paragraph. The
                   display styling stays on the label so the dialog does not
                   inherit uppercase, letter-spacing and a display face from it. */}
-              <span className="font-display text-sm uppercase tracking-[0.28em] text-gold/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">
-                This week&apos;s marquee · No {marqueeNumber()}
+              <span className="text-sm text-gold/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">
+                This week&apos;s marquee, no. {marqueeNumber()}
               </span>
               <MarqueeInfoModal />
             </div>
@@ -396,13 +396,13 @@ export default function HomeClient({
             >
               {tonight.userThemeListId ? (
                 <div className="flex flex-col items-center gap-2.5">
-                  <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-4 py-1.5 text-sm font-semibold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/40">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-4 py-1.5 text-sm font-semibold text-emerald-400 ring-1 ring-emerald-500/40">
                     <span aria-hidden="true" className="text-base font-bold">✓</span>
                     <span>You ranked it</span>
                   </span>
                   <Link
                     href={`/l/${tonight.userThemeListId}#community-consensus`}
-                    className="inline-block min-h-11 rounded-full bg-gold px-6 text-sm font-bold leading-[44px] uppercase tracking-wide text-bg shadow-lg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                    className="inline-block min-h-11 rounded-full bg-gold px-6 text-sm font-semibold leading-[44px] text-bg shadow-lg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
                   >
                     See how you compared
                   </Link>
@@ -412,14 +412,14 @@ export default function HomeClient({
                     href="#reel"
                     className="text-xs text-muted underline decoration-white/25 underline-offset-4 transition-colors hover:text-gold hover:decoration-gold focus-visible:outline-2 focus-visible:outline-gold"
                   >
-                    or spin a reel while you wait &rarr;
+                    or spin a reel while you wait
                   </a>
                 </div>
               ) : (
                 <button
                   type="button"
                   onClick={() => start(true)}
-                  className="inline-block min-h-11 cursor-pointer rounded-full bg-gold px-6 text-sm font-bold leading-[44px] uppercase tracking-wide text-bg shadow-lg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
+                  className="inline-block min-h-11 cursor-pointer rounded-full bg-gold px-6 text-sm font-semibold leading-[44px] text-bg shadow-lg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
                 >
                   Start ranking
                 </button>
@@ -438,21 +438,21 @@ export default function HomeClient({
                   the page, with its own marquee heading. */}
               {(tonight.settledCount > 0 || tonight.proposedBy) && (
                 <p className="text-xs text-muted" data-testid="settled-count">
-                  {tonight.settledCount > 0 && (
-                    <span>
+                  {tonight.settledCount > 0 && tonight.proposedBy ? (
+                    <>
                       {tonight.settledCount} ranking{tonight.settledCount === 1 ? "" : "s"} settled
-                      this week
-                    </span>
-                  )}
-                  {tonight.settledCount > 0 && tonight.proposedBy && (
-                    <span aria-hidden="true" className="mx-1.5 text-muted/50">
-                      ·
-                    </span>
-                  )}
-                  {tonight.proposedBy && (
-                    <span>
-                      theme by <span className="font-medium text-gold">@{tonight.proposedBy}</span>
-                    </span>
+                      this week, theme by{" "}
+                      <span className="font-medium text-gold">@{tonight.proposedBy}</span>.
+                    </>
+                  ) : tonight.settledCount > 0 ? (
+                    <>
+                      {tonight.settledCount} ranking{tonight.settledCount === 1 ? "" : "s"} settled
+                      this week.
+                    </>
+                  ) : (
+                    <>
+                      Theme by <span className="font-medium text-gold">@{tonight.proposedBy}</span>.
+                    </>
                   )}
                 </p>
               )}
@@ -460,7 +460,7 @@ export default function HomeClient({
           ) : (
             <a
               href="#start"
-              className="mt-6 inline-block min-h-11 rounded-full bg-gold px-6 text-sm font-bold leading-[44px] uppercase tracking-wide text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+              className="mt-6 inline-block min-h-11 rounded-full bg-gold px-6 text-sm font-semibold leading-[44px] text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
             >
               Start ranking
             </a>
@@ -486,8 +486,8 @@ export default function HomeClient({
           >
             <div className="flex items-center gap-2 text-gold">
               <span aria-hidden="true" className="text-xl">✦</span>
-              <h3 id="resume-title" className="font-display text-2xl uppercase tracking-wide text-text">
-                Unfinished Ranking in Progress
+              <h3 id="resume-title" className="text-lg font-semibold text-text">
+                Unfinished ranking in progress
               </h3>
             </div>
             <p id="resume-desc" className="mt-2 text-xs leading-relaxed text-muted sm:text-sm">
@@ -499,7 +499,7 @@ export default function HomeClient({
                 onClick={() => router.push("/r/play")}
                 className="min-h-11 rounded-full bg-surface-raised px-5 text-sm font-semibold text-text ring-1 ring-white/10 transition-colors hover:bg-white/10 hover:text-gold cursor-pointer"
               >
-                Resume Saved
+                Resume saved
               </button>
               <button
                 type="button"
@@ -509,9 +509,9 @@ export default function HomeClient({
                   setConfirmResume(false);
                   begin(pendingCuratedRef.current);
                 }}
-                className="min-h-11 rounded-full bg-gold px-6 text-sm font-bold uppercase tracking-wide text-bg shadow-lg transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-gold cursor-pointer"
+                className="min-h-11 rounded-full bg-gold px-6 text-sm font-semibold text-bg shadow-lg transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-gold cursor-pointer"
               >
-                Start Fresh →
+                Start fresh
               </button>
             </div>
           </div>
@@ -520,64 +520,51 @@ export default function HomeClient({
       {savedSession && savedSession.movies.length >= 2 && !confirmResume && (
         <div
           role="status"
-          className="mb-8 overflow-hidden rounded-xl border border-gold/40 bg-surface/95 p-5 shadow-2xl backdrop-blur"
+          className="mb-8 flex flex-col gap-4 rounded-xl bg-surface/60 p-5 sm:flex-row sm:items-center sm:justify-between"
         >
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span aria-hidden="true" className="text-gold">✦</span>
-                <p className="font-display text-xs uppercase tracking-[0.2em] text-gold">
-                  Ranking in Progress
-                </p>
-                {savedSession.curated && (
-                  <span className="rounded-full bg-gold/15 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-gold">
-                    Marquee Theme
-                  </span>
-                )}
-              </div>
-              <h3 className="mt-1 truncate font-display text-2xl uppercase tracking-wide text-text sm:text-3xl">
-                {savedDisplayTitle(savedSession)}
-              </h3>
-              <p className="mt-1 text-xs text-muted sm:text-sm">
-                {savedSession.movies.length} movies · {Math.floor(totalComparisons(savedSession) / 2)} votes completed
-                {savedSession.participants?.length > 0 && ` · with ${savedSession.participants.join(", ")}`}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-              {confirmDiscard ? (
-                <div className="flex items-center gap-2 rounded-full bg-surface-raised p-1 ring-1 ring-accent-red/50">
-                  <span className="pl-3 text-xs font-medium text-accent-red">Discard ranking?</span>
-                  <button
-                    type="button"
-                    onClick={discardRanking}
-                    className="min-h-9 rounded-full bg-accent-red px-3 text-xs font-bold text-white transition-colors hover:bg-red-700 focus-visible:outline-2 focus-visible:outline-accent-red"
-                  >
-                    Yes, delete
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDiscard(false)}
-                    className="min-h-9 rounded-full bg-white/10 px-3 text-xs font-medium text-text transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-accent"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
+          <p className="min-w-0 flex-1 text-sm text-text sm:text-base">
+            You&apos;re partway through{" "}
+            <span className="font-medium">{savedDisplayTitle(savedSession)}</span>
+            {" — "}
+            {savedSession.movies.length} film{savedSession.movies.length === 1 ? "" : "s"},{" "}
+            {Math.floor(totalComparisons(savedSession) / 2)} vote
+            {Math.floor(totalComparisons(savedSession) / 2) === 1 ? "" : "s"} in
+            {savedSession.participants?.length > 0 && `, with ${savedSession.participants.join(", ")}`}.
+          </p>
+          <div className="flex flex-wrap items-center gap-4 sm:shrink-0">
+            {confirmDiscard ? (
+              <span className="flex items-center gap-3 text-xs sm:text-sm">
+                <span className="text-muted">Discard this ranking?</span>
                 <button
                   type="button"
-                  onClick={() => setConfirmDiscard(true)}
-                  className="min-h-11 rounded-full bg-surface-raised px-4 text-xs font-medium text-muted ring-1 ring-white/10 transition-colors duration-200 ease-out hover:border-accent-red/50 hover:bg-accent-red/10 hover:text-accent-red focus-visible:outline-2 focus-visible:outline-accent-red"
+                  onClick={discardRanking}
+                  className="font-semibold text-accent-red underline decoration-accent-red/40 underline-offset-4 transition-colors hover:decoration-accent-red cursor-pointer"
                 >
-                  Discard ranking
+                  Yes, delete
                 </button>
-              )}
-              <Link
-                href="/r/play"
-                className="flex min-h-11 items-center gap-2 rounded-full bg-gold px-6 text-sm font-bold uppercase tracking-wide text-bg shadow-lg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
+                <button
+                  type="button"
+                  onClick={() => setConfirmDiscard(false)}
+                  className="text-muted underline decoration-white/25 underline-offset-4 transition-colors hover:text-text cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmDiscard(true)}
+                className="text-xs text-muted underline decoration-white/25 underline-offset-4 transition-colors hover:text-accent-red hover:decoration-accent-red cursor-pointer sm:text-sm"
               >
-                Resume ranking →
-              </Link>
-            </div>
+                Discard
+              </button>
+            )}
+            <Link
+              href="/r/play"
+              className="inline-flex min-h-11 items-center rounded-full bg-gold px-5 text-sm font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
+            >
+              Resume ranking
+            </Link>
           </div>
         </div>
       )}
@@ -651,26 +638,25 @@ export default function HomeClient({
                           <p className="mt-1 text-xs text-muted">
                             {list.ownerHandle ? (
                               <>
-                                Curated by{" "}
+                                By{" "}
                                 <Link
                                   href={`/u/${list.ownerHandle}`}
                                   className="font-semibold text-gold transition-colors hover:underline"
                                 >
                                   @{list.ownerHandle}
                                 </Link>
+                                , {list.movieCount} films
                               </>
                             ) : (
-                              <span>Curated by Community Member</span>
+                              <span>By a community member, {list.movieCount} films</span>
                             )}
-                            <span className="mx-1.5 text-muted/50">·</span>
-                            <span>{list.movieCount} films</span>
                           </p>
                         </div>
                         <UpvoteButton
                           listId={list.id}
                           initialCount={list.upvotesCount}
                           variant="card"
-                          showLabel={false}
+                          showLabel
                         />
                       </div>
 
@@ -691,17 +677,11 @@ export default function HomeClient({
                               <MoviePoster
                                 title={poster.title}
                                 posterPath={poster.posterPath}
-                                className="rounded shadow-md ring-1 ring-white/10"
+                                className={`rounded shadow-md ${rankIdx === 0 ? "ring-2 ring-gold" : "ring-1 ring-white/10"}`}
                               />
                               <span
                                 aria-label={`Rank #${rankIdx + 1}`}
-                                className={`absolute top-1 left-1 flex size-5 items-center justify-center rounded-full font-mono text-[10px] font-bold shadow ${
-                                  rankIdx === 0
-                                    ? "bg-gold text-bg ring-1 ring-gold"
-                                    : rankIdx === 1
-                                      ? "bg-slate-300 text-slate-900"
-                                      : "bg-amber-700 text-amber-100"
-                                }`}
+                                className="absolute top-1 left-1 flex size-5 items-center justify-center rounded-full bg-bg/80 font-mono text-[10px] font-bold text-text shadow"
                               >
                                 #{rankIdx + 1}
                               </span>
@@ -714,9 +694,9 @@ export default function HomeClient({
                     <div className="mt-5 flex items-center justify-between border-t border-white/5 pt-3.5">
                       <Link
                         href={`/l/${list.id}`}
-                        className="text-xs font-bold uppercase tracking-wider text-muted transition-colors hover:text-gold"
+                        className="text-xs font-medium text-gold transition-colors hover:underline"
                       >
-                        View Ranking →
+                        See ranking
                       </Link>
                       <ForkButton
                         list={{

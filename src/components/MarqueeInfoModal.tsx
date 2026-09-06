@@ -28,10 +28,11 @@ export default function MarqueeInfoModal() {
         type="button"
         onClick={() => ref.current?.showModal()}
         aria-haspopup="dialog"
-        className="inline-flex items-center gap-1.5 rounded-full bg-surface-raised px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-muted ring-1 ring-white/10 transition-all duration-200 ease-out hover:bg-gold/10 hover:text-gold hover:ring-gold/40 focus-visible:outline-2 focus-visible:outline-gold cursor-pointer"
+        /* A text link, not a pill: it sits in a sentence ("This week's
+           marquee, no. 2") and should read as part of it. */
+        className="inline-flex min-h-8 items-center text-sm text-gold underline decoration-gold/40 underline-offset-4 transition-colors hover:decoration-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold cursor-pointer"
       >
-        <span aria-hidden="true" className="text-gold">✦</span>
-        <span>What is this?</span>
+        What is this?
       </button>
 
       <dialog

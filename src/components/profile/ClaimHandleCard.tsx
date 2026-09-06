@@ -15,14 +15,16 @@ type Status =
   | { kind: "ratelimited" }
   | { kind: "unreachable" };
 
+const SHAPE_HINT = "3 to 20 characters: letters, numbers, underscore or hyphen.";
+
 const HINTS: Record<Status["kind"], string> = {
-  idle: "3-20 chars · letters, numbers, _ or -",
+  idle: SHAPE_HINT,
   checking: "Checking…",
-  ok: "Available ✓",
-  invalid: "3-20 chars · letters, numbers, _ or -",
+  ok: "That handle is available.",
+  invalid: SHAPE_HINT,
   profane: "That handle contains inappropriate language.",
-  reserved: "That one's reserved.",
-  taken: "Already claimed — try another.",
+  reserved: "That one is reserved.",
+  taken: "Already claimed — try another one.",
   ratelimited: "Too many claim attempts — try again in an hour.",
   unreachable: "Couldn't reach the server — try again.",
 };
@@ -119,12 +121,9 @@ export default function ClaimHandleCard() {
         className="mt-6 rounded bg-surface p-6 ring-2 ring-gold/50"
       >
         <p className="font-display text-3xl uppercase tracking-[0.12em] text-gold">
-          @{claimedHandle}{" "}
-          <span aria-hidden="true" className="text-muted">
-            ·
-          </span>{" "}
-          <span className="text-xl">claimed</span>
+          @{claimedHandle}
         </p>
+        <p className="mt-1 text-sm text-muted">This handle is yours.</p>
       </section>
     );
   }
@@ -143,8 +142,8 @@ export default function ClaimHandleCard() {
       >
         Claim your handle
       </h2>
-      <p className="mt-1 text-sm text-muted">
-        Reserve your name for your shareable profile page.
+      <p className="mt-1 max-w-[70ch] text-sm text-muted">
+        Pick the name your public profile lives at.
       </p>
       <form
         className="mt-3 flex flex-col gap-2 sm:flex-row"
@@ -171,12 +170,11 @@ export default function ClaimHandleCard() {
           className="mt-3 rounded bg-surface-raised p-4 ring-1 ring-gold/60"
         >
           <p className="font-display text-xl uppercase tracking-wide text-gold">
-            ⚠ Handles are permanent and cannot be changed.
+            Handles are permanent and cannot be changed.
           </p>
           <p className="mt-1 text-sm">
-            Claiming{" "}
-            <span className="font-mono font-semibold">u/{handle}</span> locks it
-            to your account forever.
+            Claiming <span className="font-semibold">@{handle}</span> locks it to
+            your account forever.
           </p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <button
@@ -185,7 +183,7 @@ export default function ClaimHandleCard() {
               disabled={claiming}
               className="min-h-11 rounded bg-gold px-6 font-semibold text-bg transition-transform duration-200 ease-out enabled:hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
             >
-              {claiming ? "Claiming…" : `Confirm: Claim u/${handle}`}
+              {claiming ? "Claiming…" : `Claim @${handle}`}
             </button>
             <button
               type="button"
@@ -204,7 +202,7 @@ export default function ClaimHandleCard() {
               onClick={() => setDismissed(false)}
               className="mt-3 min-h-11 rounded px-6 text-sm font-medium text-gold underline-offset-4 transition-colors duration-200 ease-out hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
             >
-              Claim u/{handle}
+              Claim @{handle}
             </button>
           )}
           <p

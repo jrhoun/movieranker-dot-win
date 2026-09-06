@@ -3,7 +3,9 @@ import {
   copyPremierePassToClipboard,
   downloadPremierePass,
   drawBarcode,
+  drawQrCode,
   exportPremierePassBlob,
+  formatShortLink,
   formatTicketDate,
   generatePremierePassCanvas,
   generateTicketSerialNumber,
@@ -140,6 +142,72 @@ describe("drawBarcode", () => {
   });
 });
 
+describe("drawQrCode", () => {
+  function mockCtx() {
+    return {
+      fillRect: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+      fillStyle: "",
+    } as unknown as CanvasRenderingContext2D;
+  }
+
+  test("draws every dark module as an integer-aligned, same-size square", () => {
+    const ctx = mockCtx();
+    const url = "https://www.movieranker.win/l/VxqnCFFfbm";
+    const actualSize = drawQrCode(ctx, 10, 20, 100, url, "#f5c518");
+
+    const calls = (ctx.fillRect as unknown as Mock).mock.calls;
+    // A real QR for a URL this long is well north of a single row of bars —
+    // this is the "module-grid pattern" assertion: many small filled cells,
+    // not a handful of long bars like the barcode it replaces.
+    expect(calls.length).toBeGreaterThan(50);
+
+    let moduleSize: number | null = null;
+    for (const [px, py, w, h] of calls) {
+      // Integer-aligned, no anti-aliasing blur: every rect starts on a whole
+      // pixel and every module is a perfect (non-fractional) square.
+      expect(Number.isInteger(px)).toBe(true);
+      expect(Number.isInteger(py)).toBe(true);
+      expect(Number.isInteger(w)).toBe(true);
+      expect(w).toBe(h);
+      moduleSize ??= w;
+      expect(w).toBe(moduleSize);
+    }
+    expect(actualSize).toBeLessThanOrEqual(100);
+    expect(actualSize).toBeGreaterThan(0);
+  });
+
+  test("uses the given ink color and leaves the context save/restore-balanced", () => {
+    const ctx = mockCtx();
+    drawQrCode(ctx, 0, 0, 80, "https://movieranker.win/l/abc123", "#f5c518");
+    expect(ctx.save).toHaveBeenCalledTimes(1);
+    expect(ctx.restore).toHaveBeenCalledTimes(1);
+  });
+
+  test("never exceeds the requested max size", () => {
+    const ctx = mockCtx();
+    const actualSize = drawQrCode(ctx, 0, 0, 50, "https://www.movieranker.win/l/tinyId1", "#f5c518");
+    expect(actualSize).toBeLessThanOrEqual(50);
+  });
+});
+
+describe("formatShortLink", () => {
+  test("strips the https scheme and www.", () => {
+    expect(formatShortLink("https://www.movieranker.win/l/VxqnCFFfbm")).toBe(
+      "movieranker.win/l/VxqnCFFfbm",
+    );
+  });
+
+  test("strips a bare http scheme with no www.", () => {
+    expect(formatShortLink("http://movieranker.win/l/abc123")).toBe("movieranker.win/l/abc123");
+  });
+
+  test("is a no-op on a string with no scheme or www.", () => {
+    expect(formatShortLink("movieranker.win/l/abc123")).toBe("movieranker.win/l/abc123");
+  });
+});
+
 describe("loadTicketImage", () => {
   test("rejects when Image is undefined", async () => {
     // In Node test environment, global Image is undefined
@@ -223,6 +291,89 @@ describe("generatePremierePassCanvas", () => {
     expect(mockCtx.createLinearGradient).toHaveBeenCalled();
     expect(mockCtx.createRadialGradient).toHaveBeenCalled();
     expect(mockCtx.stroke).toHaveBeenCalled();
+  });
+
+  // The stub renders a real QR when the ticket has somewhere to point back
+  // to (a saved list) and the old seeded barcode otherwise (play-room.tsx's
+  // pre-save finale screen — see TicketRenderOptions.listUrl).
+  describe("QR vs. seeded-barcode stub", () => {
+    const baseOptions: Omit<TicketRenderOptions, "listUrl"> = {
+      title: "Christopher Nolan Masterpieces",
+      items: [
+        { rank: 1, title: "Oppenheimer", releaseYear: 2023 },
+        { rank: 2, title: "Interstellar", releaseYear: 2014 },
+      ],
+    };
+
+    function setupDocument(mockCanvas: HTMLCanvasElement) {
+      (globalThis as unknown as { document: MockDocument }).document = {
+        createElement: vi.fn().mockImplementation((tag: string) => {
+          if (tag === "canvas") return mockCanvas;
+          return {};
+        }),
+      };
+    }
+
+    test("draws a QR module grid on the stub when listUrl is present", async () => {
+      const mockCtx = createMockContext();
+      const mockCanvas = createMockCanvas(mockCtx);
+      setupDocument(mockCanvas);
+
+      await generatePremierePassCanvas({
+        ...baseOptions,
+        listUrl: "https://www.movieranker.win/l/VxqnCFFfbm",
+      });
+
+      // A QR grid is dozens of small module rects; the barcode it replaces is
+      // ~16 wide bars. Comparing against the barcode-only render below proves
+      // the QR branch, rather than the barcode branch, actually ran.
+      const withUrlCalls = (mockCtx.fillRect as unknown as Mock).mock.calls.length;
+
+      const mockCtxNoUrl = createMockContext();
+      const mockCanvasNoUrl = createMockCanvas(mockCtxNoUrl);
+      setupDocument(mockCanvasNoUrl);
+      await generatePremierePassCanvas(baseOptions);
+      const withoutUrlCalls = (mockCtxNoUrl.fillRect as unknown as Mock).mock.calls.length;
+
+      expect(withUrlCalls).toBeGreaterThan(withoutUrlCalls + 30);
+    });
+
+    test("prints the stripped short link beneath the QR", async () => {
+      const mockCtx = createMockContext();
+      const mockCanvas = createMockCanvas(mockCtx);
+      setupDocument(mockCanvas);
+
+      await generatePremierePassCanvas({
+        ...baseOptions,
+        listUrl: "https://www.movieranker.win/l/VxqnCFFfbm",
+      });
+
+      expect(mockCtx.fillText).toHaveBeenCalledWith(
+        "movieranker.win/l/VxqnCFFfbm",
+        expect.any(Number),
+        expect.any(Number),
+      );
+    });
+
+    test("keeps the seeded barcode and 'movieranker.win' watermark when listUrl is absent", async () => {
+      const mockCtx = createMockContext();
+      const mockCanvas = createMockCanvas(mockCtx);
+      setupDocument(mockCanvas);
+
+      await generatePremierePassCanvas(baseOptions);
+
+      // The unsaved-ticket copy: today's decorative texts are untouched.
+      expect(mockCtx.fillText).toHaveBeenCalledWith(
+        "OFFICIAL VERDICT",
+        expect.any(Number),
+        expect.any(Number),
+      );
+      expect(mockCtx.fillText).toHaveBeenCalledWith(
+        "✦ MOVIERANKER.WIN ✦",
+        expect.any(Number),
+        expect.any(Number),
+      );
+    });
   });
 });
 

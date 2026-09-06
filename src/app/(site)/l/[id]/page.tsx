@@ -402,6 +402,10 @@ export default async function PublicListPage({
     participants: list.participants,
     themeTitle: list.theme_slug ? displayTitle : null,
     totalRanked: rows.filter((r) => r.finalRank !== null).length,
+    // The saved list's own permanent URL, deliberately built fresh rather than
+    // reusing `url` above: that one can carry a `?ref=` query for attribution,
+    // which has no business being baked into a QR code printed on a PNG.
+    listUrl: `${SITE_URL}/l/${id}`,
   };
 
   return (
@@ -420,7 +424,7 @@ export default async function PublicListPage({
             says depends on whether this reader has answered the quiz yet, which
             only the client knows — see MarqueeListTitle. */}
         {list.theme_slug && (
-          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-gold">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-gold">
             <span aria-hidden="true">✦</span>
             <span>{displayTitle}</span>
           </div>
@@ -536,7 +540,7 @@ export default async function PublicListPage({
         <section aria-label="Official premiere pass" className="mt-14 flex flex-col items-center text-center">
           <MarqueeHeading as="h2">Premiere Pass</MarqueeHeading>
           <p className="mt-2 text-xs text-muted sm:text-sm">
-            Export and share your official high-DPI vintage cinema ticket stub.
+            Your ticket stub. Share it, or save the image.
           </p>
           <div className="mt-6 w-full max-w-xl">
             <PremierePassCard
@@ -546,6 +550,7 @@ export default async function PublicListPage({
               participants={passOptions.participants}
               themeTitle={passOptions.themeTitle}
               totalRanked={passOptions.totalRanked}
+              listUrl={passOptions.listUrl}
             />
           </div>
         </section>

@@ -28,14 +28,11 @@ interface ListRowProps {
   list: ListRowData;
   /** Showcase curation: this row is the profile's featured ranking. */
   featured?: boolean;
-  /** When provided, a feature-star is rendered (done + public lists only). */
+  /** When provided, a feature control is rendered (done + public lists only). */
   onToggleFeature?: () => void;
   /** User's career level to enforce unlock gates. */
   userLevel?: number;
 }
-
-const btn =
-  "min-h-11 rounded px-2.5 text-sm font-medium transition-all duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50";
 
 const VISIBILITY_OPTIONS = [
   {
@@ -55,12 +52,38 @@ const VISIBILITY_OPTIONS = [
   },
 ] as const;
 
-// Compact single-line list row for /u/me: leading poster, meta, quiet actions.
-export default function ListRow({ list, featured, onToggleFeature, userLevel }: ListRowProps) {
+type Visibility = (typeof VISIBILITY_OPTIONS)[number]["value"];
+
+/** Quiet text control: a verb, gold, underlined on hover. */
+const textAction =
+  "min-h-9 rounded text-sm text-gold underline-offset-4 transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:text-muted disabled:no-underline";
+
+const formField =
+  "rounded bg-surface px-3 py-2 text-sm text-text placeholder:text-muted ring-1 ring-white/10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-gold";
+
+/**
+ * The owner's controls for ONE ranking, as plain verbs on the house
+ * background.
+ *
+ * These used to be a row of pills and icon buttons (a ★ in a ringed circle, a
+ * 🔒 when it was locked, "▶ Resume", "✦ Propose") wedged into the right end of
+ * a bordered row. They are the same four actions, said in words: who can see
+ * it, whether it is the featured one, proposing it as a Marquee theme, and
+ * deleting it. Shared by the draft rows and the finished rankings on the
+ * poster wall, so the wall did not have to lose them.
+ */
+export function ListActions({
+  list,
+  featured,
+  onToggleFeature,
+  userLevel,
+  leading,
+  className = "",
+}: ListRowProps & { leading?: React.ReactNode; className?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [localVisibility, setLocalVisibility] = useState<(typeof VISIBILITY_OPTIONS)[number]["value"] | null>(null);
-  const visibility: (typeof VISIBILITY_OPTIONS)[number]["value"] =
+  const [localVisibility, setLocalVisibility] = useState<Visibility | null>(null);
+  const visibility: Visibility =
     localVisibility ??
     (list.visibility === "public" || list.visibility === "private"
       ? list.visibility
@@ -123,7 +146,7 @@ export default function ListRow({ list, featured, onToggleFeature, userLevel }: 
     setPNote(null);
   }
 
-  async function changeVisibility(value: (typeof VISIBILITY_OPTIONS)[number]["value"]) {
+  async function changeVisibility(value: Visibility) {
     if (value === visibility) return;
     const previous = localVisibility;
     setLocalVisibility(value);
@@ -146,174 +169,94 @@ export default function ListRow({ list, featured, onToggleFeature, userLevel }: 
   }
 
   const isDraft = list.status === "draft";
-  const href = isDraft ? `/r/play?id=${list.id}` : `/l/${list.id}`;
-  const date = new Date(list.createdAt).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC", // server renders UTC; client must match to avoid hydration mismatch
-  });
-  const top = list.posters[0];
   const canPropose = !isDraft && !list.themeSlug && (list.movieIds?.length ?? 0) >= 6;
   const hasRankToPropose = (userLevel ?? 1) >= MIN_PROPOSAL_LEVEL;
   const hasRankToFeature = (userLevel ?? 1) >= MIN_PIN_LIST_LEVEL;
-  // Featuring requires: finished + public + Level 10 milestone.
+  // Featuring requires: finished + public + the Level 10 milestone.
   const canFeature = !isDraft && visibility === "public" && hasRankToFeature;
 
   return (
-    <article className="rounded bg-surface ring-1 ring-white/10 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:ring-gold/40 motion-reduce:transition-none">
-      <div className="flex items-center gap-3 p-2 pr-3">
-        {/* Leading poster */}
-        <Link
-          href={href}
-          aria-label={`View ${list.title}`}
-          className="w-11 shrink-0 overflow-hidden rounded-sm transition-transform duration-200 hover:scale-105 focus-visible:outline-2 focus-visible:outline-gold"
+    <div className={className}>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+        {leading}
+        <select
+          aria-label={`Who can see ${list.title}`}
+          title={VISIBILITY_OPTIONS.find((o) => o.value === visibility)?.title}
+          value={visibility}
+          onChange={(e) => void changeVisibility(e.target.value as Visibility)}
+          className="min-h-9 rounded bg-surface px-2 text-sm text-muted ring-1 ring-white/10 transition-colors hover:text-text focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-gold"
         >
-          <MoviePoster
-            title={top?.title ?? list.title}
-            posterPath={top?.posterPath ?? null}
-            className="rounded-sm"
-          />
-        </Link>
+          {VISIBILITY_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
 
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate text-sm sm:text-base font-semibold">
-            <Link
-              href={href}
-              className="text-text transition-colors hover:text-gold hover:underline focus-visible:outline-1 focus-visible:outline-gold"
-            >
-              {list.title}
-            </Link>
-          </h2>
-          {list.chips && list.chips.length > 0 && (
-            <p className="mt-0.5 truncate text-xs text-muted">
-              With <ParticipantChips chips={list.chips} />
-            </p>
-          )}
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
-            <span
-              className={`inline-block rounded px-2 py-0.5 text-xs font-semibold uppercase tracking-wider ${
-                isDraft ? "bg-accent/15 text-accent" : "bg-surface-raised text-gold ring-1 ring-gold/50"
-              }`}
-            >
-              {isDraft ? "Draft" : "Done"}
-            </span>
-            {list.themeSlug && (
-              <span className="inline-block rounded bg-gold/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-gold">
-                ✦ Marquee
-              </span>
-            )}
-            <span className="font-mono text-text/80">
-              {list.posters.length} {list.posters.length === 1 ? "film" : "films"}
-            </span>
-            <span>·</span>
-            <span>{date}</span>
-            {/* Native select keeps visibility wired in one tight control. */}
-            <select
-              aria-label={`Visibility for ${list.title}`}
-              title={VISIBILITY_OPTIONS.find((o) => o.value === visibility)?.title}
-              value={visibility}
-              onChange={(e) => void changeVisibility(e.target.value as typeof visibility)}
-              className="min-h-9 rounded bg-surface-raised px-1.5 py-0 text-xs text-muted ring-1 ring-white/15 transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
-            >
-              {VISIBILITY_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          {onToggleFeature && (
-            <button
-              type="button"
-              onClick={onToggleFeature}
-              disabled={!canFeature}
-              aria-pressed={featured}
-              aria-label={
-                !hasRankToFeature
-                  ? `Pinning locked (unlocks at Level ${MIN_PIN_LIST_LEVEL})`
-                  : featured
-                    ? `Unpin ${list.title}`
-                    : `Pin ${list.title} as featured ranking`
-              }
-              title={
-                !hasRankToFeature
-                  ? `Pinning a featured ranking unlocks at Level ${MIN_PIN_LIST_LEVEL} (Theater Usher). You can pin 1 list at a time to showcase on your profile!`
-                  : !canFeature
-                    ? "Finish ranking and set visibility to public to feature it (1 pinned list at a time)."
-                    : featured
-                      ? "Unpin this featured ranking"
-                      : "Pin as your featured ranking on your public profile (replaces current)"
-              }
-              className={`flex size-9 items-center justify-center rounded-full text-sm transition-all duration-200 ease-out focus-visible:outline-2 focus-visible:outline-gold active:scale-95 ${
-                featured
-                  ? "bg-gold/20 text-gold ring-1 ring-gold"
-                  : canFeature
-                    ? "bg-surface-raised text-muted ring-1 ring-white/10 hover:bg-gold/15 hover:text-gold hover:ring-gold/40"
-                    : "pointer-events-none text-muted/30 opacity-40 ring-1 ring-white/5 cursor-not-allowed"
-              }`}
-            >
-              {!hasRankToFeature ? <span className="text-[11px]" aria-hidden="true">🔒</span> : "★"}
-            </button>
-          )}
-          <Link
-            href={href}
-            className={`inline-flex min-h-9 items-center rounded-full px-3.5 py-1 text-xs font-bold uppercase tracking-wider transition-all duration-200 ease-out focus-visible:outline-2 focus-visible:outline-gold active:scale-95 ${
-              isDraft
-                ? "bg-accent/20 text-accent ring-1 ring-accent/40 hover:bg-accent hover:text-bg hover:shadow-md"
-                : "bg-surface-raised text-text ring-1 ring-white/10 hover:ring-gold hover:text-gold hover:bg-white/10"
-            }`}
-          >
-            {isDraft ? "▶ Resume" : "View →"}
-          </Link>
-          {canPropose && (
-            hasRankToPropose ? (
-              <button
-                type="button"
-                onClick={() => setProposeOpen((v) => !v)}
-                aria-expanded={proposeOpen}
-                title="Propose this ranking as a future 'This Week's Marquee' theme for the community to rank"
-                aria-label={`Propose ${list.title} as a weekly marquee theme`}
-                className="hidden sm:inline-flex min-h-9 items-center rounded-full bg-gold/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-gold ring-1 ring-gold/40 transition-all duration-200 ease-out hover:bg-gold hover:text-bg active:scale-95"
-              >
-                ✦ Propose
-              </button>
-            ) : (
-              <span
-                title={`Theme proposals unlock at Level ${MIN_PROPOSAL_LEVEL} (${rankForLevel(MIN_PROPOSAL_LEVEL)}). Suggest your top picks as a future weekly marquee theme!`}
-                aria-label={`Propose locked: unlocks at Level ${MIN_PROPOSAL_LEVEL}`}
-                className="hidden sm:inline-flex min-h-9 items-center gap-1 rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-muted/60 ring-1 ring-white/5 cursor-not-allowed select-none"
-              >
-                <span aria-hidden="true">🔒</span>
-                <span>Propose (Lv {MIN_PROPOSAL_LEVEL})</span>
-              </span>
-            )
-          )}
+        {onToggleFeature && (
           <button
             type="button"
-            onClick={() => void remove()}
-            disabled={busy}
-            aria-label={`Delete ${list.title}`}
-            className="inline-flex min-h-9 items-center rounded-full px-2.5 py-1 text-xs text-muted transition-colors duration-200 ease-out hover:bg-accent-red/10 hover:text-accent-red active:scale-95 disabled:opacity-40"
+            onClick={onToggleFeature}
+            disabled={!canFeature}
+            aria-pressed={featured}
+            title={
+              !hasRankToFeature
+                ? `Featuring a ranking unlocks at level ${MIN_PIN_LIST_LEVEL}. One ranking sits at the top of your public profile.`
+                : !canFeature
+                  ? "Finish the ranking and set it to public to feature it."
+                  : featured
+                    ? "Stop featuring this ranking"
+                    : "Feature this ranking at the top of your public profile"
+            }
+            className={textAction}
           >
-            Delete
+            {featured ? "Featured" : "Feature"}
           </button>
-        </div>
+        )}
+
+        {canPropose &&
+          (hasRankToPropose ? (
+            <button
+              type="button"
+              onClick={() => setProposeOpen((v) => !v)}
+              aria-expanded={proposeOpen}
+              title="Propose this ranking as a future weekly Marquee theme"
+              className={textAction}
+            >
+              Propose as a theme
+            </button>
+          ) : (
+            <span
+              title={`Theme proposals unlock at level ${MIN_PROPOSAL_LEVEL} (${rankForLevel(MIN_PROPOSAL_LEVEL)}).`}
+              className="text-sm text-muted"
+            >
+              Propose as a theme at level {MIN_PROPOSAL_LEVEL}
+            </span>
+          ))}
+
+        <button
+          type="button"
+          onClick={() => void remove()}
+          disabled={busy}
+          aria-label={`Delete ${list.title}`}
+          className="min-h-9 rounded text-sm text-muted underline-offset-4 transition-colors hover:text-accent-red hover:underline focus-visible:outline-2 focus-visible:outline-gold disabled:opacity-40"
+        >
+          Delete
+        </button>
       </div>
+
       {proposeOpen && (
         <form
-          className="mx-2 mb-2 flex flex-col gap-2 rounded bg-surface-raised p-3 ring-1 ring-gold/30"
+          className="mt-3 flex max-w-[70ch] flex-col gap-2 border-l-2 border-gold/40 pl-4"
           onSubmit={(e) => {
             e.preventDefault();
             void propose();
           }}
         >
-          <p className="text-xs text-muted">
-            Suggest your top picks as a future This Week&apos;s Marquee theme — the owner reviews every proposal.
-            Keep titles vague and atmospheric: describe the vibe, never spoil any movie&apos;s plot.
+          <p className="text-sm leading-relaxed text-muted">
+            Suggest your top picks as a future This Week&apos;s Marquee theme — the owner reviews
+            every proposal. Keep titles vague and atmospheric: describe the vibe, never spoil any
+            movie&apos;s plot.
           </p>
           <input
             value={pTitle}
@@ -322,7 +265,7 @@ export default function ListRow({ list, featured, onToggleFeature, userLevel }: 
             required
             placeholder="Theme name"
             aria-label="Theme name"
-            className="h-10 rounded bg-surface px-3 text-sm ring-1 ring-white/10 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+            className={`min-h-11 ${formField}`}
           />
           <textarea
             value={pBlurb}
@@ -331,16 +274,97 @@ export default function ListRow({ list, featured, onToggleFeature, userLevel }: 
             rows={2}
             placeholder="One-line pitch (optional)"
             aria-label="One-line pitch (optional)"
-            className="rounded bg-surface px-3 py-2 text-sm leading-relaxed ring-1 ring-white/10 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+            className={`leading-relaxed ${formField}`}
           />
-          <button type="submit" disabled={!pTitle.trim()} className={`${btn} bg-gold text-bg`}>
-            Submit proposal
-          </button>
+          <div>
+            <button
+              type="submit"
+              disabled={!pTitle.trim()}
+              className="min-h-11 rounded-full bg-gold px-5 font-semibold text-bg transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:opacity-50"
+            >
+              Send proposal
+            </button>
+          </div>
           {pNote && (
-            <p role="status" className="text-xs text-accent">{pNote}</p>
+            <p role="status" className="text-sm text-accent">
+              {pNote}
+            </p>
           )}
         </form>
       )}
+    </div>
+  );
+}
+
+/**
+ * A draft ranking, as a row.
+ *
+ * Finished rankings live on the poster wall (`ListCard`); a draft has no
+ * finished order to show off, so it stays a row: the leading poster, what it
+ * is, and the way back into it. The row's ring and hover-lift are gone — a
+ * list of rows is one idea, not six bordered cards stacked up.
+ */
+export default function ListRow({ list, featured, onToggleFeature, userLevel }: ListRowProps) {
+  const isDraft = list.status === "draft";
+  const href = isDraft ? `/r/play?id=${list.id}` : `/l/${list.id}`;
+  const date = new Date(list.createdAt).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC", // server renders UTC; client must match to avoid hydration mismatch
+  });
+  const top = list.posters[0];
+
+  return (
+    <article className="flex gap-4 border-b border-white/5 py-4">
+      <Link
+        href={href}
+        aria-label={`Open ${list.title}`}
+        className="w-14 shrink-0 overflow-hidden rounded-sm transition-transform duration-200 hover:scale-105 focus-visible:outline-2 focus-visible:outline-gold motion-reduce:transition-none"
+      >
+        <MoviePoster
+          title={top?.title ?? list.title}
+          posterPath={top?.posterPath ?? null}
+          className="rounded-sm"
+        />
+      </Link>
+
+      <div className="min-w-0 flex-1">
+        <h3 className="truncate text-base font-semibold">
+          <Link
+            href={href}
+            className="text-text underline-offset-4 transition-colors hover:text-gold hover:underline focus-visible:outline-2 focus-visible:outline-gold"
+          >
+            {list.title}
+          </Link>
+        </h3>
+        <p className="mt-0.5 text-sm text-muted">
+          {list.posters.length} {list.posters.length === 1 ? "film" : "films"}
+          {isDraft ? ", started " : ", finished "}
+          {date}
+          {list.themeSlug ? ", from a weekly Marquee" : ""}
+        </p>
+        {list.chips && list.chips.length > 0 && (
+          <p className="mt-0.5 truncate text-sm text-muted">
+            With <ParticipantChips chips={list.chips} />
+          </p>
+        )}
+        <ListActions
+          list={list}
+          featured={featured}
+          onToggleFeature={onToggleFeature}
+          userLevel={userLevel}
+          className="mt-2"
+          leading={
+            <Link
+              href={href}
+              className="min-h-9 text-sm text-gold underline-offset-4 transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-gold"
+            >
+              {isDraft ? "Keep ranking" : "View"}
+            </Link>
+          }
+        />
+      </div>
     </article>
   );
 }

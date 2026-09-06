@@ -186,20 +186,15 @@ export default function MarqueeConnectionGame({
       {/* Header */}
       <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3.5">
         <div className="flex items-center gap-2">
-          <span className="flex size-7 items-center justify-center rounded-full bg-gold/20 text-gold font-display text-sm font-bold ring-1 ring-gold/40">
-            ✦
-          </span>
           <div>
-            <h3 className="font-display text-base uppercase tracking-wider text-gold sm:text-lg">
-              Bonus Points: Guess the Thread
-            </h3>
+            <h3 className="font-display text-2xl uppercase leading-none tracking-wide text-gold">Guess the connection</h3>
             <p className="text-xs text-muted">{weekLabel}</p>
           </div>
         </div>
 
         {revealed && isCorrect && (
           <span className="rounded-full bg-gold/20 px-2.5 py-0.5 font-mono text-xs font-bold text-gold ring-1 ring-gold/40 animate-fade-in">
-            +{CONNECTION_SOLVE_XP} XP Solved!
+            Solved, {CONNECTION_SOLVE_XP} XP
           </span>
         )}
       </div>
@@ -209,13 +204,13 @@ export default function MarqueeConnectionGame({
         <div className="mt-4 space-y-4">
           {justFinished && (
             <p className="text-sm font-semibold text-gold leading-relaxed">
-              Congratulations! You finished the marquee ranking for this week.
+              That&apos;s this week&apos;s marquee, ranked.
             </p>
           )}
           <p className="text-sm font-medium text-text leading-relaxed">
             {justFinished
-              ? "Now for bonus points — what's the theme connecting the marquee movies?"
-              : "What's the theme connecting the marquee movies?"}
+              ? "Now: what connects these films?"
+              : "What connects these films?"}
           </p>
 
           <div className="grid gap-2.5 sm:grid-cols-2">
@@ -241,14 +236,14 @@ export default function MarqueeConnectionGame({
 
           <div className="flex justify-between items-center pt-2">
             <span className="text-[11px] text-muted">
-              💡 Correct deductions earn +5 Bonus XP
+              A correct guess is worth {CONNECTION_SOLVE_XP} XP.
             </span>
             <button
               type="button"
               onClick={handleSkipToReveal}
               className="text-xs text-muted/70 hover:text-gold hover:underline transition-colors"
             >
-              Reveal without guessing →
+              Reveal without guessing
             </button>
           </div>
         </div>
@@ -266,16 +261,14 @@ export default function MarqueeConnectionGame({
               <span className="text-base">{isCorrect ? "🏆" : "🔍"}</span>
               <span>
                 {isCorrect
-                  ? "Brilliant deduction! You cracked the connection."
-                  : "Good intuition! Here is the official common thread uniting the roster:"}
+                  ? "You cracked it."
+                  : "Not quite. The connection was:"}
               </span>
             </div>
           )}
 
           <div className="rounded-xl border border-gold/25 bg-gold/5 p-4 space-y-2">
-            <p className="font-display text-xs uppercase tracking-widest text-gold">
-              The Common Thread
-            </p>
+            <p className="text-sm text-muted">The connection</p>
             {revealTitle && (
               <p className="font-display text-lg uppercase tracking-wide text-text">
                 {revealTitle}

@@ -1,22 +1,32 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Laurel } from "@/components/Laurel";
 import {
   CAREER_RANKS,
   CO_CURATION_XP,
   CONNECTION_SOLVE_XP,
   MARQUEE_COMPLETION_XP,
+  MAX_LEVEL,
   MAX_XP_PER_LIST,
   REFERRAL_XP_BONUS,
   UNLOCKS,
   rankForLevel,
+  xpForLevel,
   type XpBreakdown,
 } from "@/lib/gamification";
 
 /**
- * The career guide.
+ * Your career.
  *
- * Every price here is READ FROM THE CONSTANT that pays it. The previous version
+ * This is the only place a player sees the whole arc of the game, so it is
+ * built as a ladder rather than as a settings page: the ten ranks stacked with
+ * the top rank at the top, every unlock hanging on the level that hands it
+ * over, and the XP prices beside them. It used to be two tabs of emoji rows,
+ * which meant the shape of the climb was something you had to reconstruct from
+ * lists.
+ *
+ * Every price here is READ FROM THE CONSTANT that pays it. An earlier version
  * restated the numbers in prose and drifted: it advertised a "+10 XP" marquee
  * bonus and a "+5 XP" group bonus that no code ever paid, next to a promise
  * that theme proposals unlocked at Level 3 when the API rejected anything under
@@ -27,32 +37,268 @@ import {
  * which is the part that makes the economy legible rather than merely stated.
  */
 type Source = {
-  icon: string;
   name: string;
   price: string;
   detail: string;
   earned: number;
 };
 
+export type Challenge = {
+  name: string;
+  description: string;
+  /** Kept for the caller's convenience; nothing is rendered as an icon here. */
+  icon: string;
+  unlocked: boolean;
+};
+
+/**
+ * Lower-case the first letter of a name written for a headline, so it can sit
+ * mid-sentence. The names live in gamification.ts and are shared with surfaces
+ * that use them as titles, so they are cased down here rather than duplicated.
+ */
+function midSentence(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
+/**
+ * The one-sentence standing: where you are, and what the next level costs.
+ *
+ * Everything is measured against `currentLevel`, the same prop the ladder marks
+ * "You are here", rather than against the level implied by `currentXp`. The two
+ * agree for every caller today (both come from `levelFor(lifetimeXp)`), and the
+ * cost is identical to what `xpProgress` reports — but if they ever drift, this
+ * sentence stays coherent instead of reading "Level 18 ... takes you to level
+ * 21".
+ */
+export function careerSummary(currentLevel: number, currentXp: number): string {
+  const standing = `Level ${currentLevel}, ${rankForLevel(currentLevel)}, with ${currentXp} XP.`;
+
+  if (currentLevel >= MAX_LEVEL) {
+    return `${standing} Cinema Legend is the last rank, so every rung is behind you.`;
+  }
+
+  const nextLevel = currentLevel + 1;
+  const remaining = xpForLevel(nextLevel) - currentXp;
+
+  return remaining > 0
+    ? `${standing} ${remaining} more takes you to level ${nextLevel}.`
+    : `${standing} You already have the XP for level ${nextLevel}.`;
+}
+
+/**
+ * The two panes. Split out from the dialog so the whole body can be rendered
+ * and read in a test without a DOM — a `<dialog>` only shows its contents
+ * once something has called showModal().
+ */
+export function CareerPanes({
+  currentLevel,
+  breakdown,
+  challenges = [],
+  ladderRef,
+  earnRef,
+}: {
+  currentLevel: number;
+  breakdown: XpBreakdown;
+  challenges?: Challenge[];
+  ladderRef?: React.Ref<HTMLElement>;
+  earnRef?: React.Ref<HTMLElement>;
+}) {
+  const sources: Source[] = [
+    {
+      name: "Rank a film",
+      // "+1 each" rather than "+1 XP each": src/lib/xp-copy.test.ts bans a
+      // digit next to "XP" in copy, because every price must be rendered from
+      // the constant that pays it. Movie XP has no constant — movieXp() pays
+      // one per film — so the number stays out of the units.
+      price: "+1 each",
+      detail: `Every film you settle in a ranking you finish, up to ${MAX_XP_PER_LIST} per list. Drafts do not count — the XP is for sorting them, not for adding them.`,
+      earned: breakdown.movies,
+    },
+    {
+      name: "Finish a weekly Marquee",
+      price: `+${MARQUEE_COMPLETION_XP} XP`,
+      detail: "On top of the films themselves, for ranking the set everyone else is ranking.",
+      earned: breakdown.marquee,
+    },
+    {
+      name: "Crack the connection",
+      price: `+${CONNECTION_SOLVE_XP} XP`,
+      detail: "Work out the thread running through a weekly set. One guess, so it counts.",
+      earned: breakdown.connections,
+    },
+    {
+      name: "Rank with co-curators",
+      price: `+${CO_CURATION_XP} XP`,
+      detail: "Finish a ranking that credits the people you made it with.",
+      earned: breakdown.coCuration,
+    },
+    {
+      name: "A friend claims their spot",
+      price: `+${REFERRAL_XP_BONUS} XP`,
+      detail: "Someone you credited on a list joins and takes their name.",
+      earned: breakdown.referrals,
+    },
+  ];
+
+  // Top rank first: you look up at a marquee ladder. Copied before reversing,
+  // because CAREER_RANKS is a shared export.
+  const ladder = [...CAREER_RANKS].reverse();
+
+  return (
+    <div className="grid gap-8 md:grid-cols-2 md:gap-10">
+      <section aria-labelledby="career-ladder-heading" ref={ladderRef}>
+        <h3
+          id="career-ladder-heading"
+          className="font-display text-xl uppercase tracking-wide text-text"
+        >
+          The ladder
+        </h3>
+        <p className="mt-1 max-w-[70ch] text-sm leading-relaxed text-muted">
+          Ten ranks, ten levels each, and every unlock hangs on the level that hands it over.
+        </p>
+
+        <ol className="mt-4 list-none border-l border-white/10 pl-4">
+          {ladder.map((r) => {
+            const isCurrent = currentLevel >= r.minLevel && currentLevel <= r.maxLevel;
+            const isEarned = currentLevel > r.maxLevel;
+            const unlocks = UNLOCKS.filter(
+              (u) => u.atLevel >= r.minLevel && u.atLevel <= r.maxLevel,
+            );
+
+            return (
+              <li
+                key={r.rank}
+                aria-current={isCurrent ? "step" : undefined}
+                className="pb-5 last:pb-0"
+              >
+                {isEarned ? (
+                  <Laurel tone="gold">{r.title}</Laurel>
+                ) : (
+                  <span
+                    className={`font-display text-base uppercase leading-none tracking-wide sm:text-lg ${
+                      isCurrent ? "text-gold" : "text-muted"
+                    }`}
+                  >
+                    {r.title}
+                  </span>
+                )}
+
+                <p className="mt-1 text-xs text-muted">
+                  Levels {r.minLevel}–{r.maxLevel}
+                </p>
+                {isCurrent && <p className="text-xs text-gold">You are here</p>}
+
+                {unlocks.length > 0 && (
+                  <ul className="mt-2 list-none space-y-1">
+                    {unlocks.map((u) => (
+                      <li
+                        key={u.name}
+                        className={`max-w-[70ch] text-xs leading-relaxed ${
+                          currentLevel >= u.atLevel ? "text-text" : "text-muted"
+                        }`}
+                      >
+                        Level {u.atLevel} — {midSentence(u.name)}: {midSentence(u.effect)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </section>
+
+      <section aria-labelledby="career-xp-heading" ref={earnRef}>
+        <h3
+          id="career-xp-heading"
+          className="font-display text-xl uppercase tracking-wide text-text"
+        >
+          How XP is earned
+        </h3>
+        <p className="mt-1 max-w-[70ch] text-sm leading-relaxed text-muted">
+          Five sources, and what each has paid you so far.
+        </p>
+
+        <table className="mt-4 w-full border-collapse text-sm">
+          <caption className="sr-only">
+            What each source of XP pays, and what you have earned from it
+          </caption>
+          <thead className="sr-only">
+            <tr>
+              <th scope="col">Source</th>
+              <th scope="col">XP</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sources.map((s, i) => (
+              <tr key={s.name} className={i > 0 ? "border-t border-white/10" : undefined}>
+                <th scope="row" className="py-3 pr-4 text-left align-top font-normal">
+                  <span className="font-medium text-text">{s.name}</span>
+                  <span className="mt-1 block max-w-[70ch] text-xs leading-relaxed text-muted">
+                    {s.detail}{" "}
+                    {s.earned > 0
+                      ? `You have earned ${s.earned} XP this way.`
+                      : "Nothing from this one yet."}
+                  </span>
+                </th>
+                <td className="py-3 align-top text-right tabular-nums whitespace-nowrap text-gold">
+                  {s.price}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <p className="mt-3 text-sm text-muted">That is {breakdown.total} XP in total.</p>
+
+        {challenges.length > 0 && (
+          <div className="mt-6 border-t border-white/10 pt-5">
+            <h4 className="text-sm font-semibold text-text">Earned by doing something hard</h4>
+            <p className="mt-1 max-w-[70ch] text-xs leading-relaxed text-muted">
+              No level will hand you these, and being early does not earn them.
+            </p>
+            <ul className="mt-3 list-none space-y-3">
+              {challenges.map((c) => (
+                <li key={c.name}>
+                  <Laurel tone={c.unlocked ? "gold" : "muted"}>{c.name}</Laurel>
+                  <p className="mt-1 max-w-[70ch] text-xs leading-relaxed text-muted">
+                    {c.description}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
 export default function LevelProgressionModal({
   currentLevel,
   currentXp,
   breakdown,
   challenges = [],
-  label = "How leveling & XP work →",
+  label = "How XP works",
   initialTab = "earn",
 }: {
   currentLevel: number;
   currentXp: number;
   breakdown: XpBreakdown;
-  challenges?: { name: string; description: string; icon: string; unlocked: boolean }[];
+  challenges?: Challenge[];
   /** Trigger wording, so the same guide can be opened from more than one place. */
   label?: string;
-  /** Which tab to land on. The unlocks card opens straight to the list it summarises. */
+  /**
+   * There are no tabs any more: both panes are always on screen. This is kept
+   * as a HINT for a phone, where the panes stack — it decides which of the two
+   * a small screen opens scrolled to, and is ignored at the desktop breakpoint
+   * where both are already visible.
+   */
   initialTab?: "earn" | "ranks";
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const [tab, setTab] = useState<"earn" | "ranks">(initialTab);
+  const ladderRef = useRef<HTMLElement>(null);
+  const earnRef = useRef<HTMLElement>(null);
   const [open, setOpen] = useState(false);
 
   // showModal() puts the dialog in the top layer, which brings Escape, a focus
@@ -60,47 +306,18 @@ export default function LevelProgressionModal({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (open && !el.open) el.showModal();
+    if (open && !el.open) {
+      el.showModal();
+      // Stacked panes only: on desktop this would scroll the title off the top
+      // of a body that already shows both panes. No smooth behaviour — this
+      // pass adds no motion.
+      if (!window.matchMedia("(min-width: 768px)").matches) {
+        const target = initialTab === "ranks" ? ladderRef.current : earnRef.current;
+        target?.scrollIntoView({ block: "start", behavior: "auto" });
+      }
+    }
     if (!open && el.open) el.close();
-  }, [open]);
-
-  const sources: Source[] = [
-    {
-      icon: "🎬",
-      name: "Rank a film",
-      price: "+1 each",
-      detail: `Every film you settle in a ranking you finish, up to ${MAX_XP_PER_LIST} per list. Drafts do not count — the XP is for sorting them, not for adding them.`,
-      earned: breakdown.movies,
-    },
-    {
-      icon: "🍿",
-      name: "Finish a weekly Marquee",
-      price: `+${MARQUEE_COMPLETION_XP}`,
-      detail: "On top of the films themselves, for ranking the set everyone else is ranking.",
-      earned: breakdown.marquee,
-    },
-    {
-      icon: "🔍",
-      name: "Crack the connection",
-      price: `+${CONNECTION_SOLVE_XP}`,
-      detail: "Work out the thread running through a weekly set. One guess, so it counts.",
-      earned: breakdown.connections,
-    },
-    {
-      icon: "👥",
-      name: "Rank with co-curators",
-      price: `+${CO_CURATION_XP}`,
-      detail: "Finish a ranking that credits the people you made it with.",
-      earned: breakdown.coCuration,
-    },
-    {
-      icon: "🎟️",
-      name: "A friend claims their spot",
-      price: `+${REFERRAL_XP_BONUS}`,
-      detail: "Someone you credited on a list joins and takes their name.",
-      earned: breakdown.referrals,
-    },
-  ];
+  }, [open, initialTab]);
 
   return (
     <>
@@ -108,10 +325,9 @@ export default function LevelProgressionModal({
         type="button"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
-        className="inline-flex items-center gap-1.5 text-xs italic text-muted transition-colors duration-200 ease-out hover:text-gold hover:underline decoration-gold/40 underline-offset-2 focus-visible:outline-2 focus-visible:outline-gold"
+        className="inline-flex min-h-11 items-center rounded-sm text-sm font-medium text-gold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-gold"
       >
-        <span aria-hidden="true" className="text-gold text-[10px]">✦</span>
-        <span>{label}</span>
+        {label}
       </button>
 
       <dialog
@@ -121,210 +337,44 @@ export default function LevelProgressionModal({
         onClick={(e) => {
           if (e.target === ref.current) setOpen(false);
         }}
-        className="m-auto w-full max-w-xl bg-transparent p-4 text-left font-sans normal-case tracking-normal text-text backdrop:bg-black/80 backdrop:backdrop-blur-sm"
+        className="m-auto w-full max-w-3xl bg-transparent p-4 text-left font-sans normal-case tracking-normal text-text backdrop:bg-black/80 backdrop:backdrop-blur-sm"
       >
-        {/* Mounted only while open. The guide is a few hundred nodes and the
-            page now offers two ways in — rendering it unconditionally would
-            have put two hidden copies of it in every profile's DOM. */}
+        {/* Mounted only while open. The ladder is a few hundred nodes and the
+            page offers two ways in — rendering it unconditionally would put two
+            hidden copies of it in every profile's DOM. */}
         {open && (
-        <div className="flex max-h-[85vh] flex-col overflow-hidden rounded-2xl border border-gold/30 bg-surface shadow-2xl ring-1 ring-white/10">
-          <div className="flex items-start justify-between gap-4 border-b border-white/10 p-4 sm:px-6">
-            <div>
-              <h2
-                id="progression-modal-title"
-                className="flex items-center gap-2 font-display text-xl uppercase tracking-wider text-gold"
-              >
-                <span aria-hidden="true">✦</span>
-                <span>Career &amp; XP Guide</span>
-              </h2>
-              <p className="mt-0.5 text-xs text-muted">
-                Level <strong className="font-bold text-text">{currentLevel}</strong> ·{" "}
-                {rankForLevel(currentLevel)} · {currentXp} XP earned
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              aria-label="Close guide"
-              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-raised text-muted ring-1 ring-white/10 transition-colors hover:bg-white/10 hover:text-text focus-visible:outline-2 focus-visible:outline-gold"
-            >
-              ✕
-            </button>
-          </div>
-
-          <div className="flex border-b border-white/10 bg-surface-raised/40 px-4 pt-2 sm:px-6">
-            {(
-              [
-                ["earn", "Ways to earn XP"],
-                ["ranks", "Ranks & unlocks"],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setTab(key)}
-                aria-current={tab === key}
-                className={`border-b-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors ${
-                  tab === key
-                    ? "border-gold text-gold"
-                    : "border-transparent text-muted hover:text-text"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex-1 space-y-3 overflow-y-auto p-4 sm:p-6">
-            {tab === "earn" ? (
-              <>
-                {sources.map((s) => (
-                  <div
-                    key={s.name}
-                    className="rounded-xl border border-white/10 bg-surface-raised/60 p-4"
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="text-xl" aria-hidden="true">
-                        {s.icon}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <h3 className="text-sm font-bold text-text">{s.name}</h3>
-                          <span className="shrink-0 font-mono text-xs font-bold text-gold">
-                            {s.price} XP
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs leading-relaxed text-muted">{s.detail}</p>
-                        <p className="mt-1.5 font-mono text-[11px] tabular-nums text-gold/80">
-                          {s.earned > 0 ? `${s.earned} XP earned so far` : "Nothing earned yet"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <p className="pt-1 text-center font-mono text-[11px] text-muted">
-                  {breakdown.total} XP earned in total
+          <div className="flex max-h-[85vh] flex-col overflow-hidden rounded-2xl border border-gold/30 bg-surface shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-white/10 p-5 sm:px-6">
+              <div>
+                <h2
+                  id="progression-modal-title"
+                  className="font-display text-3xl uppercase tracking-wide text-gold"
+                >
+                  Your career
+                </h2>
+                <p className="mt-1 max-w-[70ch] text-sm leading-relaxed text-muted">
+                  {careerSummary(currentLevel, currentXp)}
                 </p>
-              </>
-            ) : (
-              <div className="space-y-5">
-                <div>
-                  <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gold">
-                    What levels unlock
-                  </h3>
-                  <ul className="space-y-1.5">
-                    {UNLOCKS.map((u) => {
-                      const has = currentLevel >= u.atLevel;
-                      return (
-                        <li
-                          key={u.name}
-                          className={`flex items-start gap-2.5 rounded-lg p-2.5 text-xs ring-1 ${
-                            has ? "bg-gold/10 ring-gold/30" : "bg-surface-raised/40 ring-white/5"
-                          }`}
-                        >
-                          <span
-                            aria-hidden="true"
-                            className={has ? "text-gold" : "text-muted/60"}
-                          >
-                            {has ? "✓" : "○"}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-baseline justify-between gap-2">
-                              <span
-                                className={`font-semibold ${has ? "text-gold" : "text-text/70"}`}
-                              >
-                                {u.name}
-                              </span>
-                              <span className="shrink-0 font-mono text-[10px] text-muted">
-                                Lv {u.atLevel}
-                              </span>
-                            </div>
-                            <p className="mt-0.5 text-[11px] leading-snug text-muted">{u.effect}</p>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-
-                {challenges.length > 0 && (
-                  <div>
-                    <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-gold">
-                      Challenges
-                    </h3>
-                    <p className="mb-2 text-[11px] leading-snug text-muted">
-                      Earned by doing something hard rather than by being early. No level will
-                      hand you these.
-                    </p>
-                    <ul className="space-y-1.5">
-                      {challenges.map((c) => (
-                        <li
-                          key={c.name}
-                          className={`flex items-start gap-2.5 rounded-lg p-2.5 text-xs ring-1 ${
-                            c.unlocked
-                              ? "bg-gold/10 ring-gold/30"
-                              : "bg-surface-raised/40 ring-white/5"
-                          }`}
-                        >
-                          <span aria-hidden="true">{c.icon}</span>
-                          <div className="min-w-0 flex-1">
-                            <span
-                              className={`font-semibold ${
-                                c.unlocked ? "text-gold" : "text-text/70"
-                              }`}
-                            >
-                              {c.name}
-                            </span>
-                            <p className="mt-0.5 text-[11px] leading-snug text-muted">
-                              {c.description}
-                            </p>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <div>
-                  <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted">
-                    All ten career ranks
-                  </h3>
-                  <ul className="space-y-1">
-                    {CAREER_RANKS.map((r) => {
-                      const isCurrent = currentLevel >= r.minLevel && currentLevel <= r.maxLevel;
-                      const isPassed = currentLevel > r.maxLevel;
-                      return (
-                        <li
-                          key={r.rank}
-                          aria-current={isCurrent}
-                          className={`flex items-center justify-between rounded-lg px-3 py-1.5 text-xs ring-1 ${
-                            isCurrent
-                              ? "bg-gold/15 text-gold ring-gold/40"
-                              : isPassed
-                                ? "bg-surface-raised/60 text-text/70 ring-white/5"
-                                : "bg-surface-raised/30 text-muted ring-white/5"
-                          }`}
-                        >
-                          <span className="font-semibold">
-                            {isPassed && (
-                              <span aria-hidden="true" className="mr-1.5 text-gold/70">
-                                ✓
-                              </span>
-                            )}
-                            {r.title}
-                          </span>
-                          <span className="font-mono text-[10px] tabular-nums">
-                            Lv {r.minLevel}–{r.maxLevel}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
               </div>
-            )}
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="shrink-0 rounded-sm text-sm font-medium text-gold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-gold"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 sm:p-6">
+              <CareerPanes
+                currentLevel={currentLevel}
+                breakdown={breakdown}
+                challenges={challenges}
+                ladderRef={ladderRef}
+                earnRef={earnRef}
+              />
+            </div>
           </div>
-        </div>
         )}
       </dialog>
     </>

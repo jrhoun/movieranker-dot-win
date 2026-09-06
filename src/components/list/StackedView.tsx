@@ -141,9 +141,7 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
         <div className="mt-10">
           <div className="mb-5 flex items-center gap-3">
             <span className="h-px flex-1 bg-white/10" />
-            <span className="font-display text-xs uppercase tracking-[0.2em] text-muted">
-              Honorable Mentions &amp; Rest of List
-            </span>
+            <span className="text-sm text-muted">The rest of the list</span>
             <span className="h-px flex-1 bg-white/10" />
           </div>
           <ol className="flex flex-wrap justify-center gap-x-3.5 gap-y-6 sm:gap-x-5 sm:gap-y-7">

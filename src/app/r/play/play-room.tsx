@@ -506,6 +506,9 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   }
 
   const [savingDirectly, setSavingDirectly] = useState(false);
+  // Which save is in flight, so only the pressed button says "Saving…". Both
+  // used to flip to a saving label together, which read as two saves running.
+  const [savingStatus, setSavingStatus] = useState<"done" | "draft" | null>(null);
 
   async function handleDirectSave(status: "done" | "draft") {
     if (!session || savingDirectly) return;
@@ -515,6 +518,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     }
 
     setSavingDirectly(true);
+    setSavingStatus(status);
     const ranks = new Map(finalizeRanks(session.movies).map((r) => [r.tmdbId, r.rank]));
     const payload = {
       status,
@@ -1267,7 +1271,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               disabled={savingDirectly}
               className="min-h-11 rounded bg-accent px-6 font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:opacity-50"
             >
-              {savingDirectly ? "Saving ranking…" : "Save & finish"}
+              {savingDirectly && savingStatus === "done" ? "Saving ranking…" : "Save & finish"}
             </button>
             <button
               type="button"
@@ -1275,7 +1279,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               disabled={savingDirectly}
               className="min-h-11 rounded bg-surface-raised px-5 text-sm font-medium transition-colors duration-200 ease-out hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:opacity-50"
             >
-              {savingDirectly ? "Saving draft…" : "Save & quit as draft"}
+              {savingDirectly && savingStatus === "draft" ? "Saving draft…" : "Save & quit as draft"}
             </button>
             <p className="mt-1 max-w-xs text-center text-xs text-muted">
               {session.themeSlug

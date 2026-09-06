@@ -20,6 +20,14 @@ function getServerCanShare() {
   return false;
 }
 
+/**
+ * The invite link, as prose.
+ *
+ * This was a bordered panel with a heading, a "+25 XP PER FRIEND" chip, a
+ * boxed URL, a gold pill reading "📋 Copy Link", an "↗ Share" pill and a
+ * "Status:" row with a "⏳ 2 awaiting first list" badge — a card kit around
+ * one link and one number. Same information, three sentences and two verbs.
+ */
 export default function ReferralInviteCard({
   handle,
   stats,
@@ -40,7 +48,8 @@ export default function ReferralInviteCard({
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch {
-      // Fallback
+      // Clipboard refused (permission, or an insecure context): the link is
+      // selectable text right above the button, so there is still a way out.
     }
   }
 
@@ -65,93 +74,55 @@ export default function ReferralInviteCard({
   const pendingCount = Math.max(0, stats.totalReferred - stats.activeReferrals);
 
   return (
-    <section
-      aria-labelledby="referral-heading"
-      className="rounded-xl bg-surface p-5 ring-1 ring-white/10 shadow-lg"
-    >
-      <div className="flex items-center justify-between border-b border-white/5 pb-3">
-        <h2
-          id="referral-heading"
-          className="font-display text-sm uppercase tracking-[0.14em] text-gold flex items-center gap-1.5"
-        >
-          <span>✦</span>
-          <span>Invite Friends</span>
-        </h2>
-        <span className="rounded-full bg-gold/10 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-gold ring-1 ring-gold/30">
-          +{REFERRAL_XP_BONUS} XP per friend
-        </span>
-      </div>
-
-      <p className="mt-3 text-xs leading-relaxed text-muted">
-        Refer your friends. When they create an account and finish their first ranking list, you get{" "}
-        <strong className="text-gold font-semibold">+{REFERRAL_XP_BONUS} XP</strong>.
+    <div>
+      <p className="max-w-[70ch] text-base leading-relaxed text-text/90">
+        Send someone your link. When they sign up and finish their first ranking, you earn{" "}
+        {REFERRAL_XP_BONUS} XP.
       </p>
 
-      {/* Dedicated full-width URL row */}
-      <div className="mt-3.5 space-y-2.5">
-        <div
-          suppressHydrationWarning
-          className="w-full break-all rounded-lg bg-surface-raised px-3.5 py-2.5 font-mono text-xs text-text ring-1 ring-white/10 select-all"
-        >
-          {inviteUrl}
-        </div>
+      <p
+        suppressHydrationWarning
+        className="mt-4 max-w-[70ch] break-all text-base text-text select-all"
+      >
+        {inviteUrl}
+      </p>
 
-        {/* Action buttons on their own clean line */}
-        <div className="flex gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2">
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="min-h-11 rounded text-base text-gold underline-offset-4 transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-gold"
+        >
+          {copied ? "Link copied" : "Copy link"}
+        </button>
+        {canShare && (
           <button
             type="button"
-            onClick={handleCopy}
-            className="min-h-9 flex-1 rounded-lg bg-gold px-4 text-xs font-bold uppercase tracking-wider text-bg hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow"
+            onClick={handleNativeShare}
+            className="min-h-11 rounded text-base text-gold underline-offset-4 transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-gold"
           >
-            {copied ? (
-              <>
-                <span>✓</span>
-                <span>Copied!</span>
-              </>
-            ) : (
-              <>
-                <span>📋</span>
-                <span>Copy Link</span>
-              </>
-            )}
+            Share
           </button>
-
-          {canShare && (
-            <button
-              type="button"
-              onClick={handleNativeShare}
-              className="min-h-9 rounded-lg bg-surface-raised px-4 text-xs font-semibold uppercase tracking-wider text-gold ring-1 ring-gold/40 hover:bg-gold/10 active:scale-[0.98] transition-all flex items-center justify-center gap-1 cursor-pointer"
-            >
-              <span>↗</span>
-              <span>Share</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Referral Stats Summary */}
-      <div className="mt-4 pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="text-muted">Status:</span>
-          <span className="text-text font-medium">
-            {stats.activeReferrals > 0 ? (
-              <>
-                <strong className="text-gold font-bold">{stats.activeReferrals}</strong> friend
-                {stats.activeReferrals === 1 ? "" : "s"} joined ·{" "}
-                <span className="text-gold font-mono font-bold">+{stats.bonusXp} XP</span> earned
-              </>
-            ) : (
-              <span className="text-muted">No referrals completed yet</span>
-            )}
-          </span>
-        </div>
-
-        {pendingCount > 0 && (
-          <span className="text-[11px] font-mono text-muted bg-white/5 px-2 py-0.5 rounded">
-            ⏳ {pendingCount} awaiting first list
-          </span>
         )}
       </div>
-    </section>
+
+      <p className="mt-3 max-w-[70ch] text-sm leading-relaxed text-muted">
+        {stats.activeReferrals > 0 ? (
+          <>
+            {stats.activeReferrals} {stats.activeReferrals === 1 ? "friend has" : "friends have"}{" "}
+            joined and finished a ranking, earning you {stats.bonusXp} XP.
+          </>
+        ) : (
+          <>Nobody has joined through your link yet.</>
+        )}
+        {pendingCount > 0 && (
+          <>
+            {" "}
+            {pendingCount} {pendingCount === 1 ? "person is" : "people are"} still working on a
+            first ranking.
+          </>
+        )}
+      </p>
+    </div>
   );
 }

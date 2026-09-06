@@ -18,16 +18,15 @@ export default function SiteFooter() {
               </span>
             </div>
             <p className="text-xs leading-relaxed text-muted">
-              Rank movies head-to-head — solo or with friends. A new themed Marquee every
-              week, with a hidden thread running through it. A place for people who love
-              lists and cinema.
+              Rank movies head-to-head, solo or with friends, with a new themed Marquee
+              and hidden thread every week — for people who love lists and cinema.
             </p>
           </div>
 
           {/* Site Navigation */}
           <div className="space-y-2">
-            <h4 className="font-display text-xs uppercase tracking-[0.15em] text-gold">
-              Navigation
+            <h4 className="text-sm font-semibold text-gold">
+              Explore
             </h4>
             <ul className="space-y-1.5">
               <li>
@@ -65,8 +64,8 @@ export default function SiteFooter() {
 
           {/* Legal & Support */}
           <div className="space-y-2">
-            <h4 className="font-display text-xs uppercase tracking-[0.15em] text-gold">
-              Policies & Support
+            <h4 className="text-sm font-semibold text-gold">
+              Policies
             </h4>
             <ul className="space-y-1.5">
               <li>
