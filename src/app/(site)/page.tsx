@@ -22,7 +22,6 @@ export default async function Page({
     redirect(`/auth/callback?code=${encodeURIComponent(sp.code)}${nextParam}`);
   }
   let title = "";
-  let blurb = "";
   let slug: string | null = null;
   let credits: TmdbMovieCredit[] = [];
   let proposedBy: string | null = null;
@@ -34,7 +33,6 @@ export default async function Page({
     const supabase = await createSupabaseServerClient();
     const { theme, movieIds, activity: a } = await getTonightsShortlist();
     title = theme.title;
-    blurb = theme.blurb;
     slug = theme.slug;
     proposedBy = theme.proposedBy;
     activity = a;
@@ -71,14 +69,19 @@ export default async function Page({
 
   return (
     <HomeClient
+      /* Only what the client renders or needs to start a session. The theme
+         BLURB and the settled-list PREVIEWS used to ride along here unused —
+         and both paraphrase the connection-puzzle answer, so they were spoiler
+         text sitting in the RSC payload of a page whose hero withholds it.
+         `title` still has to travel: `begin()` names the saved session with
+         it. (The theme catalogue is in the client bundle regardless, so this
+         is hygiene, not a security boundary.) */
       tonight={{
         title,
-        blurb,
         themeSlug: slug,
         movies: credits,
         proposedBy,
         settledCount: activity.count,
-        previews: activity.previews,
         userThemeListId,
       }}
       trendingLists={trendingLists}
