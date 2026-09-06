@@ -7,6 +7,7 @@ export interface MovieInput {
   title?: string;
   posterPath?: string | null;
   releaseYear?: number | null;
+  tagline?: string | null;
   elo?: number;
   comparisons?: number;
   parked?: boolean;
@@ -121,13 +122,14 @@ export async function fetchResumableList(
 
   const { data: rows } = await supabase
     .from("list_movies")
-    .select("tmdb_id,title,poster_path,release_year,elo,comparisons,parked")
+    .select("tmdb_id,title,poster_path,release_year,tagline,elo,comparisons,parked")
     .eq("list_id", id);
   const movies = ((rows ?? []) as Record<string, unknown>[]).map((r) => ({
     tmdbId: r.tmdb_id as number,
     title: r.title as string,
     posterPath: (r.poster_path as string | null) ?? null,
     releaseYear: (r.release_year as number | null) ?? null,
+    tagline: (r.tagline as string | null) ?? null,
     elo: r.elo as number,
     comparisons: r.comparisons as number,
     parked: Boolean(r.parked),
@@ -149,6 +151,7 @@ export function fullMovieRow(m: MovieInput, listId: string) {
     title: m.title!,
     poster_path: m.posterPath ?? null,
     release_year: m.releaseYear ?? null,
+    tagline: m.tagline ?? null,
     elo: m.elo ?? 1000,
     comparisons: m.comparisons ?? 0,
     parked: m.parked ?? false,

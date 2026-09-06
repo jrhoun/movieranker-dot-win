@@ -6,6 +6,7 @@ import ParticipantChips from "@/components/ParticipantChips";
 import MoviePoster from "@/components/list/MoviePoster";
 import { normalizeHandle } from "@/lib/handles";
 import { evaluateAchievements } from "@/lib/gamification";
+import { maskListTitle } from "@/lib/marquee-title";
 import { marqueeStanding, type ThemeCompletion } from "@/lib/marquee-standing";
 import { sanitizeEquipped } from "@/lib/cosmetics/equipped";
 import {
@@ -148,12 +149,50 @@ export default async function PublicProfilePage({
           .in("id", userIds)
           .eq("visibility", "public")
       : { data: [] };
+  // THE SPOILER RULE, on the growth surface. A Marquee list's stored title IS
+  // the theme title, which paraphrases the answer to that week's connection
+  // quiz — so a public profile listing "The Golden Age of Hollywood" handed the
+  // answer to every stranger who followed a share link here, without them ever
+  // opening the puzzle. Masked with the same helper the list page and the play
+  // room use; see src/lib/marquee-title.ts for why past weeks stay masked too.
+  //
+  // NO OWNER EXEMPTION HERE, deliberately: /u/[handle] is public and this page
+  // already goes out of its way (see the sanitizeEquipped and taglineText notes
+  // above) to render identically for every viewer, owner included. The owner's
+  // own dashboard at /u/profile is where the exemption lives.
+  //
+  // `theme_slug` and `created_at` come off the raw rows rather than
+  // PublicListCardData, which carries neither — the shaped card has only a
+  // pre-formatted date string, and the marquee number has to be derived from
+  // the real timestamp.
+  const themeRowById = new Map(
+    ((lists ?? []) as Record<string, unknown>[])
+      .filter((r) => typeof r.id === "string")
+      .map((r) => [
+        r.id as string,
+        {
+          themeSlug: (r.theme_slug as string | null) ?? null,
+          createdAt: String(r.created_at ?? ""),
+        },
+      ]),
+  );
   const cards = attachParticipantChips(
     baseCards,
     lists ?? [],
     attributions ?? [],
     publicProfiles ?? [],
-  );
+  ).map((card) => {
+    const row = themeRowById.get(card.id);
+    if (!row?.themeSlug) return card;
+    return {
+      ...card,
+      title: maskListTitle({
+        title: card.title,
+        themeSlug: row.themeSlug,
+        createdAt: row.createdAt,
+      }),
+    };
+  });
   // Marquee ordering achievements. RLS policy "anyone reads done lists" exposes
   // status='done' + visibility in ('unlisted','public'), and marquee lists are
   // saved public, so this ordering is identical for every viewer.
@@ -255,7 +294,7 @@ export default async function PublicProfilePage({
   });
 
   return (
-    <main className="mx-auto w-full max-w-md flex-1 px-4 py-10 sm:max-w-2xl">
+    <main className="mx-auto w-full max-w-page flex-1 px-4 py-10 sm:px-6 lg:px-8">
       {isOwner && profile.visibility !== "public" && (
         <div className="mb-6 rounded-xl bg-accent/15 p-4 ring-1 ring-accent/40 text-center text-xs text-text">
           <p className="font-bold text-accent uppercase tracking-wider mb-0.5">
@@ -292,26 +331,40 @@ export default async function PublicProfilePage({
         </div>
         <p className="mt-1.5 text-center text-xs text-muted">Joined {joined}</p>
 
-        {/* Stats band: 3 balanced, aligned columns */}
+        {/* Stats band: 3 balanced, aligned columns.
+            The labels lost `truncate` and gained tighter mobile tracking. At
+            390px "THEATER USHER" was rendering as "THEATER US…", which is not a
+            word — a stat nobody can read is not a stat. Two short lines are
+            fine here; the column heights are equalised by the grid anyway. */}
         <dl className="mt-5 grid grid-cols-3 gap-2 rounded-xl bg-surface p-5 ring-1 ring-gold/30 font-mono text-sm">
           <div className="flex flex-col items-center justify-center gap-1 text-center">
             <dd className="font-display text-3xl leading-none text-gold [text-shadow:0_0_24px_rgba(245,197,24,0.35)] tabular-nums">
               {moviesRanked}
             </dd>
-            <dt className="text-xs uppercase tracking-[0.14em] text-muted">Movies ranked</dt>
+            <dt className="text-[11px] uppercase leading-tight tracking-[0.06em] text-muted sm:text-xs sm:tracking-[0.14em]">
+              Movies ranked
+            </dt>
           </div>
           <div className="flex flex-col items-center justify-center gap-1 text-center">
             <dd className="font-display text-3xl leading-none text-gold [text-shadow:0_0_24px_rgba(245,197,24,0.35)] tabular-nums">
               {cards.length}
             </dd>
-            <dt className="text-xs uppercase tracking-[0.14em] text-muted">Public lists</dt>
+            <dt className="text-[11px] uppercase leading-tight tracking-[0.06em] text-muted sm:text-xs sm:tracking-[0.14em]">
+              Public lists
+            </dt>
           </div>
+          {/* The third cell is a LEVEL, and it used to read "7 / THEATER USHER"
+              beside "142 / MOVIES RANKED" and "9 / PUBLIC LISTS" — i.e. as
+              "seven theater ushers". The numeral is the level and the rank is
+              what that level is CALLED, so the label now says both, in that
+              order, and the rank sits on its own line where it has room. */}
           <div className="flex flex-col items-center justify-center gap-1 text-center">
             <dd className="font-display text-3xl leading-none text-gold [text-shadow:0_0_24px_rgba(245,197,24,0.35)] tabular-nums">
               {level.level}
             </dd>
-            <dt className="text-xs uppercase tracking-[0.14em] text-muted truncate max-w-full">
-              {level.title}
+            <dt className="text-[11px] uppercase leading-tight tracking-[0.06em] text-muted sm:text-xs sm:tracking-[0.14em]">
+              Level
+              <span className="block text-text/80">{level.title}</span>
             </dt>
           </div>
         </dl>

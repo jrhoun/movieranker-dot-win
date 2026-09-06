@@ -27,7 +27,7 @@ export default function NotFound() {
   return (
     <>
       <SiteHeader />
-      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center px-4 py-10 text-center sm:py-14">
+      <main className="mx-auto flex w-full max-w-page flex-1 flex-col items-center justify-center px-4 py-10 text-center sm:py-14">
         {/* Cinematic Film Visual & 404 Badge */}
         <div className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-gold/30 bg-surface shadow-[0_20px_50px_rgba(0,0,0,0.8),0_0_40px_rgba(245,197,24,0.15)]">
           <div className="relative aspect-[21/9] sm:aspect-[16/7] w-full overflow-hidden">

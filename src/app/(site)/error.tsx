@@ -15,7 +15,7 @@ export default function SiteError({
   }, [error]);
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col items-center justify-center px-4 py-16 text-center">
+    <main className="mx-auto flex w-full max-w-reading flex-1 flex-col items-center justify-center px-4 py-16 text-center">
       <div className="rounded-2xl border border-white/10 bg-surface p-8 shadow-2xl ring-1 ring-white/5">
         <span className="text-4xl" aria-hidden="true">🎬</span>
         <h1 className="font-display mt-4 text-2xl uppercase tracking-wider text-gold">

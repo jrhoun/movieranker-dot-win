@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function CompareNotFound() {
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-3 px-4 py-20 text-center">
+    <main className="mx-auto flex w-full max-w-reading flex-1 flex-col items-center justify-center gap-3 px-4 py-20 text-center">
       <p aria-hidden="true" className="font-mono text-5xl font-bold text-accent">
         404
       </p>

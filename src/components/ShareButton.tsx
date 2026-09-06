@@ -7,6 +7,11 @@ import {
   type ConnectionOutcome,
   type ShareMovie,
 } from "@/lib/share-text";
+import {
+  copyPremierePassToClipboard,
+  downloadPremierePass,
+  type TicketRenderOptions,
+} from "@/lib/ticket-canvas";
 
 const menuItem =
   "flex min-h-10 w-full items-center gap-2.5 rounded-lg px-3.5 text-left text-xs font-medium text-text transition-colors duration-150 ease-out hover:bg-white/10 hover:text-gold focus-visible:outline-2 focus-visible:outline-gold";
@@ -20,6 +25,7 @@ export interface ShareButtonProps {
   topMovies?: ShareMovie[];
   totalMovies?: number | null;
   curatorHandle?: string | null;
+  passOptions?: TicketRenderOptions;
 }
 
 export default function ShareButton({
@@ -30,6 +36,7 @@ export default function ShareButton({
   topMovies,
   totalMovies,
   curatorHandle,
+  passOptions,
 }: ShareButtonProps) {
   const [open, setOpen] = useState(false);
   const [canNativeShare, setCanNativeShare] = useState(false);
@@ -105,6 +112,23 @@ export default function ShareButton({
     }
   }
 
+  async function copyPass() {
+    setOpen(false);
+    if (!passOptions) return;
+    try {
+      const success = await copyPremierePassToClipboard(passOptions);
+      if (success) {
+        showToast("Premiere Pass copied to clipboard!");
+      } else {
+        await downloadPremierePass(passOptions);
+        showToast("Downloaded Premiere Pass PNG");
+      }
+    } catch {
+      await downloadPremierePass(passOptions);
+      showToast("Downloaded Premiere Pass PNG");
+    }
+  }
+
   async function copyLink() {
     setOpen(false);
     try {
@@ -149,8 +173,19 @@ export default function ShareButton({
           <div
             role="menu"
             aria-label="Share options"
-            className="animate-fade-in absolute right-0 top-full z-50 mt-1.5 w-52 overflow-hidden rounded-xl border border-white/5 bg-surface/95 p-1.5 shadow-2xl ring-1 ring-gold/40 backdrop-blur-md"
+            className="animate-fade-in absolute right-0 top-full z-50 mt-1.5 w-56 overflow-hidden rounded-xl border border-white/5 bg-surface/95 p-1.5 shadow-2xl ring-1 ring-gold/40 backdrop-blur-md"
           >
+            {passOptions && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => void copyPass()}
+                className={menuItem}
+              >
+                <span aria-hidden="true" className="text-gold font-display text-sm">✦</span>
+                <span className="font-semibold text-gold">Copy Premiere Pass</span>
+              </button>
+            )}
             <button type="button" role="menuitem" onClick={() => void copyResult()} className={menuItem}>
               <svg className="size-4 shrink-0 text-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />

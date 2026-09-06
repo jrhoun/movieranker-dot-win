@@ -125,7 +125,7 @@ export default function SearchPanel({
         if ((e as Error).name !== "AbortError") {
           setMovies([]);
           setNames([]);
-          setSearchError("Movie database temporarily unavailable. Tap retry to reconnect.");
+          setSearchError("Movie database temporarily unavailable.");
         }
       } finally {
         if (!ctrl.signal.aborted) setLoading(false);
@@ -171,12 +171,23 @@ export default function SearchPanel({
       aria-label="Find movies"
       className="rounded-lg bg-surface p-4 ring-1 ring-white/10 sm:p-5"
     >
-      <p className="text-sm text-muted">
-        Search any director, actor, studio, or movie — tap posters to start building your list.
-      </p>
+      {/* No helper sentence here: home-client's two lines around this card are
+          gone (see its own comment), and this one said the same thing a third
+          time ("search any director, actor, studio, or movie"). The mode tabs'
+          labels plus the input's per-mode placeholder already carry that. The
+          "tap posters to add" mechanic isn't re-explained either — each poster
+          button already telegraphs it (hover lift, gold ring + aria-pressed
+          once picked, and a title tooltip) without a standing caption. */}
 
-      {/* mode tabs */}
-      <div className="mt-3 flex flex-wrap gap-2">
+      {/* mode tabs: a single horizontally-scrollable row, never a wrap.
+          Five tabs' intrinsic content (measured, incl. padding & gaps) is
+          ~473px — "Actor / Actress" alone runs ~132px — while the panel's
+          available width at a 360px viewport is only 360 - 2*16px (p-4) =
+          328px. Even stripping all tab padding only gets text-width-plus-gaps
+          down to ~313px, still short, so no reasonable padding trim makes five
+          fit in one row down here; scrolling (not wrapping to a second row)
+          is the only fix that keeps every tab a real, legible tap target. */}
+      <div className="mt-3 flex gap-2 overflow-x-auto no-scrollbar whitespace-nowrap">
         <Tabs
           idPrefix="search-mode"
           ariaLabel="Search mode"
@@ -184,7 +195,7 @@ export default function SearchPanel({
           value={mode}
           onSelect={switchMode}
           tabClassName={(active) =>
-            `min-h-11 rounded-full px-4 text-sm font-medium transition-colors duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+            `min-h-11 shrink-0 rounded-full px-4 text-sm font-medium transition-colors duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
               active
                 ? "bg-accent text-bg"
                 : "bg-surface text-muted hover:bg-surface-raised hover:text-text active:bg-surface"
@@ -367,6 +378,8 @@ export default function SearchPanel({
           </div>
         ) : searchError ? (
           <div className="rounded-lg bg-accent-red/10 border border-accent-red/30 p-4 text-center">
+            {/* The button below already says "Retry" — the message doesn't
+                need to repeat the instruction, just state the problem. */}
             <p className="text-xs font-semibold text-accent-red">{searchError}</p>
             <button
               type="button"
@@ -592,7 +605,8 @@ function BrowseAllModal({
             onClick={onClose}
             className="min-h-10 rounded-full bg-surface-raised px-5 text-xs font-bold uppercase tracking-wider text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
           >
-            Done / Close
+            {/* "Done / Close" said the same thing twice — one word for one action. */}
+            Done
           </button>
         </footer>
       </div>

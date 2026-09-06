@@ -33,7 +33,7 @@ export default async function ComparePickerPage({
     notFound();
 
   return (
-    <main className="mx-auto w-full max-w-md flex-1 px-4 py-8 sm:max-w-2xl">
+    <main className="mx-auto w-full max-w-reading flex-1 px-4 py-8">
       <MarqueeHeading as="h2">Versus</MarqueeHeading>
       <p className="mt-4 max-w-prose text-sm leading-relaxed text-muted">
         Pick a second ranking to put next to{" "}

@@ -58,6 +58,7 @@ describe("fetchResumableList", () => {
           title: "Heat",
           poster_path: "/heat.jpg",
           release_year: 1995,
+          tagline: "A Los Angeles crime saga",
           elo: 1032.5,
           comparisons: 4,
           parked: false,
@@ -67,6 +68,7 @@ describe("fetchResumableList", () => {
           title: "Alien",
           poster_path: null,
           release_year: null,
+          tagline: null,
           elo: 990,
           comparisons: 3,
           parked: true,
@@ -85,11 +87,12 @@ describe("fetchResumableList", () => {
       title: "Heat",
       posterPath: "/heat.jpg",
       releaseYear: 1995,
+      tagline: "A Los Angeles crime saga",
       elo: 1032.5,
       comparisons: 4,
       parked: false,
     });
-    expect(list!.movies[1]).toMatchObject({ tmdbId: 200, posterPath: null, parked: true });
+    expect(list!.movies[1]).toMatchObject({ tmdbId: 200, posterPath: null, tagline: null, parked: true });
 
     // both lookups are RLS-scoped by id
     const tables = [...new Set(currentDb.calls.map((c) => c.table))];

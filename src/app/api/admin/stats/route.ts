@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { supabaseAdmin, supabaseSecretKey } from "@/lib/supabase/admin";
 import { isOwnerEmail } from "@/lib/proposals-api";
 
 /**
@@ -28,10 +28,10 @@ async function requireOwner(): Promise<boolean> {
 export async function GET() {
   if (!(await requireOwner())) return new Response("Not Found", { status: 404 });
 
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!supabaseSecretKey()) {
     return NextResponse.json({
       available: false,
-      reason: "SUPABASE_SERVICE_ROLE_KEY is not set, so site-wide counts cannot be read.",
+      reason: "SUPABASE_SECRET_KEY is not set, so site-wide counts cannot be read.",
     });
   }
 

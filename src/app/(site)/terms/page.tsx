@@ -14,7 +14,7 @@ function H2({ children }: { children: React.ReactNode }) {
 
 export default function TermsPage() {
   return (
-    <main className="mx-auto w-full max-w-md flex-1 px-4 py-10 sm:max-w-2xl">
+    <main className="mx-auto w-full max-w-reading flex-1 px-4 py-10">
       <MarqueeHeading>Terms of Service</MarqueeHeading>
       <div className="mt-6 rounded-xl bg-surface p-6 ring-1 ring-white/10 sm:p-8">
         <div className="space-y-4 text-sm leading-relaxed text-text">

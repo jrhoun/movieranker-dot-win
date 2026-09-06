@@ -2,17 +2,38 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import SoundToggle from "@/components/audio/SoundToggle";
+import CurtainCallCelebration from "@/components/celebration/CurtainCallCelebration";
+import LightsDownToggle from "@/components/duel/LightsDownToggle";
 import MatchupStage from "@/components/MatchupStage";
 import MarqueeConnectionGame from "@/components/MarqueeConnectionGame";
 import MoviePoster from "@/components/list/MoviePoster";
 import ParkedStrip from "@/components/ParkedStrip";
 import SaveGateSheet from "@/components/SaveGateSheet";
+import PremierePassCard from "@/components/share/PremierePassCard";
 import { PersonIcon } from "@/components/ParticipantChips";
 import { marqueeDisplayTitle } from "@/lib/marquee-title";
 import { MATCHUP_SETTLE_MS } from "@/lib/matchup-timing";
 import { marqueeNumber } from "@/lib/shortlist";
+import {
+  isLightsDown,
+  isSoundEnabled,
+  playGoldenChime,
+  playShutterClick,
+  setLightsDown,
+  setSoundEnabled,
+} from "@/lib/audio";
+import {
+  resolveBlitzAction,
+  resolvePendingIntent,
+  resolveSettlingIntent,
+  sideOfPair,
+  type BlitzState,
+  type PendingIntent,
+} from "@/lib/keyboard";
 import { getThemeConnectionGame } from "@/lib/shortlist-themes";
+import { getMovieWinStreak } from "@/lib/streak";
 import {
   closeCallProgress,
   countClosePairs,
@@ -38,6 +59,39 @@ import {
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const NUDGE_COMPARISONS = 10;
+
+/*
+ * SOUND AND LIGHTS-DOWN PREFERENCES live in localStorage, which the server
+ * cannot see. The room used to render them both `false`, read localStorage in a
+ * mount effect, and setState — the cascading-render pattern React now lints as
+ * an error, and a visible flash of the wrong toggle on every entry.
+ *
+ * They are read as an EXTERNAL STORE instead, which is what they are.
+ * getServerSnapshot keeps the pre-hydration markup honest (lib/audio defaults
+ * both preferences to off with no storage available, so `false` is not a
+ * guess), the `storage` event keeps two open tabs in step, and
+ * `notifyPreferenceChange` is how a toggle in THIS tab tells the store to
+ * re-read — localStorage writes do not fire `storage` in the tab that made
+ * them. lib/audio's readers are already try/catch-guarded and return plain
+ * booleans, which is exactly the stable snapshot useSyncExternalStore needs.
+ */
+const preferenceListeners = new Set<() => void>();
+
+function subscribeToPreferences(onStoreChange: () => void): () => void {
+  preferenceListeners.add(onStoreChange);
+  window.addEventListener("storage", onStoreChange);
+  return () => {
+    preferenceListeners.delete(onStoreChange);
+    window.removeEventListener("storage", onStoreChange);
+  };
+}
+
+function notifyPreferenceChange(): void {
+  for (const listener of preferenceListeners) listener();
+}
+
+/** No localStorage on the server; lib/audio defaults both preferences to off. */
+const preferenceServerSnapshot = () => false;
 
 function RankedList({ movies }: { movies: RankedMovie[] }) {
   const byId = new Map(movies.map((m) => [m.tmdbId, m]));
@@ -110,7 +164,10 @@ function Podium({ movies }: { movies: RankedMovie[] }) {
                 {r.rank}
               </span>
             </div>
-            <p className="mt-1.5 truncate text-xs sm:text-sm font-semibold text-text">{m.title}</p>
+            {/* Two lines, not an ellipsis: this is the payoff screen, and
+                "It's a Wonder…" / "The Sound of Mus…" under the winning posters
+                undercut the moment. */}
+            <p className="mt-1.5 line-clamp-2 text-xs leading-tight sm:text-sm font-semibold text-text">{m.title}</p>
             {m.releaseYear != null && (
               <p className="truncate font-mono text-xs text-muted">{m.releaseYear}</p>
             )}
@@ -145,11 +202,49 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joinedName, setJoinedName] = useState<string | null>(null);
+
+  // Audio and Focus mode preferences — see the external-store note above.
+  const soundEnabled = useSyncExternalStore(
+    subscribeToPreferences,
+    isSoundEnabled,
+    preferenceServerSnapshot,
+  );
+  const lightsDown = useSyncExternalStore(
+    subscribeToPreferences,
+    isLightsDown,
+    preferenceServerSnapshot,
+  );
+
+  function handleToggleSound() {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    notifyPreferenceChange();
+    if (next) {
+      playShutterClick();
+    }
+  }
+
+  function handleToggleLightsDown() {
+    setLightsDown(!lightsDown);
+    notifyPreferenceChange();
+  }
   // once-flag: has the field EVER significantly reordered? stability requires
   // genuine differentiation, not just a quiet streak over a still-tied list.
   // ponytail: room-level and not persisted — a resume resets it until the next
   // significant swap, which only ever delays stability slightly.
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /*
+   * ONE QUEUED INPUT, held across the 380ms settle lock. See the PendingIntent
+   * doc in lib/keyboard.ts for why this stores a SIDE rather than a matchup.
+   *
+   * A ref and not state, for two reasons. Writing it must not re-render — the
+   * whole point is that a keypress during the flight is invisible until the
+   * flight ends, and a re-render mid-animation is exactly the kind of jitter
+   * this pass is removing. And the flush effect below has to be able to read
+   * and clear it in the same tick the new pair mounts, which a state update
+   * scheduled from a timeout cannot promise.
+   */
+  const pendingIntent = useRef<PendingIntent | null>(null);
   // last movie state known to be synced to the server (resume mode only)
   const syncedRef = useRef<RankedMovie[] | null>(initial ? initial.movies : null);
 
@@ -329,7 +424,29 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   const [initialClosePairs, setInitialClosePairs] = useState<number | null>(null);
 
   function handleVote(winnerId: number, loserId: number) {
-    if (!session || settlingLoserId !== null) return;
+    if (!session) return;
+    /*
+     * FAST INPUT IS QUEUED, NOT DROPPED.
+     *
+     * This used to `return` outright while a vote was settling, and the poster
+     * buttons in MatchupStage were `disabled` for the same 380ms, so a second
+     * tap or keypress inside the window simply never happened. Six keypresses
+     * at 250ms apart produced three votes.
+     *
+     * `pair` has NOT swapped yet at this point (the timer below is what swaps
+     * it), so the ids we were handed still belong to the pair on screen and
+     * `sideOfPair` can turn the tap back into the physical side the finger
+     * landed on. That side — not this already-decided matchup — is what gets
+     * replayed against the next pair. `sideOfPair` returning null means the tap
+     * came from a pair that is already gone, which is the one case where
+     * dropping it is right.
+     */
+    if (settlingLoserId !== null) {
+      const side = sideOfPair(pair, winnerId);
+      if (side) pendingIntent.current = { kind: "vote", side };
+      return;
+    }
+    playShutterClick();
     if (typeof window !== "undefined" && "vibrate" in navigator) {
       try {
         navigator.vibrate(10);
@@ -338,6 +455,10 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
       }
     }
     const next = applyVote(session, winnerId, loserId);
+    const winnerStreak = getMovieWinStreak(next.history, winnerId);
+    if (winnerStreak === 3) {
+      playGoldenChime();
+    }
     setSession(next);
     saveSession(next);
     const nextSplit = fieldSplit || next.votesSinceOrderChange === 0;
@@ -346,22 +467,10 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     if (initialClosePairs === null && nextActive.length >= 2 && isStable(nextActive, next.votesSinceOrderChange, nextSplit)) {
       setInitialClosePairs(countClosePairs(nextActive));
     }
+    if (!stable && nextActive.length >= 2 && isStable(nextActive, next.votesSinceOrderChange, nextSplit)) {
+      playGoldenChime();
+    }
     setSettlingLoserId(loserId);
-
-    /*
-     * Wait for the recoil to FINISH, then swap. The delay comes from the same
-     * constant the stylesheet is checked against, because these two drifting
-     * apart is what made the vote feel broken: the timeout said 260ms, the
-     * animation had grown to 380ms, and every vote mounted the next pair while
-     * the loser was still visibly on screen mid-flight.
-     *
-     * NO startViewTransition. It used to wrap this swap, and with no
-     * `view-transition-name` declared anywhere it cross-faded the ENTIRE page
-     * — sticky header, progress bar, VS divider and both posters — over the top
-     * of an already-interrupted recoil. Two soft dissolves stacked on one
-     * gesture, about a quarter-second of extra wall time on a screen you tap
-     * twenty times per list. The posters swap cleanly now.
-     */
     settleTimer.current = setTimeout(() => {
       setSettlingLoserId(null);
       const p = selectNextPair(next, sharpening, pair);
@@ -371,7 +480,23 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   }
 
   function handleParkToggle(tmdbId: number, toParked: boolean) {
-    if (!session || settlingLoserId !== null) return;
+    if (!session) return;
+    /*
+     * "Haven't seen" gets the same queue as a vote, for the same reason: the
+     * button sits directly under a poster and is fully live during the settle
+     * lock, so tapping it mid-flight looked like a dead control.
+     *
+     * Only the two movies ON STAGE can be queued. A toggle from the YOUR MOVIES
+     * tray carries no side — there is no left or right to replay it against —
+     * so it keeps the old bail. That is a real (if much rarer) drop; it is left
+     * alone deliberately rather than invented a meaning for.
+     */
+    if (settlingLoserId !== null) {
+      const side = toParked ? sideOfPair(pair, tmdbId) : null;
+      if (side) pendingIntent.current = { kind: "skip", side };
+      return;
+    }
+    playShutterClick();
     const next = parkMovie(session, tmdbId, toParked);
     setSession(next);
     saveSession(next);
@@ -441,6 +566,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
 
   function handleUndo() {
     if (!session?.undoSnapshot || settlingLoserId !== null) return;
+    playShutterClick();
     const prev = session.undoSnapshot;
     // stay in sharpen mode only if the restored list still offers a sharpen pair
     const stillSharpen = sharpening && selectNextPair(prev, true) !== null;
@@ -497,6 +623,128 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     setSharpening(true);
     setPair(selectNextPair(session, true));
   }
+
+  /* The keydown listener below is re-registered whenever the state it reads
+     changes, but handleVote/handleParkToggle/handleUndo are re-created on every
+     render and close over state that list does NOT track — `fieldSplit` and
+     `initialClosePairs`. So a keyboard vote could evaluate stability against a
+     stale fieldSplit, which is the real bug behind what eslint was reporting
+     here as a missing dependency. Routing the calls through a ref that every
+     render refreshes means the listener always invokes the CURRENT handler
+     without the listener itself having to be torn down and rebuilt on each
+     render. */
+  const handlersRef = useRef({ handleVote, handleParkToggle, handleUndo });
+  useEffect(() => {
+    handlersRef.current = { handleVote, handleParkToggle, handleUndo };
+  });
+
+  /*
+   * FLUSH THE QUEUE the moment the lock lifts and the next pair is on stage.
+   *
+   * This deliberately lives in an effect keyed on (settlingLoserId, pair)
+   * rather than inside the settle timeout, and the reason is the same staleness
+   * trap the note above describes: the timeout closes over the `session`,
+   * `pair`, `fieldSplit` and `initialClosePairs` of the render that STARTED the
+   * vote, so replaying a vote from in there would evaluate stability against a
+   * field one vote out of date. By the time this effect runs, React has already
+   * committed the new pair and re-pointed `handlersRef` (that effect is
+   * declared first, so it runs first in the same commit), so the queued intent
+   * is applied by the CURRENT handler against the CURRENT session.
+   *
+   * The replayed vote goes through `handleVote` unchanged, which means it plays
+   * its shutter click, writes to storage and starts its own 380ms flight. The
+   * queue removes the DROP, not the animation — a vote that skipped its own
+   * motion would read as a glitch, and the pacing that results (one resolved
+   * vote per settle) is the honest ceiling of a 380ms animation rather than a
+   * burst of unwatched results.
+   */
+  useEffect(() => {
+    if (settlingLoserId !== null) return;
+    const queued = pendingIntent.current;
+    if (!queued) return;
+    pendingIntent.current = null;
+    // A modal, the finale, or the consensus screen appearing mid-flight all
+    // mean the player is no longer looking at the stage: discard, don't fire.
+    if (finished || exitOpen || joinOpen || sheetStatus !== null) return;
+    const action = resolvePendingIntent(queued, pair);
+    if (!action) return;
+    if (action.type === "park_candidate") {
+      handlersRef.current.handleParkToggle(action.tmdbId, true);
+    } else if (action.type === "vote_left" || action.type === "vote_right") {
+      handlersRef.current.handleVote(action.winnerId, action.loserId);
+    }
+  }, [settlingLoserId, pair, finished, exitOpen, joinOpen, sheetStatus]);
+
+  // Keyboard Blitz Controls (Milestone 1, Requirement R1)
+  useEffect(() => {
+    const isModalOpen = exitOpen || joinOpen || sheetStatus !== null;
+    const isConsensus = stable && !sharpening;
+    const activeCount = session?.movies.filter((m) => !m.parked).length ?? 0;
+
+    const blitzState: BlitzState = {
+      pair,
+      canUndo: !!session?.undoSnapshot && settlingLoserId === null,
+      isSettling: settlingLoserId !== null,
+      isFinished: finished,
+      isConsensus,
+      isModalOpen,
+      activeMoviesCount: activeCount,
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.isComposing) return;
+
+      /*
+       * Mid-flight keys go to the queue instead of the floor. `blitzState.pair`
+       * here is still the OUTGOING pair, which is why the queue only records a
+       * side — resolveSettlingIntent never looks at the movies, only at the
+       * guards and the direction. preventDefault still fires so an arrow key
+       * cannot scroll the page out from under the stage.
+       */
+      if (blitzState.isSettling) {
+        const intent = resolveSettlingIntent(e, blitzState);
+        if (!intent) return;
+        e.preventDefault();
+        pendingIntent.current = intent;
+        return;
+      }
+
+      const action = resolveBlitzAction(e, blitzState);
+      if (!action) return;
+
+      e.preventDefault();
+
+      switch (action.type) {
+        case "vote_left":
+          handlersRef.current.handleVote(action.winnerId, action.loserId);
+          break;
+        case "vote_right":
+          handlersRef.current.handleVote(action.winnerId, action.loserId);
+          break;
+        case "park_candidate":
+          handlersRef.current.handleParkToggle(action.tmdbId, true);
+          break;
+        case "undo":
+          handlersRef.current.handleUndo();
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [
+    pair,
+    session,
+    settlingLoserId,
+    finished,
+    stable,
+    sharpening,
+    exitOpen,
+    joinOpen,
+    sheetStatus,
+  ]);
 
   // Outside click and Escape both mean "keep ranking" (user feedback): they
   // dismiss the leave menu exactly like the positive button. While open, the
@@ -575,12 +823,47 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   const pct = Math.min(99, Math.round((doneVotes / Math.max(1, estTotal)) * 100));
   const podiumLocked = !stable && isPodiumLocked(active);
 
+  /*
+   * WHEN "TOO CLOSE TO CALL" ACTUALLY MEANS ANYTHING.
+   *
+   * `countClosePairs` walks the field sorted by Elo and counts adjacent pairs
+   * whose gap is inside SHARPEN_COMFORT_GAP. Before a single vote every movie
+   * still holds the identical starting Elo, so every gap is zero, every pair is
+   * "close", and the count is exactly `active.length - 1` — a restatement of
+   * how many films are in play, dressed up as a measurement. That is what put
+   * "6 too close to call" in front of a first-time player who had not yet made
+   * a call, and it is jargon precisely because it cannot be false.
+   *
+   * THE RULE: show it only once the count has moved off that degenerate
+   * starting value. `closePairs < active.length - 1` is true the first time any
+   * pair separates past the comfort band and stays true afterwards, so the
+   * number only ever appears when it is reporting something the player's own
+   * votes caused. It needs no vote-count threshold to tune, and it cannot fire
+   * on a fresh session by construction.
+   */
+  const closeCallsAreInformative = closePairs > 0 && closePairs < active.length - 1;
+
+  /*
+   * ONE QUIET LINE INSTEAD OF TWO PILL BADGES. "6 too close to call" and
+   * "Final matchups" were rounded-full chips with a ring — the exact shape of
+   * every button on this screen — so they read as controls you could press, and
+   * they sat in a `flex-wrap` row that grew the board a line when they appeared.
+   * They are status, so they are now plain muted text on a reserved-height line
+   * under the vote count: nothing to press, and nothing that can reflow.
+   */
+  const progressNote = [
+    closeCallsAreInformative ? `${closePairs} still too close to call` : null,
+    podiumLocked ? null : pct >= 75 ? "Final matchups" : pct >= 45 ? "Field narrowing" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
-    <main className="mx-auto flex min-h-dvh w-full flex-col">
+    <main className={`mx-auto flex min-h-dvh w-full flex-col transition-colors duration-500 ${lightsDown ? "cinema-lights-down" : ""}`}>
       {/* Slim control strip (user feedback): compact bar, not a banner. The
           wordmark gives a permanent way back to home; Exit stays the
           confirm-flow path out. */}
-      <header className="sticky top-0 z-20 flex items-center gap-2 sm:gap-3 border-b border-gold/15 bg-bg/85 px-3 py-2 sm:px-6 sm:py-2.5 backdrop-blur-md">
+      <header className={`sticky top-0 z-20 flex items-center gap-2 sm:gap-3 border-b border-gold/15 bg-bg/85 px-3 py-2 sm:px-6 sm:py-2.5 backdrop-blur-md transition-opacity duration-300 ${lightsDown ? "cinema-peripheral" : ""}`}>
         {/*
          * THE WORDMARK IS ALSO AN EXIT, so it goes through the same door.
          *
@@ -617,7 +900,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         </Link>
         <div aria-hidden="true" className="h-5 w-px shrink-0 bg-white/10" />
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             {/* THE SPOILER RULE. For a marquee room `session.title` is the theme
                 title, which paraphrases the answer to the connection quiz on
                 the completion screen — this header used to name it for the
@@ -628,21 +911,30 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
 
                 The stored title is untouched: the saved list really is that
                 theme, and the quiz reveals it once answered. */}
-            <h1 className="truncate text-sm sm:text-base font-bold leading-tight">
+            {/* Below sm the row is wordmark + four controls and the title was
+                truncating to "W…" — worse than no title. Kept for assistive
+                tech (it is the page heading) but out of the visual row on
+                phones; the progress card immediately below names the state. */}
+            <h1 className="truncate text-sm sm:text-base font-bold leading-tight max-sm:sr-only">
               {marqueeDisplayTitle(session.title, session.themeSlug, marqueeNumber())}
             </h1>
             {session.themeSlug && (
               // The unlocked variant stays: `curated: false` with a themeSlug is
               // still reachable in sessions saved before the Unlock control was
               // removed, and those must not render as locked.
+              // Hidden below sm: the h1 beside it already says "Weekly Marquee",
+              // and on a 390px header the pill was being drawn under the Dim
+              // Lights toggle because this column could not shrink (it needed
+              // min-w-0 for the h1's truncate to work). The lock is text, not
+              // an emoji: DESIGN.md's "labels over icons".
               <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                className={`hidden shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold sm:inline ${
                   session.curated
                     ? "bg-gold/15 text-gold ring-1 ring-gold/40"
                     : "bg-surface-raised text-muted ring-1 ring-white/10"
                 }`}
               >
-                {session.curated ? "🔒 Marquee" : "🔓 Marquee"}
+                {session.curated ? "✦ Marquee · locked" : "Marquee · unlocked"}
               </span>
             )}
           </div>
@@ -658,32 +950,33 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
             </p>
           )}
         </div>
-        {/* Two controls, one shape. There were three in three different styles
-            — a ringed chip, a bare underline and another ringed chip — and the
-            Unlock one is gone entirely; see the note where handleUnlock used to
-            be. Undo picks up gold on hover because it is the one you reach for
-            mid-vote; Exit stays muted because leaving is not the job. */}
-        {!finished && (
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <button
-              ref={exitTriggerRef}
-              type="button"
-              onClick={() => setExitOpen((v) => !v)}
-              aria-expanded={exitOpen}
-              className="flex min-h-8 items-center rounded px-2.5 py-0.5 text-xs sm:text-sm font-medium text-muted ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised"
-            >
-              Exit
-            </button>
-            <button
-              type="button"
-              onClick={handleUndo}
-              disabled={!canUndo}
-              className="flex min-h-8 items-center gap-1 rounded bg-surface px-2.5 py-0.5 text-xs sm:text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised disabled:pointer-events-none disabled:opacity-40"
-            >
-              <span aria-hidden="true">↩</span> Undo
-            </button>
-          </div>
-        )}
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <LightsDownToggle isLightsDown={lightsDown} onToggle={handleToggleLightsDown} />
+          <SoundToggle isSoundEnabled={soundEnabled} onToggle={handleToggleSound} />
+          {!finished && (
+            <>
+              <button
+                ref={exitTriggerRef}
+                type="button"
+                onClick={() => setExitOpen((v) => !v)}
+                aria-expanded={exitOpen}
+                className="flex min-h-8 items-center rounded px-2.5 py-0.5 text-xs sm:text-sm font-medium text-muted ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised cursor-pointer"
+              >
+                Exit
+              </button>
+              <button
+                type="button"
+                onClick={handleUndo}
+                disabled={!canUndo}
+                aria-keyshortcuts="z"
+                title="Undo last vote (Z)"
+                className="flex min-h-8 items-center gap-1 rounded bg-surface px-2.5 py-0.5 text-xs sm:text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised cursor-pointer disabled:pointer-events-none disabled:opacity-40"
+              >
+                <span aria-hidden="true">↩</span> Undo
+              </button>
+            </>
+          )}
+        </div>
       </header>
 
       {authNotice && (
@@ -814,13 +1107,37 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         session.movies.length >= 2 &&
         totalComparisons(session) >= NUDGE_COMPARISONS &&
         !session.nudgeShown && (
+          /* THE SAVE NUDGE IS A TOAST, NOT A BAR, and that is the whole fix.
+             It used to render here as an in-flow `div` above the stage, so the
+             moment the tenth comparison landed it INSERTED ~40px of layout and
+             shoved both posters down mid-vote. A board that reflows under the
+             player between one tap and the next is the single most jarring
+             thing this screen did; a NYT game would never do it.
+
+             `fixed` takes it out of flow entirely, so appearing and dismissing
+             both cost exactly zero layout shift. Position is chosen so it
+             covers neither of the two things that matter: the progress board is
+             at the top of the stage and the posters are centred, so the toast
+             lives in the bottom margin over the YOUR MOVIES tray — the only
+             genuinely secondary surface on the screen, and one the player can
+             still reach by dismissing.
+
+             The bottom offset stacks it ABOVE the "Unsaved — lives in this
+             browser" pill rather than on top of it: both are gated on `!initial`
+             so they always appear together, and two floating chips overlapping
+             in the same corner reads as a bug. From sm: up there is room to put
+             the toast in the opposite corner instead and drop the offset.
+
+             animate-sheet-up (220ms) is the site's existing entrance for
+             something arriving from the bottom edge; globals.css already
+             neutralises it under prefers-reduced-motion. */
           <div
             role="status"
-            className="mx-auto w-full max-w-2xl animate-fade-in px-4 pt-3 sm:px-6"
+            className="fixed inset-x-3 bottom-[max(3.25rem,calc(env(safe-area-inset-bottom)+3rem))] z-30 animate-sheet-up sm:inset-x-auto sm:left-4 sm:bottom-[max(0.75rem,calc(env(safe-area-inset-bottom)+0.5rem))] sm:max-w-md"
           >
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded bg-surface p-3 ring-1 ring-white/10">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-surface/95 p-3 ring-1 ring-gold/25 shadow-2xl backdrop-blur-sm">
               <p className="min-w-0 flex-1 text-sm text-muted">
-                Create an account now to save your progress.
+                Save your progress to your account?
               </p>
               <button
                 type="button"
@@ -843,17 +1160,107 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         )}
 
       {finished ? (
-        <section className="flex flex-1 flex-col items-center justify-center gap-5 px-4 py-8">
-          <div className="w-full max-w-md rounded bg-surface p-5 ring-1 ring-white/10">
-            <div className="flex items-center justify-between pb-2">
-              <p className="text-sm uppercase tracking-widest text-accent">Final order</p>
-              <span className="rounded-full bg-gold/15 px-2.5 py-0.5 text-xs font-bold text-gold ring-1 ring-gold/40">
-                +{active.length} XP Earned
-              </span>
-            </div>
+        /* THE FINALE IS THE STAGE MOMENT, so it gets curtain vocabulary. The
+           `stable && !sharpening` consensus screen below already had bg-curtain
+           and spotlight-glow; this screen — the one the Finish button actually
+           lands you on, and the last thing a first-time ranker sees — sat on
+           bare house black. The bigger beat had the plainer set.
+
+           WHY bg-curtain-soft AND NOT bg-curtain: DESIGN.md is explicit that the
+           full-strength drape never goes behind dense content or poster grids,
+           and that "posters never sit directly on fold crests without a surface
+           card between". This is the densest screen in the room — a whole
+           RankedList plus the Premiere Pass with its champion poster and
+           runner-up thumbnails. bg-curtain-soft exists for exactly this case:
+           the same burgundy fold vocabulary, but under a near-opaque house-light
+           overlay pulled back toward --bg, with a bottom fade so the buttons and
+           caption below the cards stay legible. It is what the vote stage
+           already uses, for the same reason. Both utilities are static
+           gradients, so reduced motion needs no override here.
+
+           The consensus screen keeps full bg-curtain on purpose: it shows a
+           three-poster Podium inside one surface card, not a grid, so it can
+           carry the stronger drape. */
+        <section className="bg-curtain-soft relative overflow-hidden flex flex-1 flex-col items-center justify-center gap-6 px-4 py-8">
+          <CurtainCallCelebration title="Curtain Call · Ranking Finalized" />
+          {/* Warm focal pool, same as the consensus screen. It has to be its own
+              element because .spotlight-glow and .bg-curtain-soft both write
+              background-image and would clobber each other on one node. */}
+          <div aria-hidden="true" className="spotlight-glow pointer-events-none absolute inset-0" />
+          {/* Every content child below carries `relative` so it paints ABOVE the
+              absolutely-positioned glow instead of under it. */}
+          <div className="relative w-full max-w-md rounded bg-surface p-5 ring-1 ring-white/10">
+            {/* THE "+N XP EARNED" BADGE WAS REMOVED FROM HERE, and this note is
+                why, so it is not re-added by reflex.
+
+                It rendered `+{active.length} XP` — one XP per film in play —
+                and that was never what the ranking paid. `movieXp` in
+                lib/gamification.ts clamps movie XP at MAX_XP_PER_LIST (20) per
+                list, so a 30-film ranking promised +30 and banked 20. The two
+                completion bonuses that sit outside that cap
+                (MARQUEE_COMPLETION_XP, CO_CURATION_XP) were not counted either,
+                so the number was not even wrong in a single direction.
+
+                Worse, this screen is PRE-SAVE. Nothing has been banked when it
+                renders: a guest who never saves earns exactly 0, and the "Keep
+                voting" button at the bottom of this very screen means even a
+                signed-in player may never press Save. Advertising a balance
+                before the transaction is the same class of bug the XP-sources
+                note in lib/gamification.ts was written about — a "+10 XP"
+                marquee bonus and a "+5 XP" group bonus that no code ever paid —
+                and the position stated there is that the guide reads the
+                constants rather than restating them.
+
+                The honest number already exists and already ships:
+                CompletionSummaryCard renders it on /l/[id] after saving, from
+                lib/completion.ts, which DIFFS total XP before and after the list
+                instead of guessing at it. That is the only place that can know,
+                because it is the only place the XP has actually moved. Do not
+                reconstruct an estimate here; send people there. */}
+            <p className="pb-2 text-sm uppercase tracking-widest text-accent">Final order</p>
             <RankedList movies={active} />
           </div>
-          <div className="flex flex-col items-center gap-2">
+
+          {/* Premiere Pass Golden Ticket Export Card */}
+          <div className="relative w-full max-w-xl">
+            <PremierePassCard
+              /* THE SPOILER RULE APPLIES HERE TOO. For a marquee session
+                 `session.title` IS the theme title — the answer to the
+                 connection puzzle the player is about to be asked. The header
+                 at the top of this room masks it through
+                 `marqueeDisplayTitle(...)`, and so do the home hero, the share
+                 text, the OG card and the saved list page; this card printed it
+                 in gold on the Premiere Pass, on the very screen that leads to
+                 the quiz. Same masked string as the header, same arguments.
+
+                 `themeTitle` below still receives the raw title on purpose.
+                 It is forwarded into TicketRenderOptions, and ticket-canvas.ts
+                 declares the field but never draws it — checked, not assumed —
+                 so nothing reaches a pixel or a share sheet through it today.
+                 Only the visible headline needed masking. If that prop ever
+                 starts rendering, it needs the same treatment. */
+              title={
+                marqueeDisplayTitle(session.title, session.themeSlug, marqueeNumber()) ||
+                "Movie Ranking Consensus"
+              }
+              items={finalizeRanks(active)
+                .filter((r): r is { tmdbId: number; rank: number } => r.rank !== null)
+                .map((r) => {
+                  const m = active.find((x) => x.tmdbId === r.tmdbId);
+                  return {
+                    rank: r.rank,
+                    title: m?.title ?? "Movie",
+                    releaseYear: m?.releaseYear ?? null,
+                    posterPath: m?.posterPath ?? null,
+                  };
+                })}
+              participants={session.participants}
+              themeTitle={session.title}
+              totalRanked={active.length}
+            />
+          </div>
+
+          <div className="relative flex flex-col items-center gap-2">
             <button
               type="button"
               onClick={() => void handleDirectSave("done")}
@@ -881,7 +1288,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           <button
             type="button"
             onClick={() => setFinished(false)}
-            className="min-h-11 rounded bg-surface px-5 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised"
+            className="relative min-h-11 rounded bg-surface px-5 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised"
           >
             Keep voting
           </button>
@@ -903,6 +1310,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         </section>
       ) : stable && !sharpening ? (
         <section className="relative overflow-hidden bg-curtain flex flex-1 flex-col items-center justify-center gap-6 px-4 py-8 text-center">
+          <CurtainCallCelebration title="Curtain Call · Consensus Reached" />
           <div aria-hidden="true" className="spotlight-glow pointer-events-none absolute inset-0" />
           <div className="animate-celebrate relative w-full max-w-md rounded bg-surface p-5 ring-1 ring-white/10">
             <p className="text-sm uppercase tracking-widest text-accent">Consensus reached</p>
@@ -969,7 +1377,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         <section className="bg-curtain-soft relative flex flex-1 flex-col px-3 pb-2 pt-1 sm:px-6">
           {/* Mini marquee board: one trusted "X of ~Y votes" number in Bebas
               gold between thin gold rules; close calls demoted to a chip. */}
-          <div className="mt-3 mb-6 sm:mb-8 w-full max-w-5xl mx-auto rounded-xl bg-surface/85 px-4 py-3.5 ring-1 ring-white/10 shadow-lg backdrop-blur-sm">
+          <div className={`mini-marquee-board mt-3 mb-6 sm:mb-8 w-full max-w-5xl mx-auto rounded-xl bg-surface/85 px-4 py-3.5 ring-1 ring-white/10 shadow-lg backdrop-blur-sm transition-opacity duration-300 ${lightsDown ? "cinema-peripheral" : ""}`}>
             <div
               role="progressbar"
               aria-label="Ranking progress"
@@ -986,40 +1394,30 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
             <div className="mt-2.5 flex items-center justify-between gap-3">
               <div aria-live="polite" className="min-w-0 text-sm text-muted sm:text-base">
                 {sharpening ? (
-                  <span className="flex items-center gap-2 text-gold font-medium">
-                    <span>Sharpening · resolving close calls</span>
+                  <span className="flex items-center gap-2 font-medium text-gold">
+                    Sharpening · resolving close calls
                   </span>
                 ) : (
-                  <div className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1">
-                    <span className="flex shrink-0 items-baseline gap-x-1.5 whitespace-nowrap">
-                      <span aria-hidden="true">Settling ·</span>
-                      <span className="font-display text-xl leading-none tracking-wide text-gold sm:text-2xl">
-                        {doneVotes}
-                      </span>
-                      of ~
-                      <span className="font-display text-xl leading-none tracking-wide text-gold sm:text-2xl">
-                        {estTotal}
-                      </span>
-                      votes
+                  <span className="flex min-w-0 items-baseline gap-x-1.5 whitespace-nowrap">
+                    <span aria-hidden="true">Settling ·</span>
+                    <span className="font-display text-xl leading-none tracking-wide text-gold sm:text-2xl">
+                      {doneVotes}
                     </span>
-                    {closePairs > 0 && (
-                      <span className="shrink-0 rounded-full bg-surface-raised px-2.5 py-0.5 text-xs ring-1 ring-white/10">
-                        {closePairs} too close to call
-                      </span>
-                    )}
-                    {/* Clean, informative progress indicators */}
-                    {pct >= 45 && pct < 75 && !podiumLocked && (
-                      <span className="shrink-0 rounded-full bg-surface-raised px-2.5 py-0.5 text-xs text-muted ring-1 ring-white/10">
-                        Field narrowing
-                      </span>
-                    )}
-                    {pct >= 75 && !podiumLocked && (
-                      <span className="shrink-0 rounded-full bg-surface-raised px-2.5 py-0.5 text-xs text-muted ring-1 ring-white/10">
-                        Final matchups
-                      </span>
-                    )}
-                  </div>
+                    of ~
+                    <span className="font-display text-xl leading-none tracking-wide text-gold sm:text-2xl">
+                      {estTotal}
+                    </span>
+                    votes
+                  </span>
                 )}
+                {/* Reserved second line: rendered at a fixed h-4 whether or not
+                    it has anything to say, so the status text arriving can
+                    never move the board — and the whole two-line stack still
+                    measures under the min-h-11 of the button beside it, which
+                    is what actually sets this row's height. */}
+                <p className="mt-0.5 h-4 truncate text-xs leading-4 text-muted/80">
+                  {sharpening ? "" : progressNote}
+                </p>
               </div>
               <button
                 type="button"
@@ -1052,6 +1450,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
             <div aria-hidden="true" className="stage-spotlight pointer-events-none absolute -inset-x-6 inset-y-0" />
             <MatchupStage
               pair={pair}
+              history={session.history}
               settlingLoserId={settlingLoserId}
               onVote={handleVote}
               onPark={(id) => handleParkToggle(id, true)}
@@ -1061,7 +1460,9 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
       ) : null}
 
       {!finished && (
-        <ParkedStrip movies={session.movies} onToggle={handleParkToggle} />
+        <div className={`parked-strip-container transition-opacity duration-300 ${lightsDown ? "cinema-peripheral" : ""}`}>
+          <ParkedStrip movies={session.movies} onToggle={handleParkToggle} />
+        </div>
       )}
 
       {sheetStatus && (

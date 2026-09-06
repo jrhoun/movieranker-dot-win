@@ -11,12 +11,12 @@ export default function MarqueeHeading({
   as?: "h1" | "h2" | "h3";
 }) {
   return (
-    <Tag className="flex items-center gap-3 font-display text-3xl uppercase leading-none tracking-[0.12em]">
-      <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60" />
+    <Tag className="flex items-center gap-2 sm:gap-3 font-display text-2xl uppercase leading-none tracking-[0.04em] sm:text-3xl sm:tracking-[0.12em]">
+      <span aria-hidden="true" className="h-px min-w-2 flex-1 bg-gold/60 sm:min-w-4" />
       <span aria-hidden="true" className="text-gold">✦</span>
-      <span className="break-words">{children}</span>
+      <span className="whitespace-nowrap">{children}</span>
       <span aria-hidden="true" className="text-gold">✦</span>
-      <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/60" />
+      <span aria-hidden="true" className="h-px min-w-2 flex-1 bg-gold/60 sm:min-w-4" />
     </Tag>
   );
 }

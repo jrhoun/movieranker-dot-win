@@ -13,6 +13,7 @@ create table list_movies (
   id bigint generated always as identity primary key,
   list_id text not null references lists(id) on delete cascade,
   tmdb_id int not null, title text not null, poster_path text, release_year int,
+  tagline text,
   elo real not null default 1000, comparisons int not null default 0,
   parked boolean not null default false, final_rank int
 );
@@ -55,13 +56,13 @@ begin
   values (p_id, auth.uid(), p_title, p_description, p_participants, p_status);
 
   insert into list_movies
-    (list_id, tmdb_id, title, poster_path, release_year, elo, comparisons, parked, final_rank)
+    (list_id, tmdb_id, title, poster_path, release_year, tagline, elo, comparisons, parked, final_rank)
   select
-    p_id, tmdb_id, title, poster_path, release_year,
+    p_id, tmdb_id, title, poster_path, release_year, tagline,
     coalesce(elo, 1000), coalesce(comparisons, 0),
     coalesce(parked, false), final_rank
   from jsonb_to_recordset(p_movies) as x(
-    tmdb_id int, title text, poster_path text, release_year int,
+    tmdb_id int, title text, poster_path text, release_year int, tagline text,
     elo real, comparisons int, parked boolean, final_rank int
   );
 end;
@@ -157,3 +158,60 @@ create policy "write own" on profiles for all
 -- to false but keeps theme_slug so community stats can still credit it later.
 alter table lists add column if not exists theme_slug text;
 alter table lists add column if not exists curated boolean not null default false;
+
+-- Community Upvoting System (Milestone 3 / R3)
+create table if not exists list_upvotes (
+  id bigint generated always as identity primary key,
+  list_id text not null references lists(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (list_id, user_id)
+);
+
+create index if not exists idx_list_upvotes_list_id on list_upvotes(list_id);
+create index if not exists idx_list_upvotes_user_id on list_upvotes(user_id);
+
+alter table lists add column if not exists upvotes_count int not null default 0;
+create index if not exists idx_lists_trending on lists(visibility, status, upvotes_count desc, created_at desc);
+
+alter table list_upvotes enable row level security;
+
+create policy "anyone reads upvotes for readable lists" on list_upvotes
+  for select using (
+    exists (
+      select 1 from lists l
+      where l.id = list_id
+        and (l.owner_id = auth.uid() or (l.status = 'done' and l.visibility in ('unlisted','public')))
+    )
+  );
+
+create policy "authenticated users upvote readable done lists" on list_upvotes
+  for insert with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from lists l
+      where l.id = list_id
+        and l.status = 'done'
+        and l.visibility in ('unlisted', 'public')
+    )
+  );
+
+create policy "authenticated users remove own upvote" on list_upvotes
+  for delete using (auth.uid() = user_id);
+
+create or replace function update_list_upvote_count()
+returns trigger as $$
+begin
+  if (TG_OP = 'INSERT') then
+    update lists set upvotes_count = upvotes_count + 1 where id = NEW.list_id;
+  elsif (TG_OP = 'DELETE') then
+    update lists set upvotes_count = greatest(0, upvotes_count - 1) where id = OLD.list_id;
+  end if;
+  return null;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists trg_list_upvotes_count on list_upvotes;
+create trigger trg_list_upvotes_count
+after insert or delete on list_upvotes
+for each row execute function update_list_upvote_count();

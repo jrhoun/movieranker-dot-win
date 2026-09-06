@@ -4,6 +4,9 @@ import {
   compatibilityTier,
   computeVersus,
   extractListId,
+  findSharpestClash,
+  findSharedFavorites,
+  type SharedMovie,
   type VersusEntry,
 } from "./versus";
 
@@ -117,6 +120,80 @@ describe("canCompare", () => {
   });
 });
 
+describe("findSharpestClash", () => {
+  test("returns movie with greatest |delta|", () => {
+    const shared: SharedMovie[] = [
+      { tmdbId: 1, title: "Movie 1", posterPath: null, rankA: 1, rankB: 2, delta: 1 },
+      { tmdbId: 2, title: "Movie 2", posterPath: null, rankA: 2, rankB: 10, delta: 8 },
+      { tmdbId: 3, title: "Movie 3", posterPath: null, rankA: 3, rankB: 4, delta: 1 },
+    ];
+    const result = findSharpestClash(shared);
+    expect(result?.tmdbId).toBe(2);
+    expect(result?.delta).toBe(8);
+  });
+
+  test("returns null when no shared movies or all deltas are 0", () => {
+    expect(findSharpestClash([])).toBeNull();
+    const identical: SharedMovie[] = [
+      { tmdbId: 1, title: "Movie 1", posterPath: null, rankA: 1, rankB: 1, delta: 0 },
+      { tmdbId: 2, title: "Movie 2", posterPath: null, rankA: 2, rankB: 2, delta: 0 },
+    ];
+    expect(findSharpestClash(identical)).toBeNull();
+  });
+
+  test("tie-breaking: selects film with higher top rank (min rank)", () => {
+    const shared: SharedMovie[] = [
+      // |delta| = 5 (ranks 1 vs 6) -> minRank = 1
+      { tmdbId: 1, title: "Movie 1", posterPath: null, rankA: 1, rankB: 6, delta: 5 },
+      // |delta| = 5 (ranks 5 vs 10) -> minRank = 5
+      { tmdbId: 2, title: "Movie 2", posterPath: null, rankA: 5, rankB: 10, delta: 5 },
+    ];
+    const result = findSharpestClash(shared);
+    expect(result?.tmdbId).toBe(1);
+  });
+});
+
+describe("findSharedFavorites", () => {
+  test("returns mutual top tier movies sorted by rank sum", () => {
+    const shared: SharedMovie[] = [
+      { tmdbId: 1, title: "Movie 1", posterPath: null, rankA: 1, rankB: 2, delta: 1 },
+      { tmdbId: 2, title: "Movie 2", posterPath: null, rankA: 3, rankB: 3, delta: 0 },
+      { tmdbId: 3, title: "Movie 3", posterPath: null, rankA: 1, rankB: 10, delta: 9 },
+      { tmdbId: 4, title: "Movie 4", posterPath: null, rankA: 8, rankB: 8, delta: 0 },
+    ];
+    const favs = findSharedFavorites(shared, 5);
+    expect(favs.map((f) => f.tmdbId)).toEqual([1, 2]);
+  });
+
+  test("falls back to close top 10 movies when no mutual top 5 exist", () => {
+    const shared: SharedMovie[] = [
+      { tmdbId: 1, title: "Movie 1", posterPath: null, rankA: 6, rankB: 7, delta: 1 },
+      { tmdbId: 2, title: "Movie 2", posterPath: null, rankA: 8, rankB: 9, delta: 1 },
+      { tmdbId: 3, title: "Movie 3", posterPath: null, rankA: 1, rankB: 15, delta: 14 },
+    ];
+    const favs = findSharedFavorites(shared, 5);
+    expect(favs.map((f) => f.tmdbId)).toEqual([1, 2]);
+  });
+
+  test("returns empty array when shared list is empty", () => {
+    expect(findSharedFavorites([])).toEqual([]);
+  });
+});
+
+describe("computeVersus enhanced outputs", () => {
+  test("populates sharpestClash, sharedFavorites, and compatibilityScore", () => {
+    const a = [m(1, 1), m(2, 2), m(3, 3), m(4, 4), m(5, 5)];
+    const b = [m(1, 1), m(2, 2), m(5, 3), m(4, 4), m(3, 10)];
+    const r = computeVersus(a, b);
+
+    expect(r.compatibilityScore).toBe(r.agreementPct);
+    expect(r.sharpestClash?.tmdbId).toBe(3);
+    expect(r.sharpestClash?.delta).toBe(7);
+    expect(r.sharedFavorites.map((f) => f.tmdbId)).toContain(1);
+    expect(r.sharedFavorites.map((f) => f.tmdbId)).toContain(2);
+  });
+});
+
 describe("extractListId", () => {
   test("accepts bare ids and /l/ URLs, rejects everything else", () => {
     expect(extractListId("abc123")).toBe("abc123");
@@ -128,3 +205,4 @@ describe("extractListId", () => {
     expect(extractListId("a/b")).toBeNull();
   });
 });
+

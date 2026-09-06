@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { supabaseAdmin, supabaseSecretKey } from "@/lib/supabase/admin";
 import { dbErrorResponse, invalid } from "@/lib/lists-api";
 import { isOwnerEmail } from "@/lib/proposals-api";
 import { flagsFor, takePage } from "@/lib/moderation";
@@ -63,10 +63,10 @@ interface ListRow {
 export async function GET(request: Request) {
   if (!(await requireOwner())) return new Response("Not Found", { status: 404 });
 
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!supabaseSecretKey()) {
     return NextResponse.json({
       available: false,
-      reason: "SUPABASE_SERVICE_ROLE_KEY is not set, so public content cannot be read.",
+      reason: "SUPABASE_SECRET_KEY is not set, so public content cannot be read.",
     });
   }
 
@@ -182,8 +182,8 @@ export async function PATCH(request: Request) {
   if (visibility !== "private" && visibility !== "unlisted") {
     return invalid("visibility must be 'private' or 'unlisted'");
   }
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return invalid("SUPABASE_SERVICE_ROLE_KEY is not set");
+  if (!supabaseSecretKey()) {
+    return invalid("SUPABASE_SECRET_KEY is not set");
   }
 
   const { error } = await supabaseAdmin()

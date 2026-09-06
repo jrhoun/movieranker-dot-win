@@ -10,7 +10,9 @@ import ReferralInviteCard from "@/components/profile/ReferralInviteCard";
 import ShowcaseCard from "@/components/profile/ShowcaseCard";
 import ShowcaseLists from "@/components/profile/ShowcaseLists";
 import type { ListRowData } from "@/components/profile/ListRow";
+import { maskListTitle } from "@/lib/marquee-title";
 import { chipParticipants } from "@/lib/participants";
+import { writeProfileShowcase } from "@/lib/profile-showcase-write";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getReferralStats } from "@/lib/referrals";
 import {
@@ -135,7 +137,26 @@ export default async function MyListsPage() {
 
   const cards: ListRowData[] = ((lists ?? []) as (DbList & { theme_slug?: string | null })[]).map((l) => ({
     id: l.id,
-    title: l.title,
+    // THE SPOILER RULE, with its one exemption. A Marquee list's stored title
+    // IS the theme title, which paraphrases the answer to that week's
+    // connection quiz — the rows here showed it outright.
+    //
+    // This is the owner's own dashboard, so a FINISHED Marquee reveals: they
+    // played it, and nobody else can load this page. A DRAFT stays masked, and
+    // that is the case that actually matters. The home hero deliberately never
+    // names the theme, so someone part-way through a Marquee has genuinely
+    // never seen it — the list page makes exactly this argument about its own
+    // draft branch ("Exempting drafts leaked the answer to the one person
+    // still playing"). Same reasoning, same conclusion, one helper.
+    //
+    // `title` also feeds ListRow's aria-labels and its delete confirmation, so
+    // masking here covers every string that row can produce.
+    title: maskListTitle({
+      title: l.title,
+      themeSlug: l.theme_slug,
+      createdAt: l.created_at,
+      reveal: l.status === "done",
+    }),
     status: l.status === "done" ? "done" : "draft",
     createdAt: l.created_at,
     themeSlug: l.theme_slug ?? null,
@@ -293,16 +314,20 @@ export default async function MyListsPage() {
   }
   const avatarFilms = [...avatarFilmsById.values()].slice(0, AVATAR_FILM_CAP);
 
-  // Background ratchet: lock in new peak XP so deleting lists later never loses rank
+  // Background ratchet: lock in new peak XP so deleting lists later never
+  // loses rank. Goes through the service-role RPC — `profiles.showcase` is no
+  // longer writable by the user's own session (see writeProfileShowcase). It
+  // used to be a floating `void supabase.from("profiles").update(...)`, which
+  // is exactly how it failed silently for as long as the revoke was live
+  // ahead of this code; a failure now at least reaches the server log.
   if (claimed && breakdown.total > (showcase.lifetimeXp ?? 0)) {
     const nextShowcase = { ...showcase, lifetimeXp: breakdown.total };
-    void supabase
-      .from("profiles")
-      .update({ showcase: nextShowcase })
-      .eq("id", auth.user.id);
+    void writeProfileShowcase(auth.user.id, nextShowcase).catch((e: unknown) => {
+      console.error("[profile] lifetimeXp ratchet failed:", e);
+    });
   }
   return (
-    <main className="mx-auto w-full max-w-md flex-1 px-4 py-8 sm:max-w-4xl">
+    <main className="mx-auto w-full max-w-page flex-1 px-4 py-8 sm:px-6 lg:px-8">
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>

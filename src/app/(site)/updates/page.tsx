@@ -17,7 +17,7 @@ const tagStyles = {
 
 export default function UpdatesPage() {
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-8 sm:py-12">
+    <main className="mx-auto flex w-full max-w-reading flex-1 flex-col px-4 py-8 sm:py-12">
       {/* Header */}
       <header className="mb-10 text-center sm:text-left">
         <div className="inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/5 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-gold mb-3">

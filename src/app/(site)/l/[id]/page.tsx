@@ -8,9 +8,12 @@ import MarqueeConnectionGame from "@/components/MarqueeConnectionGame";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import OwnerControls from "@/components/list/OwnerControls";
 import ParticipantChips from "@/components/ParticipantChips";
+import PremierePassCard from "@/components/share/PremierePassCard";
 import ShareButton from "@/components/ShareButton";
+import UpvoteButton from "@/components/community/UpvoteButton";
+import ForkButton from "@/components/community/ForkButton";
 import { withRanks, type ListMovieRow } from "@/lib/list-view";
-import { marqueeDisplayTitle } from "@/lib/marquee-title";
+import { marqueeListNumber, maskListTitle } from "@/lib/marquee-title";
 import { summariseCompletion, isWorthCelebrating, type CompletionSummary } from "@/lib/completion";
 import { calculateXpBreakdown, countMoviesRanked } from "@/lib/gamification";
 import { reconcileCareerXp, toXpLists, type CareerListRow } from "@/lib/career-xp";
@@ -18,9 +21,9 @@ import { getReferralStats } from "@/lib/referrals";
 import { marqueeStanding, type ThemeCompletion } from "@/lib/marquee-standing";
 import { chipParticipants } from "@/lib/participants";
 import { SITE_URL } from "@/lib/site";
-import { marqueeNumber } from "@/lib/shortlist";
 import { getThemeConnectionGame } from "@/lib/shortlist-themes";
 import { computeThemeStats, type ThemeRoom } from "@/lib/theme-stats";
+import type { TicketRenderOptions } from "@/lib/ticket-canvas";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 interface DbList {
@@ -32,6 +35,7 @@ interface DbList {
   owner_id: string;
   theme_slug: string | null;
   created_at: string;
+  upvotes_count: number | null;
 }
 
 interface DbMovie {
@@ -120,7 +124,7 @@ export default async function PublicListPage({
   const justFinished = (await searchParams)?.finished === "1";
   const supabase = await createSupabaseServerClient();
 
-  // RLS: public sees only status='done'; owners also see their drafts.
+  // Query base fields first so missing migrations never cause 404
   const { data: list } = await supabase
     .from("lists")
     .select("id,title,description,participants,status,owner_id,theme_slug,created_at")
@@ -131,6 +135,37 @@ export default async function PublicListPage({
   const isOwner = !!user && list !== null && list.owner_id === user.id;
 
   if (!list || (list.status !== "done" && !isOwner)) notFound();
+
+  let upvotesCount = 0;
+  let hasUpvoted = false;
+  if (list.status === "done") {
+    try {
+      const { data: countData } = await supabase
+        .from("lists")
+        .select("upvotes_count")
+        .eq("id", id)
+        .maybeSingle<{ upvotes_count: number }>();
+      if (countData && typeof countData.upvotes_count === "number") {
+        upvotesCount = countData.upvotes_count;
+      }
+    } catch {
+      // ignore missing column before migration
+    }
+
+    if (user) {
+      try {
+        const { data: upvote } = await supabase
+          .from("list_upvotes")
+          .select("id")
+          .eq("list_id", id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        hasUpvoted = !!upvote;
+      } catch {
+        // ignore missing table before migration
+      }
+    }
+  }
 
   const { data: movies } = await supabase
     .from("list_movies")
@@ -169,20 +204,11 @@ export default async function PublicListPage({
   const ownerProfile = (publicProfiles ?? []).find((p) => p.id === list.owner_id);
   const url = shareUrl(id, ownerProfile?.handle ?? null);
 
-  // The marquee number identifies WHICH weekly puzzle this list belongs to, so it
-  // must be anchored to the week the room was made — not the week someone
-  // happens to be reading it. Calling marqueeNumber() bare relabelled every past
-  // marquee share with the current week's number.
-  //
-  // created_at rather than an inversion of theme_slug -> week: the rotation pool
-  // is SHORTLIST_THEMES plus whatever community proposals were approved at the
-  // time, so pool.length shifts and a slug cannot be mapped back to its week
-  // reliably. The one case created_at gets wrong is a room saved after the UTC
-  // Monday flip but played before it (Sunday evening in the Americas), which
-  // reads one week high.
-  const listMarqueeNumber = list.theme_slug
-    ? marqueeNumber(new Date(list.created_at))
-    : null;
+  // The marquee number identifies WHICH weekly puzzle this list belongs to, so
+  // it is anchored to the week the room was made — not the week someone happens
+  // to be reading it. That rule (and why a slug cannot be mapped back to a week)
+  // now lives in marqueeListNumber; three surfaces had learnt it separately.
+  const listMarqueeNumber = marqueeListNumber(list.theme_slug, list.created_at);
 
   // THE SPOILER RULE, on the page itself. For a marquee list, list.title IS the
   // theme title and the description IS the theme blurb — both paraphrase the
@@ -198,8 +224,25 @@ export default async function PublicListPage({
   //
   // Shared with the play room rather than restated: two copies of a rule whose
   // failure is silent will drift, and this one already had.
+  //
+  // EVERY TITLE ON THIS PAGE IS `displayTitle`, not `list.title`. The heading
+  // was already withheld, but the Premiere Pass printed the theme in 48px caps
+  // directly under the withheld heading, and the Fork button named it in its
+  // accessible label — on the single most-shared surface on the site. The rule
+  // is only worth anything if it is applied to every string that reaches a
+  // reader, so the raw title now goes to exactly two places below, both of them
+  // deliberate: OwnerControls (which refuses to edit a curated title anyway)
+  // and MarqueeConnectionGame/MarqueeListTitle, whose whole job is to reveal it
+  // to a reader who has answered.
   const withholdTheme = !!list.theme_slug;
-  const displayTitle = marqueeDisplayTitle(list.title, list.theme_slug, listMarqueeNumber);
+  const displayTitle = maskListTitle({
+    title: list.title,
+    themeSlug: list.theme_slug,
+    createdAt: list.created_at,
+    // This page carries the connection game, so past weeks stay masked here
+    // even though browsing surfaces now reveal them — see marquee-title.ts.
+    surface: "puzzle",
+  });
 
   /**
    * What this ranking just earned, shown only to the person who finished it and
@@ -341,8 +384,28 @@ export default async function PublicListPage({
   }
   const pct = (x: number) => `${Math.round(x * 100)}%`;
 
+  // The pass is the most-copied artefact on the site — a PNG people paste into
+  // group chats — so it takes the withheld title like everything else. It used
+  // to take `list.title`, which printed "THE GOLDEN AGE OF HOLLYWOOD" in Bebas
+  // caps immediately below the heading that had just refused to say it.
+  const passOptions: TicketRenderOptions = {
+    title: displayTitle,
+    items: rows
+      .filter((r) => r.finalRank !== null)
+      .map((r) => ({
+        rank: r.finalRank!,
+        title: r.title,
+        releaseYear: r.releaseYear,
+        posterPath: r.posterPath,
+      })),
+    creatorHandle: ownerProfile?.handle ?? null,
+    participants: list.participants,
+    themeTitle: list.theme_slug ? displayTitle : null,
+    totalRanked: rows.filter((r) => r.finalRank !== null).length,
+  };
+
   return (
-    <main className="relative mx-auto w-full max-w-5xl lg:max-w-6xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+    <main className="relative mx-auto w-full max-w-page flex-1 px-4 py-8 sm:px-6 lg:px-8">
       {/* Ambient Theater Lighting Glow */}
       <div
         className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-96 w-full max-w-6xl -translate-x-1/2 bg-[radial-gradient(ellipse_at_top,rgba(245,197,24,0.12),transparent_70%)]"
@@ -363,7 +426,7 @@ export default async function PublicListPage({
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">
             <h1 className="flex items-center gap-2 font-display text-2xl uppercase tracking-wide text-text leading-tight break-words sm:text-3xl">
               <span aria-hidden="true" className="shrink-0 text-gold">✦</span>
@@ -374,10 +437,14 @@ export default async function PublicListPage({
               )}
             </h1>
           </div>
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            {list.status === "done" && (
-              <CompareModal listId={id} listTitle={displayTitle} />
-            )}
+          {/* ONE PRIMARY ACTION (DESIGN.md). Share is the whole point of this
+              page, so it is the only gold thing up here and the only action
+              that sits beside the title. Upvote, Rank-these-yourself and Compare used to sit
+              at equal weight in the same cluster — four buttons that wrapped
+              onto a second row at 390px and made the title look like the
+              caption on a toolbar. They are still one tap away, one row down
+              and quiet. */}
+          <div className="shrink-0">
             <ShareButton
               title={displayTitle}
               url={url}
@@ -386,14 +453,48 @@ export default async function PublicListPage({
               topMovies={sharePodium}
               totalMovies={rows.length}
               curatorHandle={ownerProfile?.handle ?? null}
+              passOptions={list.status === "done" && rows.length > 0 ? passOptions : undefined}
             />
           </div>
         </div>
 
+        {/* The quiet row. Every control here is a `compact`-scale pill, which is
+            what lets all three fit on one line at 390px instead of wrapping. */}
+        {list.status === "done" && (
+          <div className="flex items-center gap-1.5 border-t border-white/5 pt-3 sm:gap-2">
+            <UpvoteButton
+              listId={id}
+              initialCount={upvotesCount}
+              initialHasUpvoted={hasUpvoted}
+              variant="compact"
+            />
+            <ForkButton
+              list={{
+                // The withheld title, not list.title: this string is the forked
+                // session's name AND this button's accessible label, and the
+                // person forking a Marquee is by definition about to play it.
+                // `themeSlug` below is what carries the theme's identity into
+                // the fork — every system that matters (the quiz, marquee
+                // standing, community stats) keys on the slug, not the words.
+                id,
+                title: displayTitle,
+                movies: rows,
+                themeSlug: list.theme_slug,
+              }}
+              ownerHandle={ownerProfile?.handle}
+              variant="compact"
+            />
+            <CompareModal listId={id} listTitle={displayTitle} />
+          </div>
+        )}
+
         {isOwner ? (
           <OwnerControls
             listId={id}
-            title={list.title}
+            // `isCurated` makes OwnerControls hide the title field entirely for
+            // a Marquee ("curated and cannot be edited"), so the withheld title
+            // is never editable — it only keeps the real one out of the payload.
+            title={displayTitle}
             description={list.description}
             participants={list.participants}
             isCurated={Boolean(list.theme_slug)}
@@ -427,6 +528,25 @@ export default async function PublicListPage({
         <section aria-label="Ranking complete" className="mt-10 flex justify-center">
           <div className="w-full max-w-xl">
             <CompletionSummaryCard summary={completion} />
+          </div>
+        </section>
+      )}
+
+      {list.status === "done" && rows.length > 0 && (
+        <section aria-label="Official premiere pass" className="mt-14 flex flex-col items-center text-center">
+          <MarqueeHeading as="h2">Premiere Pass</MarqueeHeading>
+          <p className="mt-2 text-xs text-muted sm:text-sm">
+            Export and share your official high-DPI vintage cinema ticket stub.
+          </p>
+          <div className="mt-6 w-full max-w-xl">
+            <PremierePassCard
+              title={passOptions.title}
+              items={passOptions.items}
+              creatorHandle={passOptions.creatorHandle}
+              participants={passOptions.participants}
+              themeTitle={passOptions.themeTitle}
+              totalRanked={passOptions.totalRanked}
+            />
           </div>
         </section>
       )}

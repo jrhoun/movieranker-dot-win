@@ -253,11 +253,6 @@ export default function CandidateTray({
                   </button>
                 </li>
               ))}
-              {!ready && (
-                <li className="flex items-center px-1 text-xs text-muted shrink-0">
-                  Add at least 1 more movie to rank
-                </li>
-              )}
             </ul>
           </div>
 
@@ -292,6 +287,22 @@ export default function CandidateTray({
             </button>
           </div>
         </div>
+
+        {/* "Add at least 1 more" used to live as a <li> inside the scrollable
+            poster <ul> above, sharing its cramped flex-1 slot with the poster
+            thumbnails. At a 390px viewport with 1 candidate selected, the
+            shrink-0 label + Details + Start Ranking buttons alone leave that
+            slot only a few px wide (measured: ~338px of hard-minimum content
+            for a ~358px-wide dock at 1 candidate) — nowhere near enough to
+            show a ~34-character line, so the hint was scrolled out of view
+            by default with no visual cue that more content was there. Full
+            width below the row, it's always visible regardless of poster
+            count. */}
+        {!ready && (
+          <p className="pt-1 text-xs text-muted text-center sm:text-left">
+            Add at least 1 more movie to rank.
+          </p>
+        )}
 
         {/* Cap notices: non-blocking, muted, one line each. */}
         {(atCap || showSizeHint) && (

@@ -5,6 +5,7 @@ import type { ThemeCommunityActivity } from "@/lib/shortlist";
 import { getMovieById, getPreferredPosterPath } from "@/lib/tmdb";
 import type { TmdbMovieCredit } from "@/lib/tmdb";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getTrendingLists, type TrendingListSummary } from "@/lib/trending";
 
 // Server component: resolves this week's themed marquee (deterministic weekly
 // rotation) and hydrates the movie details both the hero fan and the strip
@@ -21,17 +22,17 @@ export default async function Page({
     redirect(`/auth/callback?code=${encodeURIComponent(sp.code)}${nextParam}`);
   }
   let title = "";
-  let blurb = "";
   let slug: string | null = null;
   let credits: TmdbMovieCredit[] = [];
   let proposedBy: string | null = null;
   let activity: ThemeCommunityActivity = { count: 0, previews: [] };
   let userThemeListId: string | null = null;
+  let trendingLists: TrendingListSummary[] = [];
 
   try {
+    const supabase = await createSupabaseServerClient();
     const { theme, movieIds, activity: a } = await getTonightsShortlist();
     title = theme.title;
-    blurb = theme.blurb;
     slug = theme.slug;
     proposedBy = theme.proposedBy;
     activity = a;
@@ -47,7 +48,6 @@ export default async function Page({
       })),
     );
 
-    const supabase = await createSupabaseServerClient();
     const { data: auth } = await supabase.auth.getUser();
     if (auth?.user && slug) {
       const { data } = await supabase
@@ -61,22 +61,30 @@ export default async function Page({
         .maybeSingle();
       userThemeListId = data?.id ?? null;
     }
+
+    trendingLists = await getTrendingLists(supabase, 6);
   } catch {
     // fall through to hardcoded hero fan
   }
 
   return (
     <HomeClient
+      /* Only what the client renders or needs to start a session. The theme
+         BLURB and the settled-list PREVIEWS used to ride along here unused —
+         and both paraphrase the connection-puzzle answer, so they were spoiler
+         text sitting in the RSC payload of a page whose hero withholds it.
+         `title` still has to travel: `begin()` names the saved session with
+         it. (The theme catalogue is in the client bundle regardless, so this
+         is hygiene, not a security boundary.) */
       tonight={{
         title,
-        blurb,
         themeSlug: slug,
         movies: credits,
         proposedBy,
         settledCount: activity.count,
-        previews: activity.previews,
         userThemeListId,
       }}
+      trendingLists={trendingLists}
     />
   );
 }

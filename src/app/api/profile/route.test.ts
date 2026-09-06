@@ -10,10 +10,27 @@ let currentDb: {
   /** Per-table row override; falls back to `row`. */
   rowsByTable?: Record<string, unknown | null>;
   writeResult?: DbResult;
+  /** Result of the service-role RPC; defaults to echoing the showcase back. */
+  rpcResult?: DbResult;
 };
 
 vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: vi.fn(async () => currentDb.client),
+}));
+
+// `profiles.showcase` is written through the service-role RPC, never through
+// the session client (the column's UPDATE is revoked from `authenticated`).
+// Recorded as method "rpc" on table "profiles" so the assertions below can
+// tell the two write paths apart.
+vi.mock("@/lib/supabase/admin", () => ({
+  supabaseSecretKey: () =>
+    process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || undefined,
+  supabaseAdmin: () => ({
+    rpc: async (fn: string, params: { p_user_id: string; p_showcase: unknown }) => {
+      currentDb.calls.push({ table: "profiles", method: "rpc", args: [fn, params] });
+      return currentDb.rpcResult ?? { data: params.p_showcase, error: null };
+    },
+  }),
 }));
 
 function makeDb(opts: { user?: { id: string } | null }) {
@@ -82,6 +99,8 @@ function makeDb(opts: { user?: { id: string } | null }) {
 
 beforeEach(() => {
   vi.resetModules();
+  process.env.SUPABASE_SECRET_KEY = "sb_secret_test";
+  delete process.env.SUPABASE_SERVICE_ROLE_KEY;
   currentDb = { ...makeDb({ user: { id: "u-1" } }), row: null };
 });
 
@@ -227,11 +246,15 @@ describe("PATCH /api/profile — showcase", () => {
     await expect(res.json()).resolves.toEqual({
       showcase: { achievementKeys: ["first_premiere"], favoriteListId: "l-mine", lifetimeXp: 50 },
     });
-    const upd = currentDb.calls.find((c) => c.method === "update")!;
-    expect(upd.args[0]).toEqual({
-      showcase: { achievementKeys: ["first_premiere"], favoriteListId: "l-mine", lifetimeXp: 50 },
+    const upd = currentDb.calls.find((c) => c.method === "rpc")!;
+    expect(upd.args[0]).toBe("set_profile_showcase");
+    expect(upd.args[1]).toEqual({
+      p_user_id: "u-1",
+      p_showcase: { achievementKeys: ["first_premiere"], favoriteListId: "l-mine", lifetimeXp: 50 },
     });
-    // The lists trust-boundary check ran before the update.
+    // The showcase never goes through the session client's update().
+    expect(currentDb.calls.find((c) => c.method === "update")).toBeUndefined();
+    // The lists trust-boundary check ran before the write.
     const listsCall = currentDb.calls.find(
       (c) => c.table === "lists" && c.method === "eq",
     );
@@ -260,8 +283,45 @@ describe("PATCH /api/profile — showcase", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { showcase: { lifetimeXp?: number } };
     expect(body.showcase.lifetimeXp).toBe(50);
+    const upd = currentDb.calls.find((c) => c.method === "rpc")!;
+    expect((upd.args[1] as { p_showcase: { lifetimeXp?: number } }).p_showcase.lifetimeXp).toBe(50);
+  });
+
+  it("500 with a plain-words error when no secret key is set, and writes nothing", async () => {
+    delete process.env.SUPABASE_SECRET_KEY;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    currentDb.row = { id: "u-1", showcase: { achievementKeys: [], favoriteListId: null, lifetimeXp: 50 } };
+    const res = await patchShowcase({ achievementKeys: ["first_premiere"] });
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toMatch(/SUPABASE_SECRET_KEY/);
+    expect(currentDb.calls.find((c) => c.method === "rpc")).toBeUndefined();
+    expect(currentDb.calls.find((c) => c.method === "update")).toBeUndefined();
+  });
+
+  it("409 'claim a handle first' when the RPC reports no profiles row (P0002)", async () => {
+    currentDb.row = { id: "u-1", showcase: { achievementKeys: [], favoriteListId: null, lifetimeXp: 50 } };
+    currentDb.rpcResult = { data: null, error: { code: "P0002", message: "no profile row" } };
+    const res = await patchShowcase({ achievementKeys: ["first_premiere"] });
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: string }).error).toBe("claim a handle first");
+  });
+
+  it("visibility still goes through the session client, and only visibility", async () => {
+    currentDb.row = { id: "u-1", showcase: {} };
+    currentDb.writeResult = { data: { id: "u-1" }, error: null };
+    const { PATCH } = await import("./route");
+    const res = await PATCH(
+      new Request("http://localhost/api/profile", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ visibility: "public" }),
+      }),
+    );
+    expect(res.status).toBe(200);
     const upd = currentDb.calls.find((c) => c.method === "update")!;
-    expect((upd.args[0] as { showcase: { lifetimeXp?: number } }).showcase.lifetimeXp).toBe(50);
+    expect(upd.args[0]).toEqual({ visibility: "public" });
+    expect(currentDb.calls.find((c) => c.method === "rpc")).toBeUndefined();
   });
 
   const doneListWith = (tmdbIds: number[]) => [
@@ -375,8 +435,8 @@ describe("PATCH /api/profile — showcase", () => {
       tagline: "tagline.trailer.in-a-world",
       taglineText: "In a world…",
     });
-    const upd = currentDb.calls.find((c) => c.method === "update")!;
-    expect((upd.args[0] as { showcase: { equipped?: unknown } }).showcase.equipped).toEqual({
+    const upd = currentDb.calls.find((c) => c.method === "rpc")!;
+    expect((upd.args[1] as { p_showcase: { equipped?: unknown } }).p_showcase.equipped).toEqual({
       tagline: "tagline.trailer.in-a-world",
       taglineText: "In a world…",
     });
