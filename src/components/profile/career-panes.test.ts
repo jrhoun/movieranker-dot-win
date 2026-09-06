@@ -29,9 +29,9 @@ const breakdown: XpBreakdown = {
   total: 175,
 };
 
-const render = (currentLevel: number, challenges: Parameters<typeof CareerPanes>[0]["challenges"] = []) =>
+const render = (currentLevel: number) =>
   renderToStaticMarkup(
-    createElement(CareerPanes, { currentLevel, breakdown, challenges }),
+    createElement(CareerPanes, { currentLevel, breakdown }),
   );
 
 describe("careerSummary", () => {
@@ -85,13 +85,9 @@ describe("CareerPanes", () => {
   });
 
   it("keeps the interface free of icons, emoji and stat tiles", () => {
-    const html = render(18, [
-      { name: "Cryptologist", description: "Cracked five weekly connections", icon: "🧩", unlocked: true },
-      { name: "The Long Take", description: "Settled a single ranking of twenty-four films or more", icon: "🎥", unlocked: false },
-    ]);
-    expect(html).toContain("Cryptologist");
-    expect(html).toContain("Earned by doing something hard");
-    // The challenge icons are still accepted as props and deliberately dropped.
+    const html = render(18);
+    // Challenges were folded into achievements; the guide no longer lists them.
+    expect(html).not.toContain("doing something hard");
     expect(html).not.toMatch(/\p{Extended_Pictographic}/u);
     expect(html).not.toContain("✓");
     expect(html).not.toContain("○");

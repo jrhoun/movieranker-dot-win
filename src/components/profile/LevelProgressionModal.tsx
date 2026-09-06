@@ -43,13 +43,6 @@ type Source = {
   earned: number;
 };
 
-export type Challenge = {
-  name: string;
-  description: string;
-  /** Kept for the caller's convenience; nothing is rendered as an icon here. */
-  icon: string;
-  unlocked: boolean;
-};
 
 /**
  * Lower-case the first letter of a name written for a headline, so it can sit
@@ -93,13 +86,11 @@ export function careerSummary(currentLevel: number, currentXp: number): string {
 export function CareerPanes({
   currentLevel,
   breakdown,
-  challenges = [],
   ladderRef,
   earnRef,
 }: {
   currentLevel: number;
   breakdown: XpBreakdown;
-  challenges?: Challenge[];
   ladderRef?: React.Ref<HTMLElement>;
   earnRef?: React.Ref<HTMLElement>;
 }) {
@@ -250,25 +241,6 @@ export function CareerPanes({
         </table>
 
         <p className="mt-3 text-sm text-muted">That is {breakdown.total} XP in total.</p>
-
-        {challenges.length > 0 && (
-          <div className="mt-6 border-t border-white/10 pt-5">
-            <h4 className="text-sm font-semibold text-text">Earned by doing something hard</h4>
-            <p className="mt-1 max-w-[70ch] text-xs leading-relaxed text-muted">
-              No level will hand you these, and being early does not earn them.
-            </p>
-            <ul className="mt-3 list-none space-y-3">
-              {challenges.map((c) => (
-                <li key={c.name}>
-                  <Laurel tone={c.unlocked ? "gold" : "muted"}>{c.name}</Laurel>
-                  <p className="mt-1 max-w-[70ch] text-xs leading-relaxed text-muted">
-                    {c.description}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </section>
     </div>
   );
@@ -278,14 +250,12 @@ export default function LevelProgressionModal({
   currentLevel,
   currentXp,
   breakdown,
-  challenges = [],
   label = "How XP works",
   initialTab = "earn",
 }: {
   currentLevel: number;
   currentXp: number;
   breakdown: XpBreakdown;
-  challenges?: Challenge[];
   /** Trigger wording, so the same guide can be opened from more than one place. */
   label?: string;
   /**
@@ -369,7 +339,6 @@ export default function LevelProgressionModal({
               <CareerPanes
                 currentLevel={currentLevel}
                 breakdown={breakdown}
-                challenges={challenges}
                 ladderRef={ladderRef}
                 earnRef={earnRef}
               />

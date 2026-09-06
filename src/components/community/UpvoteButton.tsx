@@ -101,8 +101,12 @@ export default function UpvoteButton({
         onClick={handleToggle}
         disabled={isPending}
         aria-pressed={hasUpvoted}
-        aria-label={`Upvote list (${count} ${count === 1 ? "upvote" : "upvotes"})`}
-        title={hasUpvoted ? "Remove upvote" : "Upvote this ranking"}
+        aria-label={
+          hasUpvoted
+            ? `Remove your upvote (${count} ${count === 1 ? "upvote" : "upvotes"})`
+            : `Upvote this ranking (${count} ${count === 1 ? "upvote" : "upvotes"})`
+        }
+        title={hasUpvoted ? "Click again to remove your upvote" : "Upvote this ranking"}
         className={`${basePillStyles} ${variantStyles} ${className}`}
       >
         <span
@@ -113,10 +117,12 @@ export default function UpvoteButton({
         >
           {hasUpvoted ? "▲" : "△"}
         </span>
-        <span className="font-mono font-semibold">{count}</span>
+        {/* Verb first, count second — "Upvoted 1" reads as a pressed control
+            whose next click undoes it, where "1 upvotes" read as a statistic. */}
         {showLabel && variant !== "compact" && (
-          <span className="font-semibold">{count === 1 ? "upvote" : "upvotes"}</span>
+          <span className="font-semibold">{hasUpvoted ? "Upvoted" : "Upvote"}</span>
         )}
+        <span className="font-mono font-semibold">{count}</span>
       </button>
 
       {/* Guest Sign-In Prompt Modal */}

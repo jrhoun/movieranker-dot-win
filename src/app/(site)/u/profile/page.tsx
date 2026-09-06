@@ -458,14 +458,6 @@ export default async function MyListsPage() {
               currentLevel={level.level}
               currentXp={lifetimeXp}
               breakdown={breakdown}
-              challenges={achievements
-                .filter((a) => a.challenge)
-                .map((a) => ({
-                  name: a.name,
-                  description: a.description,
-                  icon: a.icon,
-                  unlocked: a.unlocked,
-                }))}
             />
           </div>
         </section>
