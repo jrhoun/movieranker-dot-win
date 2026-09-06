@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ProfileCanvas, { profileStatsLine } from "@/components/profile/ProfileCanvas";
+import ProfileBackdrop from "@/components/profile/ProfileBackdrop";
 import ListCard from "@/components/profile/ListCard";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import { Laurel } from "@/components/Laurel";
@@ -96,6 +97,29 @@ function RankingCard({ card, featured = false }: { card: PublicListCardData; fea
     />
   );
 }
+
+/**
+ * The legibility floor for quiet text that now sits DIRECTLY on the page
+ * backdrop.
+ *
+ * Everything on this page used to be house black under the velvet band, where
+ * `text-muted` (#8b8b94) reads at 5.8:1. Over the busiest backdrop it does
+ * not: measured against the filmstrip's brightest possible field (a white
+ * poster at 25% under `.cb-scrim`'s middle band, rgb(42,42,45)) it is 4.24:1,
+ * and against the spotlight's centre 3.90:1 — both under the 4.5:1 floor.
+ * Gold and body text clear 8:1 on the same fields and need nothing.
+ *
+ * So the muted lines get a strip rather than a new colour: 60% house black is
+ * enough to put #8b8b94 back to 5.2:1 on the worst field while the backdrop
+ * still reads through it, and it is the same smoked-glass material as the
+ * hero panel one size down (no border, so it reads as a shadow under the
+ * words rather than a second card competing with the identity).
+ *
+ * Padding is deliberately NOT in here: two padding utilities on one element
+ * are resolved by stylesheet order, not by the order they appear in the
+ * attribute, so `${SCRIM} px-5` is a coin toss. Each use states its own.
+ */
+const SCRIM = "rounded-xl bg-bg/60 backdrop-blur-sm";
 
 export default async function PublicProfilePage({
   params,
@@ -302,6 +326,12 @@ export default async function PublicProfilePage({
   const pinned = allAchievements
     .filter((a) => pinnedKeys.has(a.key))
     .map((a) => ({ name: a.name }));
+  // The public poster art, flattened once: the backdrop composes up to eight
+  // of them, the panel only needs the first for a poster avatar's fallback.
+  // Only ever the user's OWN posters — the backdrop never reaches for stock
+  // imagery (DESIGN.md), and these are already RLS-filtered to public done
+  // lists by shapePublicProfile.
+  const publicPosters = cards.flatMap((c) => c.posters);
   const joined = new Date(profile.created_at).toLocaleDateString("en-US", {
     month: "long",
     year: "numeric",
@@ -320,19 +350,37 @@ export default async function PublicProfilePage({
   return (
     <>
       {/*
-        THE STAGE MOMENT, and the only one on this page (DESIGN.md: velvet on
-        stage moments, dark house under the content). The marquee card sits in
-        the band; everything below it is house black.
+        THE WALL IS GONE. The equipped background used to be painted inside
+        the marquee card, inside a velvet band, on a black page — three
+        nested rectangles, and the customisation only reached the innermost
+        one. This paints it FIXED behind the entire page instead (header,
+        panel, poster wall, footer), so the profile reads as someone's room
+        rather than a decorated box in a corridor.
+        First child of the fragment on purpose: it is `fixed inset-0 -z-10`,
+        so nothing between it and the root may open a stacking context (no
+        `isolate`, no `relative z-0` wrapper) or the whole layer disappears
+        behind the page. The <header> below keeps `relative` — which alone
+        creates none — and has lost both `bg-curtain-soft` and
+        `overflow-hidden`: the backdrop IS the stage now, and a band edge
+        drawn over it would just rebuild the wall one layer out.
       */}
-      <header className="bg-curtain-soft relative overflow-hidden">
-        {/* Same width and gutters as the content below it, so the card's edge
-            lines up with the poster wall; the drape reads above and below. */}
-        <div className="relative mx-auto w-full max-w-page px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+      <ProfileBackdrop
+        equipped={canvasEquipped}
+        posters={publicPosters.slice(0, 8)}
+        variant="page"
+      />
+
+      <header className="relative">
+        {/* Same width and gutters as the content below it, so the panel's edge
+            lines up with the poster wall. The vertical padding is shorter than
+            the old band's: there is no drape to read above and below the panel
+            any more, only the page's own backdrop. */}
+        <div className="relative mx-auto w-full max-w-page px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
           <ProfileCanvas
             handle={profile.handle}
             level={level.level}
             equipped={canvasEquipped}
-            posters={cards.flatMap((c) => c.posters).slice(0, 6)}
+            posters={publicPosters.slice(0, 6)}
             taglineText={taglineText}
             statsLine={statsLine}
             pinned={pinned}
@@ -346,7 +394,7 @@ export default async function PublicProfilePage({
           // One sentence, not a warning placard: the owner is the only person
           // who can ever read it, and they already know what a private
           // profile is — what they need is the way to change it.
-          <p className="mb-10 text-sm text-muted">
+          <p className={`mb-10 inline-block px-4 py-3 text-sm text-muted ${SCRIM}`}>
             Only you can see this profile.{" "}
             <Link
               href="/settings"
@@ -361,7 +409,7 @@ export default async function PublicProfilePage({
         <section aria-labelledby="rankings-heading">
           <MarqueeHeading as="h2">Rankings</MarqueeHeading>
           {cards.length === 0 ? (
-            <p className="mt-6 text-sm text-muted">
+            <p className={`mt-6 inline-block px-4 py-3 text-sm text-muted ${SCRIM}`}>
               {isOwner ? (
                 <>
                   You haven&apos;t published a ranking yet.{" "}
@@ -405,16 +453,22 @@ export default async function PublicProfilePage({
               an instruction for EARNING one, which nobody reading a stranger's
               profile needs.
             */}
-            <ul className="mt-6 flex flex-wrap gap-x-7 gap-y-4">
-              {achievements.map((a) => (
-                <li key={a.key}>
-                  <Laurel className="text-base">{a.name}</Laurel>
-                </li>
-              ))}
-            </ul>
-            {stillToEarn > 0 && (
-              <p className="mt-5 text-sm text-muted">Still to earn: {stillToEarn}</p>
-            )}
+            {/* One strip under the whole block: the laurels are gold and read
+                fine on their own, but "Still to earn" is muted and belongs
+                with them, and two different grounds for one thought would be
+                worse than one ground for both. */}
+            <div className={`mt-6 px-5 py-5 ${SCRIM}`}>
+              <ul className="flex flex-wrap gap-x-7 gap-y-4">
+                {achievements.map((a) => (
+                  <li key={a.key}>
+                    <Laurel className="text-base">{a.name}</Laurel>
+                  </li>
+                ))}
+              </ul>
+              {stillToEarn > 0 && (
+                <p className="mt-5 text-sm text-muted">Still to earn: {stillToEarn}</p>
+              )}
+            </div>
           </section>
         )}
       </main>

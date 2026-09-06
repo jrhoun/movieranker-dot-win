@@ -1,19 +1,20 @@
+import FrameArt from "./FrameArt";
 import Nameplate from "./Nameplate";
 import { Laurel } from "@/components/Laurel";
 import { avatarAssetPath, posterAvatarTmdbId } from "@/lib/cosmetics/avatars";
-import { FRAME_CLASS, gradientAvatarClass, OVERLAY_CLASS } from "@/lib/cosmetics/classes";
+import { gradientAvatarClass } from "@/lib/cosmetics/classes";
 import type { Equipped } from "@/lib/cosmetics/equipped";
 
 const POSTER = "https://image.tmdb.org/t/p/w342";
 
 /**
- * The avatar, at the size a marquee card wants: 120px wide on a phone (and
- * inside the customise dialog's live mirror), 180px on a desktop profile.
+ * The avatar, at the size a marquee panel wants: 120px wide on a phone (and
+ * inside the dressing room's live preview), 180px on a desktop profile.
  *
- * Sized by CONTAINER, not viewport: this card is rendered both as a full-width
- * page hero and as a ~600px preview inside a dialog, and a `sm:` variant
- * answers the window in both cases — which is exactly how the old layout put a
- * 78px avatar in a 1090px box.
+ * Sized by CONTAINER, not viewport: this panel is rendered both as a full-width
+ * page hero and as a ~600px preview, and a `sm:` variant answers the window in
+ * both cases — which is exactly how the old layout put a 78px avatar in a
+ * 1090px box.
  */
 const AVATAR_BOX = "block aspect-[2/3] w-[120px] rounded-sm @2xl:w-[180px]";
 
@@ -116,8 +117,8 @@ export default function ProfileCanvas({
   taglineText?: string | null;
   /**
    * Rank, level, counts and joining date as ONE sentence — build it with
-   * `profileStatsLine`. Absent inside the customise dialog's live mirror,
-   * which has no stats to show and only previews the cosmetics.
+   * `profileStatsLine`. Absent in the dressing room's live preview, which has
+   * no stats to show and only previews the cosmetics.
    */
   statsLine?: string;
   /** Pinned achievements, shown as laurels; at most three by policy. */
@@ -128,74 +129,67 @@ export default function ProfileCanvas({
    */
   handleAs?: "h1" | "p";
 }) {
-  const frameClass = FRAME_CLASS[equipped.frame ?? ""] ?? "cf-brass";
-  const overlayClass = OVERLAY_CLASS[equipped.overlay ?? ""];
-  const background = equipped.background ?? "background.filmstrip";
-  const art = posters.filter((p) => p.posterPath).slice(0, 6);
   /**
-   * The poster wash behind `background.spotlight`, and the art for a poster
-   * avatar. Kept separate from the avatar SLOT below: the spotlight still
-   * wants a poster to bleed even when the equipped avatar is a gradient.
+   * The art for a poster avatar: the stored path, or the user's own first
+   * poster when the slot holds a poster avatar with nothing pinned to it.
+   * ProfileBackdrop resolves the same fallback for its own hero poster — it
+   * has to, because the two are drawn on opposite sides of the page and
+   * neither can read the other's state.
    */
-  const avatarPoster = equipped.avatarPosterPath ?? art[0]?.posterPath ?? null;
+  const avatarPoster =
+    equipped.avatarPosterPath ?? posters.find((p) => p.posterPath)?.posterPath ?? null;
   const avatarId = equipped.avatar ?? null;
 
   return (
-    <div className="@container relative isolate mx-auto max-w-4xl overflow-hidden rounded-2xl border border-white/10">
-      {background === "background.filmstrip" && (
-        <>
-          <div aria-hidden className="absolute inset-0 z-0 flex items-center gap-1 px-2 opacity-30">
-            {art.map((p, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={`${i}-${p.posterPath}`} src={`${POSTER}${p.posterPath}`} alt="" className="h-full w-auto rounded-sm object-cover" />
-            ))}
-          </div>
-          <div aria-hidden className="cb-scrim absolute inset-0 z-[1]" />
-          <div aria-hidden className="cb-holes absolute inset-x-0 top-0 z-[1] h-3" />
-          <div aria-hidden className="cb-holes absolute inset-x-0 bottom-0 z-[1] h-3" />
-        </>
-      )}
-      {background === "background.spotlight" && avatarPoster && (
-        <>
-          {/*
-            An <img>, never a CSS `url()`: `avatar` can fall back to a poster
-            path pulled from list_movies.poster_path, which /api/lists/[id]
-            stores with no shape validation. Comma-separated multi-background
-            is valid CSS, so an unvalidated value there could smuggle a second
-            `url(...)` and fetch a third-party URL for every viewer of this
-            profile. An <img src> has no such escape hatch.
-            The wrapper carries the -inset-[25%] bleed and clips it; the
-            replaced <img> element sizes against that box via h-full w-full
-            rather than its own intrinsic size.
-          */}
-          <div aria-hidden className="absolute -inset-[25%] z-0 overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`${POSTER}${avatarPoster}`}
-              alt=""
-              className="h-full w-full object-cover opacity-45 blur-2xl"
-            />
-          </div>
-          <div aria-hidden className="cb-beam absolute inset-0 z-[1]" />
-          <div aria-hidden className="cb-vignette absolute inset-0 z-[1]" />
-        </>
-      )}
-      {background === "background.velvet" && <div aria-hidden className="cb-velvet absolute inset-0 z-0" />}
+    /*
+      A PANEL, not a card with its own sky.
+      The equipped background used to be painted INSIDE this box — three
+      branches of poster wash, scrim, beam and velvet, plus the overlay on
+      top — so a customised profile was a decorated rectangle sitting in a
+      velvet band on a black page. It is `ProfileBackdrop` that paints the
+      background now, fixed behind the WHOLE page, and this is the sheet of
+      smoked glass the identity is set on: the room is the user's, and the
+      panel only has to keep the words readable over it.
 
+      Alpha 70%, not 60%: over the busiest equipped composition (the
+      spotlight's gold beam over a white poster at 40%, which survives its
+      own vignette at ~115/255) a 60% panel leaves the stats sentence — set
+      at text-text/90 — at 3.86:1, under the 4.5:1 floor. 70% lifts that to
+      5.4:1 and holds ≥5:1 even against a hypothetical unscrimmed white
+      field, so the four backgrounds still being added cannot quietly break
+      the text. On the real backdrops it lands at 10–13:1. NOT higher: at 80%
+      the backdrop stops reading through the panel and the wall is back.
+
+      No `overflow-hidden` and no `isolate`: an illustrated frame overhangs
+      its avatar (see FrameArt), and clipping the panel would slice the
+      overhang off against this border.
+    */
+    <div className="@container relative mx-auto max-w-4xl rounded-2xl border border-white/10 bg-bg/70 backdrop-blur-md">
       {/*
-        Stacked on a phone (and in the dialog mirror), side by side once the
-        CARD is wide enough to hold a 180px avatar beside a readable sentence.
+        Stacked on a phone (and in the dressing room's preview), side by side
+        once the PANEL is wide enough to hold a 180px avatar beside a readable
+        sentence.
       */}
-      <div className="relative z-[2] flex flex-col items-center gap-5 px-5 py-7 text-center @2xl:flex-row @2xl:items-center @2xl:gap-9 @2xl:px-9 @2xl:py-9 @2xl:text-left">
+      <div className="flex flex-col items-center gap-3 px-5 py-5 text-center @2xl:flex-row @2xl:items-center @2xl:gap-6 @2xl:px-7 @2xl:py-7 @2xl:text-left">
         {/*
           Poster-shaped for all three kinds, never cropped to a circle: posters
           set their title in the lower third and a round crop destroys it. The
           identical box also means the frame fits the same whichever kind is
           equipped.
+
+          The frame's elbow room is given as PADDING on this column rather
+          than as overflow on the panel: an illustrated frame overhangs its
+          avatar box by ~12% (a marquee's bulbs, a laurel's leaves), and 12% of
+          120/180px is 14/22px of art that would otherwise hang over the
+          panel's own border — or be cut off by it. The padding is inside the
+          flex item, so the gap to the nameplate stays the gap between the
+          FRAME and the words, whatever frame is worn.
         */}
-        <span className={`inline-block shrink-0 rounded-md p-[3px] leading-none ${frameClass}`}>
-          <AvatarArt id={avatarId} posterPath={avatarPoster} />
-        </span>
+        <div className="shrink-0 p-[14px] @2xl:p-[22px]">
+          <FrameArt id={equipped.frame}>
+            <AvatarArt id={avatarId} posterPath={avatarPoster} />
+          </FrameArt>
+        </div>
 
         <div className="min-w-0">
           <Nameplate handle={handle} level={level} as={handleAs} />
@@ -220,12 +214,6 @@ export default function ProfileCanvas({
           )}
         </div>
       </div>
-
-      {overlayClass && (
-        // Sibling of the content, never a child of an element with its own
-        // background — nested, the background paints straight over it.
-        <div aria-hidden className={`pointer-events-none absolute inset-0 z-[3] ${overlayClass}`} />
-      )}
     </div>
   );
 }

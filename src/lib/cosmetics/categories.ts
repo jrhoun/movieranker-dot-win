@@ -4,18 +4,22 @@ import type { CosmeticItem, Slot, TaglineItem } from "./types";
 /**
  * How the collection is divided for browsing.
  *
- * Extracted from CollectionGallery so the coverage test can assert the REAL
+ * Extracted from the collection wall so the coverage test can assert the REAL
  * division rather than restate it. The previous test rebuilt the same
- * slot-then-tagline-set expression it was checking, so it agreed with the
- * gallery by construction and would have passed just as happily if the gallery
- * had stopped rendering a category — which is the one failure it existed to
- * catch.
+ * slot-then-tagline-set expression it was checking, so it agreed with the wall
+ * by construction and would have passed just as happily if the wall had stopped
+ * rendering a category — which is the one failure it existed to catch. The wall
+ * is now the dressing room at /u/profile/customise, whose tagline pane reads
+ * its sets from here.
  */
 export const SLOT_LABEL: Record<Slot, string> = {
   avatar: "Avatars",
   frame: "Frames",
   background: "Backgrounds",
-  overlay: "Overlays",
+  // "Atmosphere" is what the dressing room's nav calls this pane, and one
+  // thing may not have two names in the product: an overlay is a filmstrip
+  // flicker or a haze of dust, not a UI layer.
+  overlay: "Atmosphere",
   tagline: "Taglines",
 };
 

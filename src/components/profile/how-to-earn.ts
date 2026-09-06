@@ -36,7 +36,11 @@ export function howToEarn(unlock: Unlock): string {
       return `Unlocks at level ${unlock.level}.`;
     case "challenge": {
       const name = ACHIEVEMENTS.find((a) => a.key === unlock.key)?.name;
-      return name ? `Earned with the ${name} achievement.` : "Earned from an achievement.";
+      if (!name) return "Earned from an achievement.";
+      // "The Long Take" already carries its article: "the The Long Take" is
+      // what this read before the check.
+      const article = /^the\b/i.test(name) ? "" : "the ";
+      return `Earned with ${article}${name} achievement.`;
     }
     case "marquee":
       return "Earned by finishing that week's Marquee.";
