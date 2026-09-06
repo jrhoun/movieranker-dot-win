@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   getMovieWinStreak,
   hasLaurelBadge,
-  STREAK_LAUREL_THRESHOLD,
 } from "./streak";
 
 /**
@@ -47,7 +46,6 @@ describe("Adversarial Stress Test: getMovieWinStreak", () => {
     });
 
     it("terminates early when loss is near the end of a 100,000 match history", () => {
-      const size = 100_000;
       const targetId = 7;
       const history: Array<[number, number]> = [];
       // First 99,990 matches are wins for targetId

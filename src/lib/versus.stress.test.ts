@@ -1,9 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
-  canCompare,
   compatibilityTier,
   computeVersus,
-  extractListId,
   findSharpestClash,
   findSharedFavorites,
   type SharedMovie,

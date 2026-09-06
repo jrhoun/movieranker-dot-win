@@ -12,7 +12,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // Modules under test
 import {
   isEditableElement,
-  isInputOrEditableFocused,
   resolveBlitzAction,
   type BlitzState,
   type KeyboardEventLike,
@@ -26,48 +25,34 @@ import {
   setLightsDown,
   setSoundEnabled,
   STORAGE_KEY_LIGHTS_DOWN,
-  STORAGE_KEY_SOUND,
   unlockAudioContext,
 } from "./audio";
 import {
   getMovieWinStreak,
   hasLaurelBadge,
-  STREAK_LAUREL_THRESHOLD,
 } from "./streak";
 import {
   copyPremierePassToClipboard,
-  downloadPremierePass,
-  drawBarcode,
-  exportPremierePassBlob,
   formatTicketDate,
   generatePremierePassCanvas,
-  generateTicketSerialNumber,
   type TicketRenderOptions,
 } from "./ticket-canvas";
 import {
-  canCompare,
-  compatibilityTier,
   computeVersus,
-  extractListId,
   findSharpestClash,
   findSharedFavorites,
   type VersusEntry,
 } from "./versus";
 import {
   CURATOR_MICRO_PACKS,
-  getMicroPackBySlug,
   getRandomMicroPack,
-  launchMicroPackSession,
 } from "./curator-roulette";
 import { createForkSession } from "./fork";
 import {
   formatTrendingLists,
-  getTrendingLists,
   type RawDbListRow,
 } from "./trending";
-import { triptychSlots } from "./triptych";
 import {
-  applyWin,
   finalizeRanks,
   isStable,
   nextMatchup,
@@ -75,10 +60,7 @@ import {
   type RankedMovie,
 } from "./ranking";
 import {
-  clearSession,
   loadSession,
-  saveSession,
-  type PlaySession,
 } from "./session";
 
 // In-Memory Storage & DOM Mocks
@@ -284,9 +266,7 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
-const { GET: getUpvoteRoute, POST: postUpvoteRoute } = await import(
-  "../app/api/lists/[id]/upvote/route"
-);
+const { POST: postUpvoteRoute } = await import("../app/api/lists/[id]/upvote/route");
 
 beforeEach(() => {
   setupMockEnvironment();

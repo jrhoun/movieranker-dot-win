@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  isEditableElement,
-  isInputOrEditableFocused,
   resolveBlitzAction,
   type BlitzState,
   type KeyboardEventLike,
