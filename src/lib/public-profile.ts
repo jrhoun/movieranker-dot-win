@@ -24,6 +24,8 @@ export interface ProfileShowcase {
   achievementKeys: string[];
   favoriteListId: string | null;
   lifetimeXp?: number;
+  /** Which XP curve `lifetimeXp` was banked under (see XP_CURVE_VERSION). */
+  lifetimeXpCurve?: number;
   equipped?: Equipped;
   avatarClaims?: number[];
 }
@@ -64,6 +66,11 @@ export function parseShowcase(input: unknown): ProfileShowcase | null {
     }
     lifetimeXp = Math.floor(o.lifetimeXp);
   }
+  let lifetimeXpCurve: number | undefined = undefined;
+  if (o.lifetimeXpCurve !== undefined) {
+    if (!Number.isInteger(o.lifetimeXpCurve) || (o.lifetimeXpCurve as number) < 1) return null;
+    lifetimeXpCurve = o.lifetimeXpCurve as number;
+  }
   // `?? undefined`: a stored `equipped: null` is an absent key, not a
   // malformed one — every other field here tolerates absence the same way.
   const equipped = parseEquipped(o.equipped ?? undefined);
@@ -86,6 +93,7 @@ export function parseShowcase(input: unknown): ProfileShowcase | null {
     achievementKeys: keys,
     favoriteListId: fav,
     ...(lifetimeXp !== undefined ? { lifetimeXp } : {}),
+    ...(lifetimeXpCurve !== undefined ? { lifetimeXpCurve } : {}),
     ...(Object.keys(equipped).length > 0 ? { equipped } : {}),
     ...(avatarClaims && avatarClaims.length > 0 ? { avatarClaims } : {}),
   };
@@ -102,13 +110,14 @@ export function mergeShowcase(
     achievementKeys?: unknown;
     favoriteListId?: unknown;
     lifetimeXp?: unknown;
+    lifetimeXpCurve?: unknown;
     equipped?: unknown;
     avatarClaims?: unknown;
   },
 ): ProfileShowcase | null {
   if (typeof patch !== "object" || patch === null || Array.isArray(patch)) return null;
   const base = parseShowcase(current) ?? EMPTY_SHOWCASE;
-  let { achievementKeys, favoriteListId, lifetimeXp, equipped, avatarClaims } = base;
+  let { achievementKeys, favoriteListId, lifetimeXp, lifetimeXpCurve, equipped, avatarClaims } = base;
   if (patch.achievementKeys !== undefined) {
     const keys = validAchievementKeys(patch.achievementKeys);
     if (!keys || keys.length > MAX_PINNED_ACHIEVEMENTS) return null;
@@ -129,6 +138,10 @@ export function mergeShowcase(
     }
     // Monotonic ratchet: lifetime XP never decreases
     lifetimeXp = Math.max(lifetimeXp ?? 0, Math.floor(patch.lifetimeXp));
+  }
+  if (patch.lifetimeXpCurve !== undefined) {
+    if (!Number.isInteger(patch.lifetimeXpCurve) || (patch.lifetimeXpCurve as number) < 1) return null;
+    lifetimeXpCurve = patch.lifetimeXpCurve as number;
   }
   if (patch.equipped !== undefined) {
     const next = parseEquipped(patch.equipped);
@@ -153,6 +166,7 @@ export function mergeShowcase(
     achievementKeys,
     favoriteListId,
     ...(lifetimeXp !== undefined ? { lifetimeXp } : {}),
+    ...(lifetimeXpCurve !== undefined ? { lifetimeXpCurve } : {}),
     ...(equipped && Object.keys(equipped).length > 0 ? { equipped } : {}),
     ...(avatarClaims && avatarClaims.length > 0 ? { avatarClaims } : {}),
   };
@@ -230,6 +244,7 @@ export function shapePublicProfile(
   const { total: careerXp } = reconcileCareerXp(
     calculateXpBreakdown({ lists: publicLists }),
     showcase?.lifetimeXp,
+    showcase?.lifetimeXpCurve,
   );
   return {
     cards: pub.map((l) => ({

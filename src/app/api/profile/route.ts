@@ -7,7 +7,7 @@ import { mergeShowcase, type ProfileShowcase } from "@/lib/public-profile";
 import {
   CONNECTION_SOLVE_XP,
   evaluateAchievements,
-  grandfatheredXp,
+  bankedCareerXp,
   levelFor,
   MIN_PIN_LIST_LEVEL,
   type AchievementStats,
@@ -168,6 +168,7 @@ export async function PATCH(request: Request) {
     // all trust the level that number produces.
     const clientShowcase: Record<string, unknown> = { ...(body.showcase as Record<string, unknown>) };
     delete clientShowcase.lifetimeXp;
+    delete clientShowcase.lifetimeXpCurve;
 
     // avatarClaims: shape-checked here, but NOT trusted until validateClaims
     // below has checked the merged set against this user's own finished films
@@ -291,8 +292,13 @@ export async function PATCH(request: Request) {
         standing = marqueeStanding(completions, auth.user.id);
       }
 
-      const equipBankedXp = (row as { showcase?: { lifetimeXp?: number } }).showcase?.lifetimeXp ?? 0;
-      const { total, breakdown } = await fetchCareerXp(supabase, auth.user.id, equipBankedXp);
+      const equipShowcase = (row as { showcase?: { lifetimeXp?: number; lifetimeXpCurve?: number } }).showcase;
+      const { total, breakdown } = await fetchCareerXp(
+        supabase,
+        auth.user.id,
+        equipShowcase?.lifetimeXp ?? 0,
+        equipShowcase?.lifetimeXpCurve,
+      );
       // Named and reused below for taglineText: this IS the owner's real,
       // full-access stats (never RLS-limited the way a *reader* of
       // /u/[handle] would be), which is exactly why the resolved text is
@@ -363,12 +369,14 @@ export async function PATCH(request: Request) {
       // Gate: user must be Level 10 or higher to pin a featured list. Derived
       // through the shared helper so this gate cannot drift from the level the
       // profile shows the same person.
-      const bankedXp = (row as { showcase?: { lifetimeXp?: number } }).showcase?.lifetimeXp ?? 0;
+      const pinShowcase = (row as { showcase?: { lifetimeXp?: number; lifetimeXpCurve?: number } }).showcase;
+      const bankedXp = pinShowcase?.lifetimeXp ?? 0;
+      const bankedCurve = pinShowcase?.lifetimeXpCurve;
       // The banked peak is a floor, so someone already qualified on record pays
       // for no lookups at all.
-      let lifetimeXp = grandfatheredXp(bankedXp);
+      let lifetimeXp = bankedCareerXp(bankedXp, bankedCurve);
       if (levelFor(lifetimeXp).level < MIN_PIN_LIST_LEVEL) {
-        lifetimeXp = (await fetchCareerXp(supabase, auth.user.id, bankedXp)).total;
+        lifetimeXp = (await fetchCareerXp(supabase, auth.user.id, bankedXp, bankedCurve)).total;
       }
       const userLevel = levelFor(lifetimeXp).level;
       if (userLevel < MIN_PIN_LIST_LEVEL) {

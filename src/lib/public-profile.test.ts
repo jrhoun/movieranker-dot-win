@@ -5,7 +5,7 @@ import {
   shapePublicProfile,
   type DbPublicList,
 } from "./public-profile";
-import { grandfatheredXp, levelFor } from "./gamification";
+import { levelFor } from "./gamification";
 
 function list(partial: Partial<DbPublicList>): DbPublicList {
   return {
@@ -40,6 +40,19 @@ describe("parseShowcase / mergeShowcase", () => {
     });
     expect(mergeShowcase({}, { achievementKeys: [...keys, "marathoner"] })).toBeNull();
     expect(mergeShowcase({}, { achievementKeys: ["made_up"] })).toBeNull();
+  });
+
+  it("carries the XP curve marker through parse and merge, and rejects a bad one", () => {
+    expect(parseShowcase({ lifetimeXp: 85, lifetimeXpCurve: 2 })).toEqual({
+      achievementKeys: [],
+      favoriteListId: null,
+      lifetimeXp: 85,
+      lifetimeXpCurve: 2,
+    });
+    expect(parseShowcase({ lifetimeXp: 85, lifetimeXpCurve: 0 })).toBeNull();
+    expect(parseShowcase({ lifetimeXp: 85, lifetimeXpCurve: "2" })).toBeNull();
+    const merged = mergeShowcase({ lifetimeXp: 50, lifetimeXpCurve: 2 }, { achievementKeys: [] });
+    expect(merged?.lifetimeXpCurve).toBe(2);
   });
 
   it("preserves untouched fields and ratchets lifetimeXp", () => {
@@ -133,8 +146,10 @@ describe("shapePublicProfile", () => {
     // The count is films, not XP. It used to report 50 "movies ranked" for
     // someone with ten films on show.
     expect(shaped.moviesRanked).toBe(10);
-    // The level still comes from the banked total, so nothing is lost.
-    expect(shaped.level.level).toBe(levelFor(grandfatheredXp(50)).level);
+    // The level still comes from the banked total, so nothing is lost — and
+    // the banked total is read as written, not inflated through the legacy
+    // conversion (50 banked is level 5, not level 11).
+    expect(shaped.level.level).toBe(levelFor(50).level);
     expect(shaped.level.level).toBeGreaterThan(levelFor(10).level);
   });
 

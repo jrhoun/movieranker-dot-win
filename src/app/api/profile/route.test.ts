@@ -225,8 +225,9 @@ describe("PATCH /api/profile — showcase", () => {
   });
 
   it("400 when favoriteListId is not an owned public done list", async () => {
-    // user is Level 11 (50 XP), lists lookup resolves no row -> rejected at the trust boundary.
-    currentDb.row = { id: "u-1", showcase: { lifetimeXp: 50 } };
+    // 100 banked XP is level 10 under the current curve (50 would fail the pin
+    // gate first); lists lookup resolves no row -> rejected at the trust boundary.
+    currentDb.row = { id: "u-1", showcase: { lifetimeXp: 100 } };
     currentDb.rowsByTable = { lists: null };
     expect((await patchShowcase({ favoriteListId: "l-someone-elses" })).status).toBe(400);
     const body = (await (
@@ -238,19 +239,19 @@ describe("PATCH /api/profile — showcase", () => {
   it("merges a partial patch and persists the full showcase object", async () => {
     currentDb.row = {
       id: "u-1",
-      showcase: { achievementKeys: ["first_premiere"], favoriteListId: null, lifetimeXp: 50 },
+      showcase: { achievementKeys: ["first_premiere"], favoriteListId: null, lifetimeXp: 100 },
     };
     currentDb.writeResult = { data: { id: "u-1" }, error: null };
     const res = await patchShowcase({ favoriteListId: "l-mine" });
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({
-      showcase: { achievementKeys: ["first_premiere"], favoriteListId: "l-mine", lifetimeXp: 50 },
+      showcase: { achievementKeys: ["first_premiere"], favoriteListId: "l-mine", lifetimeXp: 100 },
     });
     const upd = currentDb.calls.find((c) => c.method === "rpc")!;
     expect(upd.args[0]).toBe("set_profile_showcase");
     expect(upd.args[1]).toEqual({
       p_user_id: "u-1",
-      p_showcase: { achievementKeys: ["first_premiere"], favoriteListId: "l-mine", lifetimeXp: 50 },
+      p_showcase: { achievementKeys: ["first_premiere"], favoriteListId: "l-mine", lifetimeXp: 100 },
     });
     // The showcase never goes through the session client's update().
     expect(currentDb.calls.find((c) => c.method === "update")).toBeUndefined();
@@ -285,6 +286,18 @@ describe("PATCH /api/profile — showcase", () => {
     expect(body.showcase.lifetimeXp).toBe(50);
     const upd = currentDb.calls.find((c) => c.method === "rpc")!;
     expect((upd.args[1] as { p_showcase: { lifetimeXp?: number } }).p_showcase.lifetimeXp).toBe(50);
+  });
+
+  it("strips a client-supplied lifetimeXpCurve along with lifetimeXp", async () => {
+    // Marking a forged value as legacy would run it through the old-curve
+    // conversion and inflate it; neither field is the client's to write.
+    currentDb.row = { id: "u-1", showcase: { achievementKeys: [], favoriteListId: null, lifetimeXp: 50, lifetimeXpCurve: 2 } };
+    const res = await patchShowcase({ achievementKeys: ["first_premiere"], lifetimeXp: 999, lifetimeXpCurve: 1 });
+    expect(res.status).toBe(200);
+    const upd = currentDb.calls.find((c) => c.method === "rpc")!;
+    const stored = (upd.args[1] as { p_showcase: { lifetimeXp?: number; lifetimeXpCurve?: number } }).p_showcase;
+    expect(stored.lifetimeXp).toBe(50);
+    expect(stored.lifetimeXpCurve).toBe(2);
   });
 
   it("500 with a plain-words error when no secret key is set, and writes nothing", async () => {

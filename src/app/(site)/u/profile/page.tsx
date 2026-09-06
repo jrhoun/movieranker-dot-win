@@ -27,6 +27,7 @@ import {
   unlockedAt,
   xpProgress,
   type AchievementStats,
+  XP_CURVE_VERSION,
 } from "@/lib/gamification";
 import { reconcileCareerXp, toXpLists } from "@/lib/career-xp";
 import { marqueeStanding, type ThemeCompletion } from "@/lib/marquee-standing";
@@ -203,7 +204,11 @@ export default async function MyListsPage() {
     connectionsSolved: solveCount ?? 0,
   });
   // Lifetime ratchet: deleting a list from your shelf never reduces your rank.
-  const { total: lifetimeXp } = reconcileCareerXp(breakdown, showcase.lifetimeXp);
+  const { total: lifetimeXp } = reconcileCareerXp(
+    breakdown,
+    showcase.lifetimeXp,
+    showcase.lifetimeXpCurve,
+  );
   const progress = xpProgress(lifetimeXp);
   const moviesRanked = countMoviesRanked(xpLists);
   // Marquee ordering achievements. RLS policy "anyone reads done lists" exposes
@@ -356,7 +361,9 @@ export default async function MyListsPage() {
   // is exactly how it failed silently for as long as the revoke was live
   // ahead of this code; a failure now at least reaches the server log.
   if (claimed && breakdown.total > (showcase.lifetimeXp ?? 0)) {
-    const nextShowcase = { ...showcase, lifetimeXp: breakdown.total };
+    // Marked with the curve it was earned under, so it is never mistaken for
+    // a legacy value and inflated on the way back out (see bankedCareerXp).
+    const nextShowcase = { ...showcase, lifetimeXp: breakdown.total, lifetimeXpCurve: XP_CURVE_VERSION };
     void writeProfileShowcase(auth.user.id, nextShowcase).catch((e: unknown) => {
       console.error("[profile] lifetimeXp ratchet failed:", e);
     });

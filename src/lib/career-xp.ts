@@ -9,8 +9,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  bankedCareerXp,
   calculateXpBreakdown,
-  grandfatheredXp,
   type XpBreakdown,
   type XpList,
 } from "./gamification";
@@ -47,15 +47,19 @@ export interface CareerXp {
 /**
  * Combine freshly derived XP with the stored lifetime peak.
  *
- * The ratchet exists so deleting a list never costs you rank. `bankedXp` is run
- * through `grandfatheredXp` because levels were re-priced: XP earned under the
- * old flat rule is worth whatever the current curve charges for the level it
- * bought, so the re-pricing cannot demote anyone.
+ * The ratchet exists so deleting a list never costs you rank. The banked value
+ * is priced by `bankedCareerXp`: converted from the old flat rule ONLY when it
+ * is marked as having been earned under it (see the note there — converting
+ * every banked value inflated levels for everyone).
  */
-export function reconcileCareerXp(breakdown: XpBreakdown, bankedXp: number | undefined): CareerXp {
+export function reconcileCareerXp(
+  breakdown: XpBreakdown,
+  bankedXp: number | undefined,
+  bankedCurve?: number,
+): CareerXp {
   return {
     breakdown,
-    total: Math.max(breakdown.total, grandfatheredXp(bankedXp ?? 0)),
+    total: Math.max(breakdown.total, bankedCareerXp(bankedXp, bankedCurve)),
   };
 }
 
@@ -70,6 +74,7 @@ export async function fetchCareerXp(
   supabase: SupabaseClient,
   userId: string,
   bankedXp?: number,
+  bankedCurve?: number,
 ): Promise<CareerXp> {
   const [listsResult, referralStats, solvesResult] = await Promise.all([
     supabase
@@ -101,5 +106,5 @@ export async function fetchCareerXp(
     connectionsSolved: solvesResult.count ?? 0,
   });
 
-  return reconcileCareerXp(breakdown, bankedXp);
+  return reconcileCareerXp(breakdown, bankedXp, bankedCurve);
 }

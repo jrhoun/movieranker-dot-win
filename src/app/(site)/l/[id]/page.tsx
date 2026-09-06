@@ -290,6 +290,8 @@ export default async function PublicListPage({
     ]);
     const bankedXp = (profileRow as { showcase?: { lifetimeXp?: number } } | null)?.showcase
       ?.lifetimeXp;
+    const bankedCurve = (profileRow as { showcase?: { lifetimeXpCurve?: number } } | null)?.showcase
+      ?.lifetimeXpCurve;
 
     // Marquee ordering (first to finish a theme, front row, century) is global,
     // so it needs every themed done list — the same read the profile page does.
@@ -326,7 +328,7 @@ export default async function PublicListPage({
         connectionsSolved: solveCount ?? 0,
       });
       return {
-        xp: reconcileCareerXp(breakdown, bankedXp).total,
+        xp: reconcileCareerXp(breakdown, bankedXp, bankedCurve).total,
         stats: {
           // Filtered on the mapper's own flag rather than trusting the query
           // three screens up to stay scoped to finished lists.

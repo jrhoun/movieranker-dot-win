@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { reconcileCareerXp, toXpLists, type CareerListRow } from "./career-xp";
 import {
   calculateXpBreakdown,
+  bankedCareerXp,
   grandfatheredXp,
+  LEGACY_XP_CURVE,
+  XP_CURVE_VERSION,
   levelFor,
   MAX_BASE_XP,
 } from "./gamification";
@@ -71,20 +74,35 @@ describe("reconcileCareerXp", () => {
     expect(reconcileCareerXp(breakdownOf(0), 300).total).toBeGreaterThanOrEqual(300);
   });
 
-  it("re-pricing levels does not demote anyone", () => {
+  it("re-pricing levels does not demote anyone banked under the OLD rule", () => {
     // 495 XP was Level 100 under the old flat rule. Read literally against the
-    // current curve it would be level 44.
+    // current curve it would be level 44. Only a value MARKED as legacy is
+    // converted; see the next test for why.
     const naive = levelFor(495).level;
-    const reconciled = levelFor(reconcileCareerXp(breakdownOf(0), 495).total).level;
+    const reconciled = levelFor(reconcileCareerXp(breakdownOf(0), 495, LEGACY_XP_CURVE).total).level;
     expect(naive).toBeLessThan(100);
     expect(reconciled).toBe(100);
   });
 
-  it("holds for every banked value under the old ceiling", () => {
+  it("holds for every legacy banked value under the old ceiling", () => {
     for (let banked = 0; banked <= 495; banked += 5) {
       const oldLevel = Math.min(100, Math.floor(banked / 5) + 1);
-      expect(levelFor(reconcileCareerXp(breakdownOf(0), banked).total).level).toBe(oldLevel);
+      expect(
+        levelFor(reconcileCareerXp(breakdownOf(0), banked, LEGACY_XP_CURVE).total).level,
+      ).toBe(oldLevel);
     }
+  });
+
+  it("a value banked under the current curve is worth exactly itself", () => {
+    // THE BUG: the ratchet banks current-curve totals, and running those through
+    // the legacy conversion inflated them — 85 became 194 (level 9 shown as 18),
+    // 17 became 30 (level 2 shown as 4). Marked current, or unmarked (nothing
+    // legacy was ever banked), the value is read as written.
+    expect(reconcileCareerXp(breakdownOf(0), 85, XP_CURVE_VERSION).total).toBe(85);
+    expect(reconcileCareerXp(breakdownOf(0), 85, undefined).total).toBe(85);
+    expect(levelFor(reconcileCareerXp(breakdownOf(0), 85).total).level).toBe(levelFor(85).level);
+    expect(reconcileCareerXp(breakdownOf(0), 17).total).toBe(17);
+    expect(bankedCareerXp(85, LEGACY_XP_CURVE)).toBeGreaterThan(85);
   });
 
   it("treats a missing banked value as nothing owed", () => {

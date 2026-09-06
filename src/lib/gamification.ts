@@ -117,6 +117,38 @@ export function grandfatheredXp(bankedXp: number): number {
   return Math.max(safe, xpForLevel(legacyLevel));
 }
 
+/**
+ * Which pricing a banked `lifetimeXp` was earned under. Stored beside it as
+ * `showcase.lifetimeXpCurve` so a future re-pricing can convert exactly the
+ * values that need converting and nothing else.
+ */
+export const LEGACY_XP_CURVE = 1;
+export const XP_CURVE_VERSION = 2;
+
+/**
+ * The banked peak as the current curve prices it.
+ *
+ * THE BUG THIS FIXES. `reconcileCareerXp` ran EVERY banked value through
+ * `grandfatheredXp`, which assumes the value was earned under the flat
+ * 5-XP-a-level rule. But the ratchet on /u/profile banks the CURRENT curve's
+ * total, so each visit re-read a new-curve number as a legacy one and inflated
+ * it: 17 XP banked became 30 (level 2 shown as level 4), 85 became 194 (level 9
+ * shown as "Film Buff, level 18"). Two profiles existed when this was found and
+ * both were affected.
+ *
+ * WHY AN UNMARKED VALUE IS A CURRENT-CURVE VALUE. Grandfathering and the
+ * ratchet shipped in the same day (2026-08-29), the first profile dates from
+ * 2026-08-26, and every banked value at the time of this fix was verifiably a
+ * new-curve total — no legacy value was ever banked. So the conversion applies
+ * only to a value explicitly marked LEGACY_XP_CURVE, which nothing has written
+ * yet; the constant is kept so the promise ("re-pricing never demotes anyone")
+ * can still be honoured the next time the curve changes.
+ */
+export function bankedCareerXp(bankedXp: number | undefined, bankedCurve?: number): number {
+  const safe = Math.max(0, Math.floor(bankedXp ?? 0));
+  return bankedCurve === LEGACY_XP_CURVE ? grandfatheredXp(safe) : safe;
+}
+
 // ---------------------------------------------------------------------------
 // Unlocks
 // ---------------------------------------------------------------------------

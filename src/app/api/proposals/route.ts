@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { dbErrorResponse, invalid } from "@/lib/lists-api";
 import { parseProposal } from "@/lib/proposals-api";
 import {
-  grandfatheredXp,
+  bankedCareerXp,
   levelFor,
   MIN_PROPOSAL_LEVEL,
   rankForLevel,
@@ -31,19 +31,23 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   let bankedXp = 0;
+  let bankedCurve: number | undefined;
   if (profile?.showcase && typeof profile.showcase === "object") {
     const sc = profile.showcase as Record<string, unknown>;
     if (typeof sc.lifetimeXp === "number") {
       bankedXp = sc.lifetimeXp;
+    }
+    if (typeof sc.lifetimeXpCurve === "number") {
+      bankedCurve = sc.lifetimeXpCurve;
     }
   }
 
   // The banked peak is a floor, so if it already clears the gate there is
   // nothing to look up. Only someone who has not yet qualified on record pays
   // for the full derivation, which agrees with the level the profile shows.
-  let lifetimeXp = grandfatheredXp(bankedXp);
+  let lifetimeXp = bankedCareerXp(bankedXp, bankedCurve);
   if (levelFor(lifetimeXp).level < MIN_PROPOSAL_LEVEL) {
-    lifetimeXp = (await fetchCareerXp(supabase, data.user.id, bankedXp)).total;
+    lifetimeXp = (await fetchCareerXp(supabase, data.user.id, bankedXp, bankedCurve)).total;
   }
   const userLevel = levelFor(lifetimeXp).level;
   if (userLevel < MIN_PROPOSAL_LEVEL) {
