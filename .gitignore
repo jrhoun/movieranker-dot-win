@@ -53,3 +53,6 @@ worktrees/
 # Generated OG card previews (og-card.test.ts writes these for visual review)
 .og-preview/
 .superpowers/brainstorm/
+
+# Multi-agent orchestration scratch (briefings, handoffs, progress logs)
+.agents/
