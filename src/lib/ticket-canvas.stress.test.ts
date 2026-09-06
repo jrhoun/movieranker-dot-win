@@ -1,14 +1,20 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi, type Mock } from "vitest";
 import {
-  copyPremierePassToClipboard,
-  downloadPremierePass,
-  drawBarcode,
-  exportPremierePassBlob,
   formatTicketDate,
   generatePremierePassCanvas,
   generateTicketSerialNumber,
-  type TicketRenderOptions,
 } from "./ticket-canvas";
+
+/**
+ * Minimal shape for the `document` global these tests monkey-patch onto
+ * globalThis. Node's test environment has no real DOM, so canvas generation
+ * is exercised against this stand-in rather than jsdom. Typed narrowly to
+ * what the code under test actually touches, so assignments don't need
+ * `as any`.
+ */
+type MockDocument = {
+  createElement: Mock<(tag: string) => unknown>;
+};
 
 function createMockContext() {
   return {
@@ -57,7 +63,7 @@ describe("ticket-canvas.ts Stress & Edge Case Testing", () => {
   test("handles empty items array gracefully without crash", async () => {
     const mockCtx = createMockContext();
     const mockCanvas = createMockCanvas(mockCtx);
-    (globalThis as any).document = {
+    (globalThis as unknown as { document: MockDocument }).document = {
       createElement: vi.fn().mockImplementation((tag: string) => (tag === "canvas" ? mockCanvas : {})),
     };
 
@@ -73,7 +79,7 @@ describe("ticket-canvas.ts Stress & Edge Case Testing", () => {
   test("handles massive title and movie title strings (5,000 characters)", async () => {
     const mockCtx = createMockContext();
     const mockCanvas = createMockCanvas(mockCtx);
-    (globalThis as any).document = {
+    (globalThis as unknown as { document: MockDocument }).document = {
       createElement: vi.fn().mockImplementation((tag: string) => (tag === "canvas" ? mockCanvas : {})),
     };
 
@@ -111,7 +117,7 @@ describe("ticket-canvas.ts Stress & Edge Case Testing", () => {
   test("100 concurrent canvas generation calls execute without conflict", async () => {
     const mockCtx = createMockContext();
     const mockCanvas = createMockCanvas(mockCtx);
-    (globalThis as any).document = {
+    (globalThis as unknown as { document: MockDocument }).document = {
       createElement: vi.fn().mockImplementation((tag: string) => (tag === "canvas" ? mockCanvas : {})),
     };
 

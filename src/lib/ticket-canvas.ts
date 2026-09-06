@@ -103,6 +103,38 @@ function roundRect(
 }
 
 /**
+ * Deterministically derive a sequence of vintage-barcode bar widths from a
+ * seed string, so the same ticket (same title/date/serial) always renders the
+ * same-looking barcode instead of the barcode being pure decoration.
+ *
+ * Uses a tiny string hash to seed a mulberry32 PRNG. Both are hand-rolled
+ * rather than pulled from a library (no new dependency), and neither needs to
+ * be cryptographically strong — this only has to be stable per input, not
+ * unpredictable.
+ */
+function seededBarWidths(seedStr: string, count = 32): number[] {
+  let hash = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    hash = (hash << 5) - hash + seedStr.charCodeAt(i);
+    hash |= 0;
+  }
+  // mulberry32 wants a non-zero 32-bit state; an empty/all-zero hash would
+  // otherwise collapse into a degenerate all-1-width barcode.
+  let state = (hash >>> 0) || 0x9e3779b9;
+
+  const bars: number[] = [];
+  for (let i = 0; i < count; i++) {
+    state |= 0;
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    const rand = ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    bars.push(1 + Math.floor(rand * 4)); // bar width unit: 1-4, matching the original fixed pattern's range
+  }
+  return bars;
+}
+
+/**
  * Procedurally draw 1D vintage cinema barcode
  */
 export function drawBarcode(
@@ -113,7 +145,7 @@ export function drawBarcode(
   height: number,
   seedStr: string,
 ) {
-  const bars = [2, 1, 3, 1, 2, 4, 1, 2, 1, 3, 2, 1, 4, 2, 1, 3, 1, 2, 4, 1, 3, 2, 1, 2, 3, 1, 4, 2, 1, 3, 2, 1];
+  const bars = seededBarWidths(seedStr);
   let curX = x;
   const totalWeight = bars.reduce((a, b) => a + b, 0);
   const unit = width / totalWeight;

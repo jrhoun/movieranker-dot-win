@@ -1,4 +1,4 @@
-import { describe, expect, test, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, test, vi, type Mock } from "vitest";
 import {
   copyPremierePassToClipboard,
   downloadPremierePass,
@@ -10,6 +10,34 @@ import {
   loadTicketImage,
   type TicketRenderOptions,
 } from "./ticket-canvas";
+
+/**
+ * Minimal shapes for the DOM/BOM globals these tests monkey-patch onto
+ * globalThis (document, URL, ClipboardItem). Node's test environment has no
+ * real DOM, so canvas/export code paths are exercised against these stand-ins
+ * rather than jsdom. Typed narrowly to what the code under test actually
+ * touches, so assignments don't need `as any`.
+ */
+type MockAnchor = {
+  href: string;
+  download: string;
+  click: Mock;
+};
+
+type MockDocument = {
+  createElement: Mock<(tag: string) => unknown>;
+  body?: {
+    appendChild: Mock;
+    removeChild: Mock;
+  };
+};
+
+type MockUrlStatic = {
+  createObjectURL: Mock<(blob: Blob) => string>;
+  revokeObjectURL: Mock<(url: string) => void>;
+};
+
+type MockClipboardItemCtor = new (data: Record<string, Blob>) => { data: Record<string, Blob> };
 
 describe("generateTicketSerialNumber", () => {
   test("generates deterministic serial numbers matching format", () => {
@@ -57,6 +85,58 @@ describe("drawBarcode", () => {
     expect(save).toHaveBeenCalled();
     expect(restore).toHaveBeenCalled();
     expect(fillRect.mock.calls.length).toBeGreaterThan(10);
+  });
+
+  // Regression test: drawBarcode used to accept a `seedStr` parameter and
+  // never read it, so every ticket rendered an identical hardcoded bar
+  // pattern regardless of input. Seeding is now real — same seed must
+  // produce the same bars, and different seeds should (almost always)
+  // produce different bars, so the "random" texture is actually
+  // deterministic per list rather than universally the same image.
+  test("produces identical bar output for the same seed string", () => {
+    const fillRectA = vi.fn();
+    const ctxA = {
+      fillRect: fillRectA,
+      save: vi.fn(),
+      restore: vi.fn(),
+      fillStyle: "",
+    } as unknown as CanvasRenderingContext2D;
+
+    const fillRectB = vi.fn();
+    const ctxB = {
+      fillRect: fillRectB,
+      save: vi.fn(),
+      restore: vi.fn(),
+      fillStyle: "",
+    } as unknown as CanvasRenderingContext2D;
+
+    drawBarcode(ctxA, 100, 100, 200, 80, "№ MR-12345");
+    drawBarcode(ctxB, 100, 100, 200, 80, "№ MR-12345");
+
+    expect(fillRectA.mock.calls).toEqual(fillRectB.mock.calls);
+  });
+
+  test("produces different bar output for different seed strings", () => {
+    const fillRectA = vi.fn();
+    const ctxA = {
+      fillRect: fillRectA,
+      save: vi.fn(),
+      restore: vi.fn(),
+      fillStyle: "",
+    } as unknown as CanvasRenderingContext2D;
+
+    const fillRectB = vi.fn();
+    const ctxB = {
+      fillRect: fillRectB,
+      save: vi.fn(),
+      restore: vi.fn(),
+      fillStyle: "",
+    } as unknown as CanvasRenderingContext2D;
+
+    drawBarcode(ctxA, 100, 100, 200, 80, "№ MR-12345");
+    drawBarcode(ctxB, 100, 100, 200, 80, "№ MR-99999");
+
+    expect(fillRectA.mock.calls).not.toEqual(fillRectB.mock.calls);
   });
 });
 
@@ -115,7 +195,7 @@ describe("generatePremierePassCanvas", () => {
     const mockCtx = createMockContext();
     const mockCanvas = createMockCanvas(mockCtx);
 
-    (globalThis as any).document = {
+    (globalThis as unknown as { document: MockDocument }).document = {
       createElement: vi.fn().mockImplementation((tag: string) => {
         if (tag === "canvas") return mockCanvas;
         return {};
@@ -152,7 +232,7 @@ describe("exportPremierePassBlob", () => {
     const mockCtx = createMockContext();
     const mockCanvas = createMockCanvas(mockCtx, fakeBlob);
 
-    (globalThis as any).document = {
+    (globalThis as unknown as { document: MockDocument }).document = {
       createElement: vi.fn().mockImplementation((tag: string) => {
         if (tag === "canvas") return mockCanvas;
         return {};
@@ -183,10 +263,10 @@ describe("copyPremierePassToClipboard", () => {
       writable: true,
       configurable: true,
     });
-    (globalThis as any).ClipboardItem = class ClipboardItem {
-      constructor(public data: any) {}
+    (globalThis as unknown as { ClipboardItem: MockClipboardItemCtor }).ClipboardItem = class ClipboardItem {
+      constructor(public data: Record<string, Blob>) {}
     };
-    (globalThis as any).document = {
+    (globalThis as unknown as { document: MockDocument }).document = {
       createElement: vi.fn().mockImplementation((tag: string) => {
         if (tag === "canvas") return mockCanvas;
         return {};
@@ -207,7 +287,7 @@ describe("copyPremierePassToClipboard", () => {
       writable: true,
       configurable: true,
     });
-    (globalThis as any).ClipboardItem = undefined;
+    (globalThis as unknown as { ClipboardItem?: MockClipboardItemCtor }).ClipboardItem = undefined;
 
     const success = await copyPremierePassToClipboard({
       title: "Test List",
@@ -224,7 +304,7 @@ describe("downloadPremierePass", () => {
     const mockCanvas = createMockCanvas(mockCtx, fakeBlob);
 
     const clickFn = vi.fn();
-    const mockAnchor = {
+    const mockAnchor: MockAnchor = {
       href: "",
       download: "",
       click: clickFn,
@@ -232,12 +312,12 @@ describe("downloadPremierePass", () => {
     const appendChild = vi.fn();
     const removeChild = vi.fn();
 
-    (globalThis as any).URL = {
+    (globalThis as unknown as { URL: MockUrlStatic }).URL = {
       createObjectURL: vi.fn().mockReturnValue("blob:http://localhost/fake-blob-url"),
       revokeObjectURL: vi.fn(),
     };
 
-    (globalThis as any).document = {
+    (globalThis as unknown as { document: MockDocument }).document = {
       createElement: vi.fn().mockImplementation((tag: string) => {
         if (tag === "canvas") return mockCanvas;
         if (tag === "a") return mockAnchor;

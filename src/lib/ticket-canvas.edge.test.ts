@@ -1,14 +1,8 @@
-import { describe, expect, test, vi, beforeEach } from "vitest";
+import { describe, expect, test, vi, beforeEach, type Mock } from "vitest";
 import {
   copyPremierePassToClipboard,
   downloadPremierePass,
-  drawBarcode,
-  exportPremierePassBlob,
-  formatTicketDate,
   generatePremierePassCanvas,
-  generateTicketSerialNumber,
-  loadTicketImage,
-  type TicketMovieItem,
   type TicketRenderOptions,
 } from "./ticket-canvas";
 import {
@@ -18,6 +12,34 @@ import {
   type VersusEntry,
   type SharedMovie,
 } from "./versus";
+
+/**
+ * Minimal shapes for the DOM/BOM globals these tests monkey-patch onto
+ * globalThis (document, URL, ClipboardItem). Node's test environment has no
+ * real DOM, so canvas/export code paths are exercised against these stand-ins
+ * rather than jsdom. Typed narrowly to what the code under test actually
+ * touches, so assignments don't need `as any`.
+ */
+type MockAnchor = {
+  href: string;
+  download: string;
+  click: Mock;
+};
+
+type MockDocument = {
+  createElement: Mock<(tag: string) => unknown>;
+  body?: {
+    appendChild: Mock;
+    removeChild: Mock;
+  };
+};
+
+type MockUrlStatic = {
+  createObjectURL: Mock<(blob: Blob) => string>;
+  revokeObjectURL: Mock<(url: string) => void>;
+};
+
+type MockClipboardItemCtor = new (data: Record<string, Blob>) => { data: Record<string, Blob> };
 
 function createMockContext() {
   return {
@@ -70,7 +92,7 @@ describe("Empirical Stress Tests: Ticket Canvas & Export Fallbacks", () => {
     mockCtx = createMockContext();
     mockCanvas = createMockCanvas(mockCtx);
 
-    (globalThis as any).document = {
+    (globalThis as unknown as { document: MockDocument }).document = {
       createElement: vi.fn().mockImplementation((tag: string) => {
         if (tag === "canvas") return mockCanvas;
         if (tag === "a") {
@@ -88,7 +110,7 @@ describe("Empirical Stress Tests: Ticket Canvas & Export Fallbacks", () => {
       },
     };
 
-    (globalThis as any).URL = {
+    (globalThis as unknown as { URL: MockUrlStatic }).URL = {
       createObjectURL: vi.fn().mockReturnValue("blob:mock-url"),
       revokeObjectURL: vi.fn(),
     };
@@ -161,7 +183,7 @@ describe("Empirical Stress Tests: Ticket Canvas & Export Fallbacks", () => {
       };
 
       // Mock measureText to simulate wide text that requires truncation
-      (mockCtx.measureText as any).mockImplementation((text: string) => ({
+      (mockCtx.measureText as unknown as Mock).mockImplementation((text: string) => ({
         width: text.length * 15,
       }));
 
@@ -239,8 +261,8 @@ describe("Empirical Stress Tests: Ticket Canvas & Export Fallbacks", () => {
         configurable: true,
       });
 
-      (globalThis as any).ClipboardItem = class ClipboardItem {
-        constructor(public data: any) {}
+      (globalThis as unknown as { ClipboardItem: MockClipboardItemCtor }).ClipboardItem = class ClipboardItem {
+        constructor(public data: Record<string, Blob>) {}
       };
 
       const result = await copyPremierePassToClipboard({
@@ -261,7 +283,7 @@ describe("Empirical Stress Tests: Ticket Canvas & Export Fallbacks", () => {
         writable: true,
         configurable: true,
       });
-      (globalThis as any).ClipboardItem = undefined;
+      (globalThis as unknown as { ClipboardItem?: MockClipboardItemCtor }).ClipboardItem = undefined;
 
       const result = await copyPremierePassToClipboard({
         title: "No ClipboardItem Test",
@@ -274,9 +296,9 @@ describe("Empirical Stress Tests: Ticket Canvas & Export Fallbacks", () => {
     test("downloadPremierePass sanitizes exotic title characters in downloaded filename", async () => {
       const appendChild = vi.fn();
       const removeChild = vi.fn();
-      let capturedAnchor: any = null;
+      let capturedAnchor: MockAnchor | null = null;
 
-      (globalThis as any).document = {
+      (globalThis as unknown as { document: MockDocument }).document = {
         createElement: vi.fn().mockImplementation((tag: string) => {
           if (tag === "canvas") return mockCanvas;
           if (tag === "a") {
@@ -298,8 +320,11 @@ describe("Empirical Stress Tests: Ticket Canvas & Export Fallbacks", () => {
       });
 
       expect(capturedAnchor).toBeDefined();
-      expect(capturedAnchor.download).toBe("premiere-pass-top-10-sci-fi-cyberpunk-1990s-2000s.png");
-      expect(capturedAnchor.click).toHaveBeenCalled();
+      // Non-null assertion: capturedAnchor is set synchronously inside the
+      // document.createElement("a") mock above, which downloadPremierePass
+      // always calls before this point — the preceding assertion confirms it.
+      expect(capturedAnchor!.download).toBe("premiere-pass-top-10-sci-fi-cyberpunk-1990s-2000s.png");
+      expect(capturedAnchor!.click).toHaveBeenCalled();
     });
   });
 });
