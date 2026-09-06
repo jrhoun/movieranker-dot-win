@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { invalid } from "@/lib/lists-api";
 import { checkHandle } from "@/lib/handles";
+import { ShowcaseWriteError, writeProfileShowcase } from "@/lib/profile-showcase-write";
 import { mergeShowcase, type ProfileShowcase } from "@/lib/public-profile";
 import {
   CONNECTION_SOLVE_XP,
@@ -159,7 +160,7 @@ export async function PATCH(request: Request) {
 
     // lifetimeXp is server-derived and ratcheted only by the profile page's
     // own server component (src/app/(site)/u/profile/page.tsx), which writes
-    // it via a direct Supabase update that bypasses this API entirely.
+    // it through writeProfileShowcase, bypassing this API entirely.
     // mergeShowcase itself still accepts a lifetimeXp patch (that ratchet is
     // its own tested contract), so it must never see whatever a client sent
     // here — otherwise a single PATCH could inflate lifetimeXp arbitrarily,
@@ -397,16 +398,45 @@ export async function PATCH(request: Request) {
   if (!("visibility" in update) && !("showcase" in update))
     return invalid("nothing to update");
 
-  // Update-only: a profiles row exists only once a handle is claimed.
-  const { data, error } = await supabase
-    .from("profiles")
-    .update(update)
-    .eq("id", auth.user.id)
-    .select("id")
-    .maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!data)
-    return NextResponse.json({ error: "claim a handle first" }, { status: 409 });
+  // TWO WRITE PATHS, on purpose. `profiles.showcase` is server-only: the
+  // client role's UPDATE on the column is revoked (see
+  // supabase/migrations/20260904_showcase_server_writes.sql) and the only way
+  // to write it is the service-role RPC behind writeProfileShowcase. The
+  // session client still holds UPDATE on `visibility`, so that keeps going
+  // through RLS as before. A single `.update({ visibility, showcase })` on the
+  // session client — what this used to be — now fails wholesale with 42501
+  // the moment `showcase` is present, which is how the Customise modal broke
+  // when the migration landed ahead of this code.
+  if (update.showcase) {
+    try {
+      await writeProfileShowcase(auth.user.id, update.showcase as ProfileShowcase);
+    } catch (e) {
+      if (e instanceof ShowcaseWriteError && e.kind === "no_profile")
+        return NextResponse.json({ error: "claim a handle first" }, { status: 409 });
+      console.error("[profile] showcase write failed:", e);
+      return NextResponse.json(
+        {
+          error:
+            e instanceof ShowcaseWriteError && e.kind === "no_service_key"
+              ? "profile saving is not configured on this server (SUPABASE_SECRET_KEY)"
+              : "could not save your profile",
+        },
+        { status: 500 },
+      );
+    }
+  }
+  if (update.visibility) {
+    // Update-only: a profiles row exists only once a handle is claimed.
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({ visibility: update.visibility })
+      .eq("id", auth.user.id)
+      .select("id")
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!data)
+      return NextResponse.json({ error: "claim a handle first" }, { status: 409 });
+  }
 
   return NextResponse.json({
     ...(body.visibility !== undefined ? { visibility: body.visibility as string } : {}),

@@ -12,6 +12,7 @@ import ShowcaseLists from "@/components/profile/ShowcaseLists";
 import type { ListRowData } from "@/components/profile/ListRow";
 import { maskListTitle } from "@/lib/marquee-title";
 import { chipParticipants } from "@/lib/participants";
+import { writeProfileShowcase } from "@/lib/profile-showcase-write";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getReferralStats } from "@/lib/referrals";
 import {
@@ -313,13 +314,17 @@ export default async function MyListsPage() {
   }
   const avatarFilms = [...avatarFilmsById.values()].slice(0, AVATAR_FILM_CAP);
 
-  // Background ratchet: lock in new peak XP so deleting lists later never loses rank
+  // Background ratchet: lock in new peak XP so deleting lists later never
+  // loses rank. Goes through the service-role RPC — `profiles.showcase` is no
+  // longer writable by the user's own session (see writeProfileShowcase). It
+  // used to be a floating `void supabase.from("profiles").update(...)`, which
+  // is exactly how it failed silently for as long as the revoke was live
+  // ahead of this code; a failure now at least reaches the server log.
   if (claimed && breakdown.total > (showcase.lifetimeXp ?? 0)) {
     const nextShowcase = { ...showcase, lifetimeXp: breakdown.total };
-    void supabase
-      .from("profiles")
-      .update({ showcase: nextShowcase })
-      .eq("id", auth.user.id);
+    void writeProfileShowcase(auth.user.id, nextShowcase).catch((e: unknown) => {
+      console.error("[profile] lifetimeXp ratchet failed:", e);
+    });
   }
   return (
     <main className="mx-auto w-full max-w-page flex-1 px-4 py-8 sm:px-6 lg:px-8">
