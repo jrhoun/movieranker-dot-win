@@ -276,6 +276,9 @@ export default async function PublicProfilePage({
     coCuratedLists: cards.filter((c) => (c.chips?.length ?? 0) > 0).length,
     marqueeWeeks: finishedThemeCount,
     marqueeConnectionsSolved: solveCount ?? 0,
+    publicDoneLists: cards.length,
+    hasHandle: Boolean(profile.handle),
+    isSignedIn: true,
     ...standing,
   };
   const evaluated = evaluateAchievements(achievementStats);

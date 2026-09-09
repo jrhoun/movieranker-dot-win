@@ -188,6 +188,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   const [sharpening, setSharpening] = useState(false);
   const [finished, setFinished] = useState(false);
   const [sheetStatus, setSheetStatus] = useState<"done" | "draft" | null>(null);
+  const [submitToSpotlight, setSubmitToSpotlight] = useState(false);
   const [authNotice, setAuthNotice] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
   const exitTriggerRef = useRef<HTMLButtonElement>(null);
@@ -287,10 +288,17 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         }
         // OAuth conversion: only auto-save if returning from an explicit OAuth sign-in redirect
         let pendingSave: "done" | "draft" | null = null;
+        let pendingSpotlight = false;
         try {
           pendingSave = sessionStorage.getItem("mr_pending_auth_save") as "done" | "draft" | null;
           if (pendingSave) sessionStorage.removeItem("mr_pending_auth_save");
+          pendingSpotlight = sessionStorage.getItem("mr_pending_auth_spotlight") === "1";
+          if (pendingSpotlight) sessionStorage.removeItem("mr_pending_auth_spotlight");
         } catch {}
+
+        if (pendingSpotlight) {
+          setSubmitToSpotlight(true);
+        }
 
         if (signed && !initial && pendingSave) {
           const s = loadSession();
@@ -520,8 +528,14 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     setSavingDirectly(true);
     setSavingStatus(status);
     const ranks = new Map(finalizeRanks(session.movies).map((r) => [r.tmdbId, r.rank]));
+    const visibility: "public" | "unlisted" = session.themeSlug
+      ? "public"
+      : status === "done" && submitToSpotlight
+        ? "public"
+        : "unlisted";
     const payload = {
       status,
+      visibility,
       movies: session.movies.map((m) => ({
         ...m,
         finalRank: status === "done" ? (ranks.get(m.tmdbId) ?? null) : null,
@@ -543,7 +557,6 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
                   ? {
                       themeSlug: session.themeSlug,
                       curated: !!session.curated,
-                      visibility: "public",
                     }
                   : {}),
               },
@@ -557,6 +570,10 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
       }
 
       const id = initial?.id ?? ((await res.json()) as { id: string }).id;
+      try {
+        sessionStorage.removeItem("mr_pending_auth_save");
+        sessionStorage.removeItem("mr_pending_auth_spotlight");
+      } catch {}
       clearSession();
       // ?finished=1 tells the list page this viewer just completed the ranking,
       // which is what triggers the marquee bonus-round modal. A plain visit to
@@ -1265,6 +1282,22 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           </div>
 
           <div className="relative flex flex-col items-center gap-2">
+            {!session.themeSlug && (
+              <label
+                htmlFor="play-room-spotlight-opt-in"
+                className="mb-1 flex items-center gap-2.5 cursor-pointer select-none rounded-lg px-2 py-1.5 text-xs sm:text-sm text-text transition-colors hover:bg-white/5"
+              >
+                <input
+                  type="checkbox"
+                  id="play-room-spotlight-opt-in"
+                  name="submitToSpotlight"
+                  checked={submitToSpotlight}
+                  onChange={(e) => setSubmitToSpotlight(e.target.checked)}
+                  className="size-4 rounded border-white/20 bg-surface-raised accent-gold cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                />
+                <span>Submit to Community Spotlight</span>
+              </label>
+            )}
             <button
               type="button"
               onClick={() => void handleDirectSave("done")}
@@ -1284,9 +1317,11 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
             <p className="mt-1 max-w-xs text-center text-xs text-muted">
               {session.themeSlug
                 ? "✦ Weekly Marquee rankings are public by default to power community stats."
-                : signedIn
-                  ? "Saves directly to your profile & lists."
-                  : "Your ranking lives in this browser until you save it."}
+                : submitToSpotlight
+                  ? "✦ Will appear in Community Spotlight on the home page."
+                  : signedIn
+                    ? "Saves unlisted to your profile & lists."
+                    : "Your ranking lives in this browser until you save it."}
             </p>
           </div>
           <button
@@ -1378,7 +1413,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
       ) : pair ? (
         /* Low-intensity curtain wash (user feedback): burgundy drape vocabulary
            behind the vote stage, dimmer than the home hero so posters pop. */
-        <section className="bg-curtain-soft relative flex flex-1 flex-col px-3 pb-2 pt-1 sm:px-6">
+        <section className="bg-curtain-soft transition-all duration-500 relative flex flex-1 flex-col px-3 pb-2 pt-1 sm:px-6">
           {/* Mini marquee board: one trusted "X of ~Y votes" number in Bebas
               gold between thin gold rules; close calls demoted to a chip. */}
           <div className={`mini-marquee-board mt-3 mb-6 sm:mb-8 w-full max-w-5xl mx-auto rounded-xl bg-surface/85 px-4 py-3.5 ring-1 ring-white/10 shadow-lg backdrop-blur-sm transition-opacity duration-300 ${lightsDown ? "cinema-peripheral" : ""}`}>
@@ -1474,6 +1509,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           session={session}
           status={sheetStatus}
           existingId={initial?.id}
+          initialSubmitToSpotlight={submitToSpotlight}
           // Reset the redirect latch too: if OAuth failed in place (auth_error
           // + sheet closed, no navigation) the latch would stay set forever,
           // permanently disarming the leave-warning.

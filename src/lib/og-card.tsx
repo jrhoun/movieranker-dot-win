@@ -506,6 +506,10 @@ export const FRAME_STYLE: Record<string, React.CSSProperties> = {
     background: "linear-gradient(135deg,#ff3ba7,#f5c518,#7cff4d,#22e0ff,#9b5cff)",
     boxShadow: "0 0 16px 2px rgba(155,92,255,0.45)",
   },
+  "frame.beta": {
+    backgroundColor: "#12131a",
+    boxShadow: "0 0 0 2px #f5c518, 0 0 16px 3px rgba(245,197,24,0.45)",
+  },
 
   /* ILLUSTRATED FRAMES. Ten of the catalogue's frames are inline SVG drawn by
      src/components/profile/FrameArt.tsx — a brass plate with rivets, a laurel,

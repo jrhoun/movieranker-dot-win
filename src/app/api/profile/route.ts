@@ -195,7 +195,7 @@ export async function PATCH(request: Request) {
     // Current stored value first so a partial patch preserves the other field.
     const { data: row } = await supabase
       .from("profiles")
-      .select("id,showcase")
+      .select("id,handle,showcase")
       .eq("id", auth.user.id)
       .maybeSingle();
     if (!row)
@@ -221,7 +221,7 @@ export async function PATCH(request: Request) {
       // across identical requests.
       const { data: doneRowsData } = await supabase
         .from("lists")
-        .select("theme_slug,status,participants,created_at,list_movies(tmdb_id,poster_path)")
+        .select("theme_slug,status,participants,created_at,visibility,list_movies(tmdb_id,poster_path)")
         .eq("owner_id", auth.user.id)
         .eq("status", "done")
         .order("created_at", { ascending: true });
@@ -229,6 +229,7 @@ export async function PATCH(request: Request) {
       const doneRows = (doneRowsData ?? []) as {
         theme_slug?: string | null;
         participants?: unknown;
+        visibility?: string | null;
         list_movies?: { tmdb_id: number; poster_path: string | null }[];
       }[];
 
@@ -303,6 +304,8 @@ export async function PATCH(request: Request) {
       // full-access stats (never RLS-limited the way a *reader* of
       // /u/[handle] would be), which is exactly why the resolved text is
       // computed and stored here rather than left for a page to re-derive.
+      const publicDoneLists = doneRows.filter((r) => r.visibility === "public").length;
+      const hasHandle = Boolean((row as { handle?: string | null }).handle);
       const achievementStats: AchievementStats = {
         doneLists: doneRows.length,
         moviesRanked,
@@ -312,6 +315,9 @@ export async function PATCH(request: Request) {
         // Recovered from the already-computed XP breakdown rather than a
         // fresh query: connections XP is solve count * CONNECTION_SOLVE_XP.
         marqueeConnectionsSolved: breakdown.connections / CONNECTION_SOLVE_XP,
+        publicDoneLists,
+        hasHandle,
+        isSignedIn: true,
         ...standing,
       };
       // The FULL post-merge claim set, matching what mergeShowcase will store.

@@ -15,6 +15,7 @@ export const LIMITS = {
   // real one-attempt cap; this only blunts scripted hammering.
   marqueeSolve: { limit: 10, windowMs: 60_000 }, // POST /api/marquee-solve
   upvote: { limit: 30, windowMs: 60_000 }, // POST /api/lists/[id]/upvote
+  feedback: { limit: 5, windowMs: 600_000 }, // POST /api/feedback (5 submissions per 10 minutes)
 } as const;
 
 const buckets = new Map<string, number[]>();
@@ -63,9 +64,15 @@ export async function rateKey(
 }
 
 /** Shared 429 response with Retry-After header. */
-export function tooManyRequests(retryAfterSeconds: number): Response {
-  return Response.json({ error: "too many requests" }, {
-    status: 429,
-    headers: { "Retry-After": String(retryAfterSeconds) },
-  });
+export function tooManyRequests(
+  retryAfterSeconds: number,
+  message = "too many requests",
+): Response {
+  return Response.json(
+    { error: message },
+    {
+      status: 429,
+      headers: { "Retry-After": String(retryAfterSeconds) },
+    },
+  );
 }

@@ -205,6 +205,112 @@ function TaglineRows({
 }
 
 /**
+ * A collapsible accordion panel for long category sections (such as Avatars
+ * and Taglines). Provides clear disclosure markup, item count badges, and
+ * highlight for currently equipped selections.
+ */
+function CollapsibleSection({
+  id,
+  title,
+  badge,
+  hasSelected,
+  isOpen,
+  onToggle,
+  children,
+}: {
+  id: string;
+  title: string;
+  badge?: string;
+  hasSelected?: boolean;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
+      <button
+        type="button"
+        id={`header-${id}`}
+        aria-expanded={isOpen}
+        aria-controls={`panel-${id}`}
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left transition-colors duration-150 hover:bg-white/[0.04] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+      >
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="font-display text-base uppercase tracking-[0.1em] text-text">
+            {title}
+          </span>
+          {badge && (
+            <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs text-text/70">
+              {badge}
+            </span>
+          )}
+          {hasSelected && (
+            <span className="rounded-full bg-gold/15 px-2.5 py-0.5 text-xs font-semibold text-gold">
+              Equipped
+            </span>
+          )}
+        </div>
+        <svg
+          aria-hidden="true"
+          className={`h-4 w-4 shrink-0 text-gold transition-transform duration-200 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2.5}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      <div
+        id={`panel-${id}`}
+        role="region"
+        aria-labelledby={`header-${id}`}
+        className={`px-4 pb-5 pt-1 ${isOpen ? "block" : "hidden"}`}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Controls to expand or collapse all categories in a long section at once. */
+function AccordionControls({
+  label,
+  onExpandAll,
+  onCollapseAll,
+}: {
+  label: string;
+  onExpandAll: () => void;
+  onCollapseAll: () => void;
+}) {
+  return (
+    <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-3">
+      <span className="text-xs uppercase tracking-wider text-muted">{label}</span>
+      <div className="flex items-center gap-3 text-xs uppercase tracking-wider">
+        <button
+          type="button"
+          onClick={onExpandAll}
+          className="text-gold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-gold"
+        >
+          Expand all
+        </button>
+        <span className="text-white/20">|</span>
+        <button
+          type="button"
+          onClick={onCollapseAll}
+          className="text-gold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-gold"
+        >
+          Collapse all
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * A pane's rows. `section` on a group prints one heading above a RUN of groups
  * that share it ("Illustrated" over six styles of drawn avatar), so the pane
  * reads as headings and not as a stack of equal-weight labels.
@@ -457,8 +563,7 @@ function RankingPane({
   if (level < MIN_PIN_LIST_LEVEL) {
     return (
       <p className="mt-4 max-w-[70ch] text-base leading-relaxed text-text/90">
-        Featuring a ranking unlocks at level {MIN_PIN_LIST_LEVEL}. One ranking then sits at the top
-        of your public profile.
+        Featuring a ranking unlocks at level {MIN_PIN_LIST_LEVEL}. Pin a ranking to feature it at the top of your public profile.
       </p>
     );
   }
@@ -469,9 +574,9 @@ function RankingPane({
   return (
     <>
       <p className="mt-4 max-w-[70ch] text-base leading-relaxed text-text/90">
-        One ranking sits at the top of your public profile, or none.
+        Pin a ranking to feature it at the top of your public profile.
         {withheld > 0 &&
-          ` ${withheld} finished ${withheld === 1 ? "ranking is" : "rankings are"} not public yet, so ${withheld === 1 ? "it is" : "they are"} not here.`}
+          ` (${withheld} finished ${withheld === 1 ? "ranking is" : "rankings are"} unlisted and cannot be featured until made public.)`}
       </p>
 
       {eligible.length === 0 ? (
@@ -537,6 +642,34 @@ export default function CustomiseClient({
   const [favorite, setFavorite] = useState<string | null>(favoriteListId);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
+
+  const toggleGroup = (key: string, defaultOpen: boolean) => {
+    setExpandedKeys((prev) => {
+      const current = prev[key] ?? defaultOpen;
+      return { ...prev, [key]: !current };
+    });
+  };
+
+  const expandAll = (targetGroups: ItemGroup[]) => {
+    setExpandedKeys((prev) => {
+      const next = { ...prev };
+      for (const g of targetGroups) {
+        next[g.key] = true;
+      }
+      return next;
+    });
+  };
+
+  const collapseAll = (targetGroups: ItemGroup[]) => {
+    setExpandedKeys((prev) => {
+      const next = { ...prev };
+      for (const g of targetGroups) {
+        next[g.key] = false;
+      }
+      return next;
+    });
+  };
 
   /**
    * The URL fragment is the pane. That makes every section deep-linkable —
@@ -805,38 +938,112 @@ export default function CustomiseClient({
                 is pinned to the top of this column and never scrolls away, so
                 it is already the close-up; what this pane owes is the choice.
               */}
-              {section === "tagline"
-                ? groups.map((group) => (
-                    <div key={group.key} className="mt-8">
-                      <h3 className={GROUP_HEADING}>{group.title}</h3>
-                      <TaglineRows
-                        items={group.items}
-                        ownedSet={ownedSet}
-                        selectedId={draft.tagline ?? undefined}
-                        taglineTexts={taglineTexts}
-                        onChoose={choose}
-                      />
-                    </div>
-                  ))
-                : (
-                    <GroupedSwatches
-                      groups={groups}
-                      ownedSet={ownedSet}
-                      selectedId={draft[slot] ?? undefined}
-                      taglineTexts={taglineTexts}
-                      posterPathFor={posterPathFor}
-                      onChoose={choose}
-                    />
-                  )}
+              {section === "tagline" ? (
+                <>
+                  <AccordionControls
+                    label="Tagline Themes & Decades"
+                    onExpandAll={() => expandAll(groups)}
+                    onCollapseAll={() => collapseAll(groups)}
+                  />
+                  <div className="mt-4 flex flex-col gap-3">
+                    {groups.map((group, index) => {
+                      const hasSelected = group.items.some((i) => i.id === draft.tagline);
+                      const anyHasSelected = groups.some((g) =>
+                        g.items.some((i) => i.id === draft.tagline),
+                      );
+                      const defaultOpen = hasSelected || (!anyHasSelected && index === 0);
+                      const isOpen = expandedKeys[group.key] ?? defaultOpen;
+                      const ownedInGroup = group.items.filter((i) => ownedSet.has(i.id)).length;
+                      const badge = `${ownedInGroup} of ${group.items.length} unlocked`;
 
-              {section === "avatar" && (
-                <ClaimPosters
-                  films={films}
-                  claimed={claimed}
-                  allowance={claimAllowance(level)}
-                  busy={claiming}
-                  error={claimError}
-                  onClaim={claimPoster}
+                      return (
+                        <CollapsibleSection
+                          key={group.key}
+                          id={group.key}
+                          title={group.title}
+                          badge={badge}
+                          hasSelected={hasSelected}
+                          isOpen={isOpen}
+                          onToggle={() => toggleGroup(group.key, defaultOpen)}
+                        >
+                          <TaglineRows
+                            items={group.items}
+                            ownedSet={ownedSet}
+                            selectedId={draft.tagline ?? undefined}
+                            taglineTexts={taglineTexts}
+                            onChoose={choose}
+                          />
+                        </CollapsibleSection>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : section === "avatar" ? (
+                <>
+                  <AccordionControls
+                    label="Avatar Styles & Collections"
+                    onExpandAll={() => expandAll(groups)}
+                    onCollapseAll={() => collapseAll(groups)}
+                  />
+                  <div className="mt-4 flex flex-col gap-3">
+                    {groups.map((group, index) => {
+                      const hasSelected = group.items.some((i) => i.id === draft.avatar);
+                      const anyHasSelected = groups.some((g) =>
+                        g.items.some((i) => i.id === draft.avatar),
+                      );
+                      const defaultOpen = hasSelected || (!anyHasSelected && index === 0);
+                      const isOpen = expandedKeys[group.key] ?? defaultOpen;
+                      const ownedInGroup = group.items.filter((i) => ownedSet.has(i.id)).length;
+                      const badge = `${ownedInGroup} of ${group.items.length} unlocked`;
+
+                      return (
+                        <div key={group.key}>
+                          {group.section && group.section !== groups[index - 1]?.section && (
+                            <h3 className={`${GROUP_HEADING} mt-6 mb-2`}>{group.section}</h3>
+                          )}
+                          <CollapsibleSection
+                            id={group.key}
+                            title={group.title}
+                            badge={badge}
+                            hasSelected={hasSelected}
+                            isOpen={isOpen}
+                            onToggle={() => toggleGroup(group.key, defaultOpen)}
+                          >
+                            <ul className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(88px,1fr))] gap-x-3 gap-y-4">
+                              {group.items.map((item) => (
+                                <Swatch
+                                  key={item.id}
+                                  item={item}
+                                  owned={ownedSet.has(item.id)}
+                                  selected={draft.avatar === item.id}
+                                  posterPath={posterPathFor(item.id)}
+                                  label={labelFor(item, taglineTexts)}
+                                  onChoose={choose}
+                                />
+                              ))}
+                            </ul>
+                          </CollapsibleSection>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <ClaimPosters
+                    films={films}
+                    claimed={claimed}
+                    allowance={claimAllowance(level)}
+                    busy={claiming}
+                    error={claimError}
+                    onClaim={claimPoster}
+                  />
+                </>
+              ) : (
+                <GroupedSwatches
+                  groups={groups}
+                  ownedSet={ownedSet}
+                  selectedId={draft[slot] ?? undefined}
+                  taglineTexts={taglineTexts}
+                  posterPathFor={posterPathFor}
+                  onChoose={choose}
                 />
               )}
             </>

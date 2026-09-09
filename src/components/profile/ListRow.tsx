@@ -201,7 +201,7 @@ export function ListActions({
             aria-pressed={featured}
             title={
               !hasRankToFeature
-                ? `Featuring a ranking unlocks at level ${MIN_PIN_LIST_LEVEL}. One ranking sits at the top of your public profile.`
+                ? `Featuring a ranking unlocks at level ${MIN_PIN_LIST_LEVEL}. Pin a ranking to feature it at the top of your public profile.`
                 : !canFeature
                   ? "Finish the ranking and set it to public to feature it."
                   : featured

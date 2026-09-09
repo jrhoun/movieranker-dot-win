@@ -136,7 +136,7 @@ export default function CuratorRoulette({
         aria-hidden="true"
       />
 
-      <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+      <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
         {/* Left column: Header, badge, and description.
             aria-busy flags this region as mid-update to assistive tech; the
             16-step churn underneath is marked aria-hidden so a screen reader
@@ -182,46 +182,44 @@ export default function CuratorRoulette({
                 is the accessible source of truth for the film names, so
                 nothing readable is lost by upgrading the old text chips to
                 imagery. */}
-            <div className="pt-1">
-              {/* No "Featured Candidates:" caption above the strip — six
-                  posters riding a filmstrip read as posters, not a labeled
-                  chart; the sr-only list below still names them for a screen
-                  reader. w-fit + max-w-full: this box (and the sprocket-hole
-                  bars, which span inset-x-0 of IT) sizes to the posters'
-                  actual content width instead of stretching to the column's
-                  full width — that stretch used to leave ~450px of dead
-                  sprocket track on wide screens for a strip whose six posters
-                  only need ~366px. overflow-x-auto is a narrow-viewport
-                  fallback: at 390px there's a few px to spare so it never
-                  engages, but a little narrower (e.g. 360px) the strip
-                  scrolls instead of clipping a poster or forcing the card
-                  wider than its column. */}
-              <div className="relative mt-1.5 w-fit max-w-full overflow-x-auto overflow-y-hidden no-scrollbar rounded-md bg-black/40 px-2 py-3.5">
-                <div aria-hidden="true" className="cb-holes absolute inset-x-0 top-0 z-[1] h-2.5" />
-                <div aria-hidden="true" className="cb-holes absolute inset-x-0 bottom-0 z-[1] h-2.5" />
-                <div aria-hidden="true" className="relative z-0 flex w-fit gap-1.5">
-                  {selectedPack.movies.slice(0, FILMSTRIP_SIZE).map((movie) => (
-                    <div
-                      key={movie.tmdbId}
-                      className={`w-11 shrink-0 sm:w-14 transition-all duration-150 ease-out motion-reduce:transition-none motion-reduce:scale-100 motion-reduce:opacity-100 ${
-                        isSpinning ? "scale-90 opacity-60" : "scale-100 opacity-100"
-                      }`}
-                    >
-                      <MoviePoster
-                        title={movie.title}
-                        posterPath={movie.posterPath ?? null}
-                        tmdbId={movie.tmdbId}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <ul className="sr-only">
-                {selectedPack.sampleTitles.map((title) => (
-                  <li key={title}>{title}</li>
+            {/* No "Featured Candidates:" caption above the strip — six
+                posters riding a filmstrip read as posters, not a labeled
+                chart; the sr-only list below still names them for a screen
+                reader. w-fit + max-w-full: this box (and the sprocket-hole
+                bars, which span inset-x-0 of IT) sizes to the posters'
+                actual content width instead of stretching to the column's
+                full width — that stretch used to leave ~450px of dead
+                sprocket track on wide screens for a strip whose six posters
+                only need ~366px. overflow-x-auto is a narrow-viewport
+                fallback: at 390px there's a few px to spare so it never
+                engages, but a little narrower (e.g. 360px) the strip
+                scrolls instead of clipping a poster or forcing the card
+                wider than its column. */}
+            <div className="relative mt-3.5 w-fit max-w-full overflow-x-auto overflow-y-hidden no-scrollbar rounded-md bg-black/40 px-2 py-3.5">
+              <div aria-hidden="true" className="cb-holes absolute inset-x-0 top-0 z-[1] h-2.5" />
+              <div aria-hidden="true" className="cb-holes absolute inset-x-0 bottom-0 z-[1] h-2.5" />
+              <div aria-hidden="true" className="relative z-0 flex w-fit gap-1.5">
+                {selectedPack.movies.slice(0, FILMSTRIP_SIZE).map((movie) => (
+                  <div
+                    key={movie.tmdbId}
+                    className={`w-11 shrink-0 sm:w-14 transition-all duration-150 ease-out motion-reduce:transition-none motion-reduce:scale-100 motion-reduce:opacity-100 ${
+                      isSpinning ? "scale-90 opacity-60" : "scale-100 opacity-100"
+                    }`}
+                  >
+                    <MoviePoster
+                      title={movie.title}
+                      posterPath={movie.posterPath ?? null}
+                      tmdbId={movie.tmdbId}
+                    />
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
+            <ul className="sr-only">
+              {selectedPack.sampleTitles.map((title) => (
+                <li key={title}>{title}</li>
+              ))}
+            </ul>
           </div>
 
           <div className="sr-only" role="status" aria-live="polite">
@@ -230,7 +228,7 @@ export default function CuratorRoulette({
         </div>
 
         {/* Right column: Theatrical Reel Animation & Instant Launch Actions */}
-        <div className="flex shrink-0 flex-col items-center justify-center gap-3 sm:flex-row lg:flex-col">
+        <div className="flex shrink-0 flex-col items-center justify-center gap-3 sm:flex-row lg:flex-col self-center lg:self-center">
           <button
             type="button"
             onClick={() => handleStart(selectedPack)}

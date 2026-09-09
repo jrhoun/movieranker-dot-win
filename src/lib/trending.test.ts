@@ -181,6 +181,142 @@ describe("formatTrendingLists", () => {
     expect(result[0].topPosters).toEqual([]);
     expect(result[0].movieCount).toBe(0);
   });
+
+  it("strictly excludes weekly marquee lists from community spotlight even when status='done' and visibility='public'", () => {
+    const mixedLists: RawDbListRow[] = [
+      {
+        id: "marquee-locked",
+        title: "Weekly Marquee #42",
+        description: "Official weekly theme puzzle",
+        owner_id: "u-marquee-1",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 500,
+        theme_slug: "psychological-thrillers",
+        curated: true,
+        created_at: "2026-09-08T12:00:00Z",
+      },
+      {
+        id: "marquee-unlocked-roster",
+        title: "Weekly Marquee #41",
+        description: null,
+        owner_id: "u-marquee-2",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 250,
+        theme_slug: "film-noir-classics",
+        curated: false,
+        created_at: "2026-09-01T12:00:00Z",
+      },
+      {
+        id: "custom-community-list",
+        title: "Hidden Gems of Italian Neorealism",
+        description: "Curated by a community cinephile",
+        owner_id: "u-custom-1",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 10,
+        theme_slug: null,
+        curated: false,
+        created_at: "2026-09-07T12:00:00Z",
+      },
+    ];
+
+    const result = formatTrendingLists(mixedLists);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("custom-community-list");
+    expect(result[0].title).toBe("Hidden Gems of Italian Neorealism");
+  });
+
+  it("strictly excludes curated lists (curated: true) even when theme_slug is null or undefined", () => {
+    const curatedLists: RawDbListRow[] = [
+      {
+        id: "curated-pack-null-slug",
+        title: "A24 Gems Pack",
+        description: "Staff curated pack",
+        owner_id: "u-staff-1",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 1000,
+        theme_slug: null,
+        curated: true,
+        created_at: "2026-09-05T12:00:00Z",
+      },
+      {
+        id: "curated-pack-undefined-slug",
+        title: "Curator Reel",
+        description: null,
+        owner_id: "u-staff-2",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 800,
+        curated: true,
+        created_at: "2026-09-06T12:00:00Z",
+      },
+      {
+        id: "legit-custom-list",
+        title: "My Personal Top 10",
+        description: "Authentic custom ranking",
+        owner_id: "u-user",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 2,
+        theme_slug: null,
+        curated: false,
+        created_at: "2026-09-08T00:00:00Z",
+      },
+    ];
+
+    const result = formatTrendingLists(curatedLists);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("legit-custom-list");
+  });
+
+  it("permits custom community lists across all falsy representations of theme_slug and curated", () => {
+    const variants: RawDbListRow[] = [
+      {
+        id: "variant-null-false",
+        title: "Custom List A",
+        description: null,
+        owner_id: "u-1",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 30,
+        theme_slug: null,
+        curated: false,
+        created_at: "2026-09-08T03:00:00Z",
+      },
+      {
+        id: "variant-undefined-undefined",
+        title: "Custom List B",
+        description: null,
+        owner_id: "u-2",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 20,
+        created_at: "2026-09-08T02:00:00Z",
+      },
+      {
+        id: "variant-null-null",
+        title: "Custom List C",
+        description: null,
+        owner_id: "u-3",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 10,
+        theme_slug: null,
+        curated: null,
+        created_at: "2026-09-08T01:00:00Z",
+      },
+    ];
+
+    const result = formatTrendingLists(variants);
+    expect(result.map((l) => l.id)).toEqual([
+      "variant-null-false",
+      "variant-undefined-undefined",
+      "variant-null-null",
+    ]);
+  });
 });
 
 describe("getTrendingLists", () => {
@@ -318,6 +454,57 @@ describe("getTrendingLists", () => {
 
     expect(listsBuilder.order).toHaveBeenCalledWith("upvotes_count", { ascending: false });
     expect(listsBuilder.limit).toHaveBeenCalledWith(6);
+  });
+
+  it("queries the curated column from supabase and excludes marquee/curated lists from trending output", async () => {
+    let capturedSelect = "";
+    const mockLists = [
+      {
+        id: "marquee-list",
+        title: "Weekly Marquee #10",
+        description: null,
+        owner_id: "u-1",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 999,
+        theme_slug: "heist-thrillers",
+        curated: true,
+        created_at: "2026-09-08T00:00:00Z",
+        list_movies: [],
+      },
+      {
+        id: "custom-community-list",
+        title: "Indie Sci-Fi Favorites",
+        description: "Community showcase",
+        owner_id: "u-2",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 15,
+        theme_slug: null,
+        curated: false,
+        created_at: "2026-09-07T00:00:00Z",
+        list_movies: [],
+      },
+    ];
+
+    const mockSupabase = {
+      from: vi.fn((table: string) => {
+        const builder = createMockQueryBuilder({
+          data: table === "lists" ? mockLists : [],
+          error: null,
+        });
+        builder.select = vi.fn((cols: string) => {
+          if (table === "lists") capturedSelect = cols;
+          return builder;
+        });
+        return builder;
+      }),
+    };
+
+    const trending = await getTrendingLists(mockSupabase, 6);
+    expect(capturedSelect).toContain("curated");
+    expect(trending).toHaveLength(1);
+    expect(trending[0].id).toBe("custom-community-list");
   });
 });
 

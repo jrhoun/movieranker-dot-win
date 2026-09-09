@@ -17,6 +17,7 @@ export default function OwnerControls({
   participants,
   isCurated = false,
   chips = [],
+  visibility = "unlisted",
 }: {
   listId: string;
   title: string;
@@ -24,14 +25,45 @@ export default function OwnerControls({
   participants: string[];
   isCurated?: boolean;
   chips?: ParticipantChip[];
+  visibility?: "public" | "unlisted" | "private";
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(title);
   const [editDescription, setEditDescription] = useState(description ?? "");
   const [editParticipants, setEditParticipants] = useState(participants.join(", "));
+  const [currentVisibility, setCurrentVisibility] = useState<"public" | "unlisted" | "private">(
+    visibility || "unlisted",
+  );
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+
+  async function handleToggleVisibility() {
+    if (busy) return;
+    const next: "public" | "unlisted" = currentVisibility === "public" ? "unlisted" : "public";
+    const prev = currentVisibility;
+    setCurrentVisibility(next);
+    setBusy(true);
+    setNote(null);
+    try {
+      const res = await fetch(`/api/lists/${listId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visibility: next }),
+      });
+      if (!res.ok) {
+        setCurrentVisibility(prev);
+        setNote("Failed to update visibility — try again.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setCurrentVisibility(prev);
+      setNote("Failed to update visibility — try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -202,6 +234,33 @@ export default function OwnerControls({
           <p className="text-xs italic text-muted/60">No participants listed</p>
         )}
         <div className="flex items-center gap-1.5 text-xs text-muted">
+          {!isCurated && (
+            <>
+              <button
+                type="button"
+                onClick={() => void handleToggleVisibility()}
+                disabled={busy}
+                className={`inline-flex items-center gap-1 rounded px-2 py-0.5 font-medium transition-colors ${
+                  currentVisibility === "public"
+                    ? "bg-gold/15 text-gold ring-1 ring-gold/30 hover:bg-gold/20"
+                    : "text-muted hover:bg-white/5 hover:text-text"
+                }`}
+                title={
+                  currentVisibility === "public"
+                    ? "In Community Spotlight (click to make unlisted)"
+                    : "Unlisted (click to submit to Community Spotlight)"
+                }
+                aria-label={
+                  currentVisibility === "public"
+                    ? "List is in Community Spotlight. Click to make unlisted."
+                    : "List is unlisted. Click to submit to Community Spotlight."
+                }
+              >
+                <span>{currentVisibility === "public" ? "In Spotlight" : "Unlisted"}</span>
+              </button>
+              <span className="text-white/20">·</span>
+            </>
+          )}
           <button
             type="button"
             onClick={() => setEditing(true)}
@@ -236,6 +295,12 @@ export default function OwnerControls({
         >
           + Add story behind this ranking
         </button>
+      )}
+
+      {note && (
+        <p role="status" className="text-xs text-accent">
+          {note}
+        </p>
       )}
     </div>
   );

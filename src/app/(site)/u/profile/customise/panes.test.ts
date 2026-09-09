@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { labelFor, unlockLabel } from "@/lib/cosmetics/labels";
 import { isEarnedTagline } from "@/lib/cosmetics/taglines";
@@ -248,7 +250,19 @@ describe("labelFor", () => {
 
   it("leaves non-tagline items as their plain name", () => {
     for (const item of CATALOGUE.filter((i) => i.slot !== "tagline")) {
-      expect(labelFor(item, {}), item.id).toBe(item.name);
+      expect(labelFor(item, {})).toBe(item.name);
     }
+  });
+});
+
+describe("collapsible customise groups", () => {
+  it("renders collapsible group containers with aria-expanded attributes in customise client", () => {
+    const code = readFileSync(
+      resolve(__dirname, "customise-client.tsx"),
+      "utf8",
+    );
+    expect(code).toMatch(/aria-expanded/);
+    expect(code).toMatch(/Expand all/);
+    expect(code).toMatch(/Collapse all/);
   });
 });

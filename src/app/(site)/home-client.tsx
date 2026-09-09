@@ -335,7 +335,7 @@ export default function HomeClient({
             full-bleed anyway; only the words need the column. */}
         <div className="relative mt-4 text-center">
             <div aria-hidden="true" className="stage-pool pointer-events-none absolute inset-x-0 bottom-0 h-2/3" />
-            <ul className="no-scrollbar fan-scroll relative flex overflow-x-auto px-6 pt-6 pb-8 sm:px-4">
+            <ul className="no-scrollbar fan-scroll relative flex overflow-x-auto px-6 pt-8 pb-14 sm:px-6">
             {fanItems.map(({ m, tilt, arcY }, i) => {
               const inTray = candidates.some((c) => c.tmdbId === m.tmdbId);
               return (
@@ -410,6 +410,10 @@ export default function HomeClient({
                       this week is done and Monday is hours away. */}
                   <a
                     href="#reel"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      document.getElementById("reel")?.scrollIntoView({ behavior: "smooth" });
+                    }}
                     className="text-xs text-muted underline decoration-white/25 underline-offset-4 transition-colors hover:text-gold hover:decoration-gold focus-visible:outline-2 focus-visible:outline-gold"
                   >
                     or spin a reel while you wait
@@ -436,22 +440,21 @@ export default function HomeClient({
                   link that used to close the stack is gone as redundant — the
                   full "Build your own list" section is the very next thing on
                   the page, with its own marquee heading. */}
-              {(tonight.settledCount > 0 || tonight.proposedBy) && (
+              {(tonight.settledCount >= 25 || tonight.proposedBy) && (
                 <p className="text-xs text-muted" data-testid="settled-count">
-                  {tonight.settledCount > 0 && tonight.proposedBy ? (
+                  {tonight.settledCount >= 25 && tonight.proposedBy ? (
                     <>
-                      {tonight.settledCount} ranking{tonight.settledCount === 1 ? "" : "s"} settled
-                      this week, theme by{" "}
+                      {tonight.settledCount} rankings settled this week, theme by{" "}
                       <span className="font-medium text-gold">@{tonight.proposedBy}</span>.
                     </>
-                  ) : tonight.settledCount > 0 ? (
+                  ) : tonight.settledCount >= 25 ? (
                     <>
-                      {tonight.settledCount} ranking{tonight.settledCount === 1 ? "" : "s"} settled
-                      this week.
+                      {tonight.settledCount} rankings settled this week.
                     </>
                   ) : (
                     <>
-                      Theme by <span className="font-medium text-gold">@{tonight.proposedBy}</span>.
+                      Theme proposed by{" "}
+                      <span className="font-medium text-gold">@{tonight.proposedBy}</span>.
                     </>
                   )}
                 </p>

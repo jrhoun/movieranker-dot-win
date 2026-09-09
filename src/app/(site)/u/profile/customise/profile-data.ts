@@ -291,6 +291,9 @@ export async function loadOwnerProfile(): Promise<OwnerProfileData> {
     coCuratedLists: xpLists.filter((l) => l.done && l.coCurated).length,
     marqueeWeeks: xpLists.filter((l) => l.done && l.isMarquee).length,
     marqueeConnectionsSolved: solveCount ?? 0,
+    publicDoneLists: doneCards.filter((c) => c.visibility === "public").length,
+    hasHandle: Boolean(profile?.handle),
+    isSignedIn: true,
     ...standing,
   };
   const achievements = evaluateAchievements(achievementStats);

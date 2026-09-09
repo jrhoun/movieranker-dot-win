@@ -24,6 +24,54 @@
     "license": "CC0-1.0"
   },
   {
+    "id": "lorelei-spotlight",
+    "style": "lorelei",
+    "seed": "spotlight",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "lorelei-celluloid",
+    "style": "lorelei",
+    "seed": "celluloid",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "lorelei-marquee",
+    "style": "lorelei",
+    "seed": "marquee",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "lorelei-curtain",
+    "style": "lorelei",
+    "seed": "curtain",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "lorelei-premiere",
+    "style": "lorelei",
+    "seed": "premiere",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "lorelei-noir",
+    "style": "lorelei",
+    "seed": "noir",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "lorelei-technicolor",
+    "style": "lorelei",
+    "seed": "technicolor",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "lorelei-director",
+    "style": "lorelei",
+    "seed": "director",
+    "license": "CC0-1.0"
+  },
+  {
     "id": "notionists-reel",
     "style": "notionists",
     "seed": "reel",
@@ -45,6 +93,54 @@
     "id": "notionists-double-feature",
     "style": "notionists",
     "seed": "double-feature",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "notionists-spotlight",
+    "style": "notionists",
+    "seed": "spotlight",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "notionists-celluloid",
+    "style": "notionists",
+    "seed": "celluloid",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "notionists-marquee",
+    "style": "notionists",
+    "seed": "marquee",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "notionists-curtain",
+    "style": "notionists",
+    "seed": "curtain",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "notionists-premiere",
+    "style": "notionists",
+    "seed": "premiere",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "notionists-noir",
+    "style": "notionists",
+    "seed": "noir",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "notionists-technicolor",
+    "style": "notionists",
+    "seed": "technicolor",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "notionists-director",
+    "style": "notionists",
+    "seed": "director",
     "license": "CC0-1.0"
   },
   {
@@ -72,6 +168,54 @@
     "license": "CC0-1.0"
   },
   {
+    "id": "open-peeps-spotlight",
+    "style": "open-peeps",
+    "seed": "spotlight",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "open-peeps-celluloid",
+    "style": "open-peeps",
+    "seed": "celluloid",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "open-peeps-marquee",
+    "style": "open-peeps",
+    "seed": "marquee",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "open-peeps-curtain",
+    "style": "open-peeps",
+    "seed": "curtain",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "open-peeps-premiere",
+    "style": "open-peeps",
+    "seed": "premiere",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "open-peeps-noir",
+    "style": "open-peeps",
+    "seed": "noir",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "open-peeps-technicolor",
+    "style": "open-peeps",
+    "seed": "technicolor",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "open-peeps-director",
+    "style": "open-peeps",
+    "seed": "director",
+    "license": "CC0-1.0"
+  },
+  {
     "id": "pixel-art-reel",
     "style": "pixel-art",
     "seed": "reel",
@@ -93,6 +237,54 @@
     "id": "pixel-art-double-feature",
     "style": "pixel-art",
     "seed": "double-feature",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "pixel-art-spotlight",
+    "style": "pixel-art",
+    "seed": "spotlight",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "pixel-art-celluloid",
+    "style": "pixel-art",
+    "seed": "celluloid",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "pixel-art-marquee",
+    "style": "pixel-art",
+    "seed": "marquee",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "pixel-art-curtain",
+    "style": "pixel-art",
+    "seed": "curtain",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "pixel-art-premiere",
+    "style": "pixel-art",
+    "seed": "premiere",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "pixel-art-noir",
+    "style": "pixel-art",
+    "seed": "noir",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "pixel-art-technicolor",
+    "style": "pixel-art",
+    "seed": "technicolor",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "pixel-art-director",
+    "style": "pixel-art",
+    "seed": "director",
     "license": "CC0-1.0"
   },
   {
@@ -120,6 +312,54 @@
     "license": "CC0-1.0"
   },
   {
+    "id": "shapes-spotlight",
+    "style": "shapes",
+    "seed": "spotlight",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "shapes-celluloid",
+    "style": "shapes",
+    "seed": "celluloid",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "shapes-marquee",
+    "style": "shapes",
+    "seed": "marquee",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "shapes-curtain",
+    "style": "shapes",
+    "seed": "curtain",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "shapes-premiere",
+    "style": "shapes",
+    "seed": "premiere",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "shapes-noir",
+    "style": "shapes",
+    "seed": "noir",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "shapes-technicolor",
+    "style": "shapes",
+    "seed": "technicolor",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "shapes-director",
+    "style": "shapes",
+    "seed": "director",
+    "license": "CC0-1.0"
+  },
+  {
     "id": "thumbs-reel",
     "style": "thumbs",
     "seed": "reel",
@@ -141,6 +381,54 @@
     "id": "thumbs-double-feature",
     "style": "thumbs",
     "seed": "double-feature",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "thumbs-spotlight",
+    "style": "thumbs",
+    "seed": "spotlight",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "thumbs-celluloid",
+    "style": "thumbs",
+    "seed": "celluloid",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "thumbs-marquee",
+    "style": "thumbs",
+    "seed": "marquee",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "thumbs-curtain",
+    "style": "thumbs",
+    "seed": "curtain",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "thumbs-premiere",
+    "style": "thumbs",
+    "seed": "premiere",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "thumbs-noir",
+    "style": "thumbs",
+    "seed": "noir",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "thumbs-technicolor",
+    "style": "thumbs",
+    "seed": "technicolor",
+    "license": "CC0-1.0"
+  },
+  {
+    "id": "thumbs-director",
+    "style": "thumbs",
+    "seed": "director",
     "license": "CC0-1.0"
   }
 ]

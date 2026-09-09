@@ -494,6 +494,38 @@ describe("PATCH /api/profile — showcase", () => {
     expect(body.showcase.equipped).toEqual({ frame: "frame.brass" });
   });
 
+  it("refuses to equip frame.beta if beta_pioneer criteria are not met", async () => {
+    currentDb.row = {
+      id: "u-1",
+      handle: "alice",
+      showcase: { achievementKeys: [], favoriteListId: null, lifetimeXp: 0 },
+    };
+    // List is unlisted, not public
+    currentDb.rowsByTable = {
+      lists: [{ status: "done", visibility: "unlisted", list_movies: [] }],
+    };
+    currentDb.writeResult = { data: { id: "u-1" }, error: null };
+    const res = await patchShowcase({ equipped: { frame: "frame.beta" } });
+    expect(res.status).toBe(403);
+  });
+
+  it("permits equipping frame.beta once beta_pioneer criteria are satisfied", async () => {
+    currentDb.row = {
+      id: "u-1",
+      handle: "alice",
+      showcase: { achievementKeys: [], favoriteListId: null, lifetimeXp: 0 },
+    };
+    // List is done and public
+    currentDb.rowsByTable = {
+      lists: [{ status: "done", visibility: "public", list_movies: [] }],
+    };
+    currentDb.writeResult = { data: { id: "u-1" }, error: null };
+    const res = await patchShowcase({ equipped: { frame: "frame.beta" } });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { showcase: { equipped?: Record<string, unknown> } };
+    expect(body.showcase.equipped?.frame).toBe("frame.beta");
+  });
+
   it("400 when neither visibility nor showcase is present", async () => {
     currentDb.row = { id: "u-1", showcase: {} };
     const { PATCH } = await import("./route");

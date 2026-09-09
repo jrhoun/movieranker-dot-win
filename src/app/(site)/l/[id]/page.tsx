@@ -34,6 +34,8 @@ interface DbList {
   status: string;
   owner_id: string;
   theme_slug: string | null;
+  curated?: boolean | null;
+  visibility?: "public" | "unlisted" | "private" | null;
   created_at: string;
   upvotes_count: number | null;
 }
@@ -127,7 +129,7 @@ export default async function PublicListPage({
   // Query base fields first so missing migrations never cause 404
   const { data: list } = await supabase
     .from("lists")
-    .select("id,title,description,participants,status,owner_id,theme_slug,created_at")
+    .select("id,title,description,participants,status,owner_id,theme_slug,curated,visibility,created_at")
     .eq("id", id)
     .maybeSingle<DbList>();
 
@@ -503,8 +505,9 @@ export default async function PublicListPage({
             title={displayTitle}
             description={list.description}
             participants={list.participants}
-            isCurated={Boolean(list.theme_slug)}
+            isCurated={Boolean(list.curated || list.theme_slug)}
             chips={chips}
+            visibility={(list.visibility as "public" | "unlisted" | "private") ?? "unlisted"}
           />
         ) : (
           <div>

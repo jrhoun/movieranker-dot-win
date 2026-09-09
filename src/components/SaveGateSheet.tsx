@@ -17,6 +17,7 @@ export default function SaveGateSheet({
   session,
   status,
   existingId,
+  initialSubmitToSpotlight = false,
   onClose,
   onAuthRedirect,
 }: {
@@ -24,6 +25,8 @@ export default function SaveGateSheet({
   status: "done" | "draft";
   /** Set when finishing a resumed draft: update the existing list instead of POSTing a new one. */
   existingId?: string;
+  /** Initial opt-in state for custom list submission to Community Spotlight */
+  initialSubmitToSpotlight?: boolean;
   onClose: () => void;
   /** Called when an OAuth redirect away from the page begins (leave-warning must disarm). */
   onAuthRedirect?: () => void;
@@ -37,6 +40,14 @@ export default function SaveGateSheet({
   const [note, setNote] = useState<string | null>(null);
   const [showDesc, setShowDesc] = useState(false);
   const [description, setDescription] = useState("");
+  const [submitToSpotlight, setSubmitToSpotlight] = useState(() => {
+    if (initialSubmitToSpotlight) return true;
+    try {
+      return sessionStorage.getItem("mr_pending_auth_spotlight") === "1";
+    } catch {
+      return false;
+    }
+  });
 
   async function performSave() {
     if (savingRef.current) return;
@@ -44,8 +55,14 @@ export default function SaveGateSheet({
     setBusy(true);
     const ranks = new Map(finalizeRanks(session.movies).map((r) => [r.tmdbId, r.rank]));
     const desc = description.trim();
+    const visibility: "public" | "unlisted" = session.themeSlug
+      ? "public"
+      : status === "done" && submitToSpotlight
+        ? "public"
+        : "unlisted";
     const payload = {
       status,
+      visibility,
       movies: session.movies.map((m) => ({
         ...m,
         finalRank: status === "done" ? (ranks.get(m.tmdbId) ?? null) : null,
@@ -71,7 +88,6 @@ export default function SaveGateSheet({
                   ? {
                       themeSlug: session.themeSlug,
                       curated: !!session.curated,
-                      visibility: "public",
                     }
                   : {}),
               },
@@ -96,6 +112,10 @@ export default function SaveGateSheet({
       return;
     }
     const id = existingId ?? ((await res.json()) as { id: string }).id;
+    try {
+      sessionStorage.removeItem("mr_pending_auth_save");
+      sessionStorage.removeItem("mr_pending_auth_spotlight");
+    } catch {}
     clearSession();
     // ?finished=1 tells the list page this viewer just completed the ranking,
     // which is what triggers the marquee bonus-round modal. A plain visit to
@@ -205,6 +225,7 @@ export default function SaveGateSheet({
     setNote(null);
     try {
       sessionStorage.setItem("mr_pending_auth_save", status);
+      sessionStorage.setItem("mr_pending_auth_spotlight", submitToSpotlight ? "1" : "0");
     } catch {}
     // page is about to navigate away — host must disarm its leave-warning
     onAuthRedirect?.();
@@ -223,6 +244,7 @@ export default function SaveGateSheet({
     } catch (err) {
       try {
         sessionStorage.removeItem("mr_pending_auth_save");
+        sessionStorage.removeItem("mr_pending_auth_spotlight");
       } catch {}
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[auth] ${provider} sign-in failed: ${msg}`);
@@ -287,6 +309,29 @@ export default function SaveGateSheet({
                 <p className="leading-snug text-gold">
                   <strong>Weekly Marquee:</strong> Rankings for weekly themes are public by default to power collective community stats and consensus.
                 </p>
+              </div>
+            )}
+            {!session.themeSlug && status === "done" && (
+              <div className="mb-3.5 rounded-xl bg-surface-raised p-3 ring-1 ring-white/10">
+                <label
+                  htmlFor="sheet-spotlight-opt-in"
+                  className="flex items-start gap-2.5 cursor-pointer select-none text-xs sm:text-sm text-text"
+                >
+                  <input
+                    type="checkbox"
+                    id="sheet-spotlight-opt-in"
+                    name="submitToSpotlight"
+                    checked={submitToSpotlight}
+                    onChange={(e) => setSubmitToSpotlight(e.target.checked)}
+                    className="mt-0.5 size-4 shrink-0 rounded border-white/20 bg-surface accent-gold cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                  />
+                  <div className="flex-1">
+                    <span className="font-semibold text-text">Submit to Community Spotlight</span>
+                    <p className="mt-0.5 text-xs text-muted leading-relaxed">
+                      Share this ranking on the home page community feed. Leave unchecked to keep it unlisted.
+                    </p>
+                  </div>
+                </label>
               </div>
             )}
             <div className="space-y-2.5">

@@ -415,6 +415,12 @@ export interface AchievementStats {
   top10Marquee?: boolean;
   /** True if the user was among the first 100 to complete a weekly Marquee theme. */
   top100Marquee?: boolean;
+  /** Publicly contributed finished lists. */
+  publicDoneLists?: number;
+  /** Whether the user has claimed a handle. */
+  hasHandle?: boolean;
+  /** Whether the user is signed in. */
+  isSignedIn?: boolean;
 }
 
 export interface Achievement {
@@ -563,6 +569,15 @@ export const ACHIEVEMENTS: Achievement[] = [
     rarity: "legendary",
     challenge: true,
     check: (s) => (s.marqueeWeeks ?? 0) >= 52,
+  },
+  {
+    key: "beta_pioneer",
+    name: "Beta Pioneer",
+    description: "Signed up, claimed a handle, and contributed a public ranking during public beta",
+    icon: "📼",
+    rarity: "legendary",
+    challenge: true,
+    check: (s) => (s.publicDoneLists ?? 0) >= 1 && Boolean(s.hasHandle) && Boolean(s.isSignedIn),
   },
 ];
 

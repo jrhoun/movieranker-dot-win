@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FeedbackTrigger } from "@/components/feedback";
 import { CONTACT_EMAIL } from "@/lib/site";
 
 const linkCls =
@@ -84,13 +85,9 @@ export default function SiteFooter() {
                 </Link>
               </li>
               <li>
-                <a
-                  href={`mailto:${CONTACT_EMAIL}`}
-                  className={linkCls}
-                  title="Contact Support"
-                >
+                <FeedbackTrigger className={linkCls}>
                   Support & Feedback
-                </a>
+                </FeedbackTrigger>
               </li>
             </ul>
           </div>

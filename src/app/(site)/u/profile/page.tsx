@@ -7,6 +7,7 @@ import LevelProgressionModal from "@/components/profile/LevelProgressionModal";
 import ReferralInviteCard from "@/components/profile/ReferralInviteCard";
 import ShowcaseCard from "@/components/profile/ShowcaseCard";
 import ShowcaseLists from "@/components/profile/ShowcaseLists";
+import BetaWalkthroughCard from "@/components/BetaWalkthroughCard";
 import { unlockedAt } from "@/lib/gamification";
 import { loadOwnerProfile } from "./customise/profile-data";
 
@@ -26,6 +27,7 @@ export default async function MyListsPage() {
     progress,
     level,
     achievements,
+    achievementStats,
     canvasEquipped,
     canvasPosters,
     taglineText,
@@ -121,13 +123,13 @@ export default async function MyListsPage() {
               {/*
                 The one primary action on this page, directly under the card it
                 edits — and, under that, the quiet way in for someone who came
-                to look rather than to change something. The dressing room IS
+                to look rather than to change something. Edit Profile IS
                 the collection, so the wall of everything-you-could-earn that
                 used to sit several screens below is that same page.
               */}
               <div className="mt-5 flex flex-col items-center gap-3">
                 <Link href="/u/profile/customise" className={PRIMARY}>
-                  Customise
+                  Edit Profile
                 </Link>
                 <Link
                   href="/u/profile/customise"
@@ -151,7 +153,14 @@ export default async function MyListsPage() {
       */}
       <main className="relative mx-auto w-full max-w-page flex-1 px-4 pb-10 sm:px-6 lg:px-8">
         <div className="rounded-2xl border border-white/10 bg-bg/70 px-5 py-8 backdrop-blur-md sm:px-8 sm:py-10">
-        {/* THE PROGRESSION STRIP: a bar, a sentence, a way to read the rules. */}
+          <BetaWalkthroughCard
+            isSignedIn={achievementStats.isSignedIn}
+            hasHandle={achievementStats.hasHandle}
+            publicDoneLists={achievementStats.publicDoneLists}
+            equipped={showcase.equipped}
+            className="mb-10"
+          />
+          {/* THE PROGRESSION STRIP: a bar, a sentence, a way to read the rules. */}
         <section aria-label="Career progress">
           <div
             role="progressbar"

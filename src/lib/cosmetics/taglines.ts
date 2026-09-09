@@ -163,6 +163,16 @@ export const TAGLINES: TaglineItem[] = [
 
   ...MARQUEE_LINES,
   ...EARNED_TAGLINES,
+  {
+    id: "tagline.betamax",
+    slot: "tagline",
+    name: "Betamax",
+    text: "Betamax was better",
+    set: "Beta Pioneer",
+    unlock: { kind: "challenge", key: "beta_pioneer" },
+    rarity: "legendary",
+    rights: "owned",
+  },
 ];
 
 /** Typed lookup, so callers reach `.text` without narrowing a CosmeticItem. */
