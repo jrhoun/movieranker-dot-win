@@ -129,15 +129,13 @@ describe("CustomiseClient", () => {
     expect(html).not.toMatch(/(?<![-\w])blur-/);
   });
 
-  it("leads the avatar pane with the claimed poster, and offers the claim flow", () => {
+  it("leads the avatar pane with the claimed poster, and offers the unlock flow", () => {
     expect(html).toContain("Your posters");
     expect(html).toContain("Illustrated");
     expect(html).toContain("Gradients");
-    expect(html).toContain("Claim a poster");
-    // A claim is permanent, so the page says so where the claim is made.
-    expect(html).toContain("permanent");
-    // The allowance is said in the same breath as the act it limits.
-    expect(html).toContain("1 of 12 claims used");
+    expect(html).toContain("Movie Poster Avatars");
+    expect(html).toContain("Unlock film posters");
+    expect(html).toContain("11 of 12 unlocks available");
     // A film already claimed is not offered for claiming again — it is the
     // swatch in "Your posters" instead.
     expect(html).toContain("Inception");

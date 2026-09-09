@@ -414,15 +414,11 @@ function ClaimPosters({
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h4 className={SUB_HEADING}>Movie Poster Avatars</h4>
         <span className="rounded-full bg-gold/15 px-2.5 py-0.5 font-mono text-xs font-semibold text-gold ring-1 ring-gold/30">
-          {remaining} of {allowance} available
+          {remaining} of {allowance} unlocks available
         </span>
       </div>
       <p className="mt-2 max-w-[70ch] text-base leading-relaxed text-text/90">
-        Any film you have ranked can become your avatar. Claim a poster: {claimed.length} of {allowance} claim
-        {allowance === 1 ? "" : "s"} used ({remaining} claim{remaining === 1 ? "" : "s"} available).{" "}
-        {remaining > 0
-          ? "A claim is permanent and saves straight away — Cancel does not undo it. Every level earns you another."
-          : "Every level up earns you another."}
+        Unlock film posters you&apos;ve ranked. Get a new unlock with every level up.
       </p>
 
       {error && (
@@ -433,7 +429,7 @@ function ClaimPosters({
 
       {unclaimed.length === 0 ? (
         <p className="mt-4 text-base text-muted">
-          Every film you have ranked is already claimed.
+          Every film you have ranked is already unlocked.
         </p>
       ) : (
         <>
@@ -463,7 +459,7 @@ function ClaimPosters({
                     {film.title}
                   </span>
                   <span className="text-xs leading-tight text-gold">
-                    Claim
+                    Unlock
                   </span>
                 </button>
               </li>
@@ -491,18 +487,18 @@ function ClaimPosters({
         <div
           role="dialog"
           aria-modal="true"
-          aria-labelledby="confirm-claim-title"
+          aria-labelledby="confirm-unlock-title"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
         >
           <div className="w-full max-w-sm rounded-2xl border border-gold/40 bg-surface p-6 shadow-2xl ring-1 ring-gold/30 text-center">
-            <h5 id="confirm-claim-title" className="font-display text-lg uppercase tracking-wider text-gold">
+            <h5 id="confirm-unlock-title" className="font-display text-lg uppercase tracking-wider text-gold">
               Are you sure?
             </h5>
             <p className="mt-2 text-sm text-text leading-relaxed">
-              Claim <strong className="text-gold font-semibold">{confirmingFilm.title}</strong> as your avatar?
+              Unlock <strong className="text-gold font-semibold">{confirmingFilm.title}</strong> as your avatar?
             </p>
             <p className="mt-1 text-xs text-muted">
-              This uses 1 of your {remaining} available claims. A claim is permanent and saves straight away.
+              This uses 1 of your {remaining} available unlocks. Unlocks are permanent and save straight away.
             </p>
             <div className="mt-5 flex items-center justify-center gap-3">
               <button
@@ -523,7 +519,7 @@ function ClaimPosters({
                 }}
                 className="inline-flex min-h-10 items-center justify-center rounded-lg bg-gold px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-bg shadow hover:bg-gold/90 transition-transform active:scale-95 cursor-pointer"
               >
-                {busy ? "Claiming…" : "Confirm claim"}
+                {busy ? "Unlocking…" : "Confirm unlock"}
               </button>
             </div>
           </div>
@@ -778,7 +774,7 @@ export default function CustomiseClient({
     if (!ok) {
       // The server re-checks the film is really the user's and that the count
       // fits their allowance, so a refusal here is authoritative.
-      setClaimError("That claim was refused — you may be out of claims.");
+      setClaimError("That unlock was refused — you may be out of unlocks.");
       return;
     }
     setClaimed((c) => [...new Set([...c, tmdbId])]);
