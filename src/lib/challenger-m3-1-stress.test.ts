@@ -133,7 +133,7 @@ describe("Milestone M3 Empirical Challenger: Pioneer Challenge & Beta Canister S
     it("exists in ACHIEVEMENTS with exact required contract specifications", () => {
       expect(betaPioneerAchievement).toBeDefined();
       expect(betaPioneerAchievement?.key).toBe("beta_pioneer");
-      expect(betaPioneerAchievement?.name).toBe("Beta Pioneer");
+      expect(betaPioneerAchievement?.name).toBe("Beta Test Screener");
       expect(betaPioneerAchievement?.icon).toBe("📼");
       expect(betaPioneerAchievement?.rarity).toBe("legendary");
       expect(betaPioneerAchievement?.challenge).toBe(true);
@@ -433,7 +433,7 @@ describe("Milestone M3 Empirical Challenger: Pioneer Challenge & Beta Canister S
         expect(tagline).toBeDefined();
         expect(tagline?.name).toBe("Betamax");
         expect(tagline?.text).toBe("Betamax was better");
-        expect(tagline?.set).toBe("Beta Pioneer");
+        expect(tagline?.set).toBe("Beta Test Screener");
         expect(tagline?.rights).toBe("owned");
 
         const stats: AchievementStats = {
@@ -827,7 +827,7 @@ describe("Milestone M3 Empirical Challenger: Pioneer Challenge & Beta Canister S
     it("handles missing/undefined props gracefully without crashing", () => {
       const html = renderToStaticMarkup(h(BetaWalkthroughCard, {}));
       expect(html).toBeDefined();
-      expect(html).toContain("Pioneer Challenge");
+      expect(html).toContain("Beta Test Screening");
     });
   });
 

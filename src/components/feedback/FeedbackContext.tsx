@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
 import FeedbackModal from "./FeedbackModal";
+import FloatingFeedback from "./FloatingFeedback";
 
 export interface FeedbackContextValue {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     <FeedbackContext.Provider value={{ isOpen, openFeedback, closeFeedback }}>
       {children}
       <FeedbackModal isOpen={isOpen} onClose={closeFeedback} />
+      <FloatingFeedback />
     </FeedbackContext.Provider>
   );
 }

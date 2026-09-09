@@ -39,6 +39,7 @@ export default function ShareButton({
   passOptions,
 }: ShareButtonProps) {
   const [open, setOpen] = useState(false);
+  const [showMore, setShowMore] = useState(false);
   const [canNativeShare, setCanNativeShare] = useState(false);
   const [connection, setConnection] = useState<ConnectionOutcome>("unplayed");
   const [toast, setToast] = useState<string | null>(null);
@@ -200,44 +201,28 @@ export default function ShareButton({
               </svg>
               <span>Copy link</span>
             </button>
-            <a
-              role="menuitem"
-              href={threadsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setOpen(false)}
-              className={menuItem}
-            >
-              <svg className="size-4 shrink-0 fill-current text-text" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12.186 24h-.007C5.463 24 0 18.53 0 11.807 0 5.084 5.463-.386 12.186-.386c6.724 0 12.187 5.47 12.187 12.193 0 .61-.044 1.222-.132 1.823a1.18 1.18 0 0 1-1.328.995 1.18 1.18 0 0 1-.996-1.328c.078-.53.117-1.07.117-1.49 0-5.42-4.407-9.827-9.848-9.827S2.338 6.387 2.338 11.807c0 5.42 4.407 9.827 9.848 9.827 4.148 0 7.822-2.617 9.176-6.535a1.18 1.18 0 0 1 1.492-.732 1.18 1.18 0 0 1 .732 1.492C21.96 20.354 17.382 24 12.186 24zm4.275-10.42c-.22-.38-.508-.71-.853-.98.71-.43 1.258-1.08 1.57-1.87.32-.82.35-1.74.08-2.6-.4-1.3-1.46-2.28-2.8-2.6-1.3-.31-2.68-.02-3.68.8-1 1-1.5 2.38-1.36 3.78.14 1.4 1 2.58 2.3 3.16.48.21.99.33 1.52.34.8.03 1.62-.2 2.27-.66.3.31.55.67.73 1.07.38.85.39 1.83.03 2.68-.36.85-1.05 1.48-1.91 1.76-.87.27-1.81.18-2.6-.26-.79-.44-1.34-1.18-1.53-2.06a1.18 1.18 0 0 1 .91-1.4 1.18 1.18 0 0 1 1.4.91c.09.43.36.8.75 1.01.39.22.85.26 1.27.13.43-.14.77-.45.95-.87.18-.42.17-.9-.01-1.32-.2-.46-.55-.86-.99-1.13a4.9 4.9 0 0 1-2.27.56c-.84 0-1.66-.22-2.39-.64-1.92-1.12-2.92-3.23-2.52-5.4.39-2.18 2.1-3.84 4.31-4.2 2.22-.36 4.38.68 5.43 2.62.53.98.67 2.12.39 3.22-.27 1.1-.98 2.01-1.97 2.53z" />
-              </svg>
-              <span>Post to Threads</span>
-            </a>
-            <a
-              role="menuitem"
-              href={blueskyUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setOpen(false)}
-              className={menuItem}
-            >
-              <svg className="size-4 shrink-0 fill-[#1185fe]" viewBox="0 0 568 501" aria-hidden="true">
-                <path d="M123.121 33.664C188.241 82.553 258.281 181.68 284 234.873c25.719-53.192 95.759-152.32 160.879-201.21C491.866-1.611 568-28.906 568 57.947c0 17.346-9.945 145.713-15.778 166.555-20.575 73.253-95.619 92.05-162.775 80.375 116.326 19.986 145.98 90.938 81.99 156.453-122.38 125.321-170.835-31.282-187.437-128.531C267.4 430.048 218.945 586.654 96.565 461.33-32.575 395.815-2.921 324.863 113.405 304.877 46.249 316.552-28.795 297.755-49.37 224.502-55.203 203.66-65.148 75.293-65.148 57.947c0-86.853 76.134-59.558 123.121-24.283z" />
-              </svg>
-              <span>Post to Bluesky</span>
-            </a>
-            <a role="menuitem" href={mailto} onClick={() => setOpen(false)} className={menuItem}>
-              <svg className="size-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect width="20" height="16" x="2" y="4" rx="2" />
-                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-              </svg>
-              <span>Email</span>
-            </a>
-            {canNativeShare && (
+
+            {canNativeShare ? (
               <button
                 type="button"
                 role="menuitem"
                 onClick={() => void nativeShare()}
+                className={menuItem}
+              >
+                <svg className="size-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="18" cy="5" r="3" />
+                  <circle cx="6" cy="12" r="3" />
+                  <circle cx="18" cy="19" r="3" />
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                </svg>
+                <span>Share via…</span>
+              </button>
+            ) : !showMore ? (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => setShowMore(true)}
                 className={menuItem}
               >
                 <svg className="size-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -247,6 +232,42 @@ export default function ShareButton({
                 </svg>
                 <span>More options…</span>
               </button>
+            ) : (
+              <div className="mt-1 border-t border-white/10 pt-1">
+                <a
+                  role="menuitem"
+                  href={threadsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setOpen(false)}
+                  className={menuItem}
+                >
+                  <svg className="size-4 shrink-0 fill-current text-text" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12.186 24h-.007C5.463 24 0 18.53 0 11.807 0 5.084 5.463-.386 12.186-.386c6.724 0 12.187 5.47 12.187 12.193 0 .61-.044 1.222-.132 1.823a1.18 1.18 0 0 1-1.328.995 1.18 1.18 0 0 1-.996-1.328c.078-.53.117-1.07.117-1.49 0-5.42-4.407-9.827-9.848-9.827S2.338 6.387 2.338 11.807c0 5.42 4.407 9.827 9.848 9.827 4.148 0 7.822-2.617 9.176-6.535a1.18 1.18 0 0 1 1.492-.732 1.18 1.18 0 0 1 .732 1.492C21.96 20.354 17.382 24 12.186 24zm4.275-10.42c-.22-.38-.508-.71-.853-.98.71-.43 1.258-1.08 1.57-1.87.32-.82.35-1.74.08-2.6-.4-1.3-1.46-2.28-2.8-2.6-1.3-.31-2.68-.02-3.68.8-1 1-1.5 2.38-1.36 3.78.14 1.4 1 2.58 2.3 3.16.48.21.99.33 1.52.34.8.03 1.62-.2 2.27-.66.3.31.55.67.73 1.07.38.85.39 1.83.03 2.68-.36.85-1.05 1.48-1.91 1.76-.87.27-1.81.18-2.6-.26-.79-.44-1.34-1.18-1.53-2.06a1.18 1.18 0 0 1 .91-1.4 1.18 1.18 0 0 1 1.4.91c.09.43.36.8.75 1.01.39.22.85.26 1.27.13.43-.14.77-.45.95-.87.18-.42.17-.9-.01-1.32-.2-.46-.55-.86-.99-1.13a4.9 4.9 0 0 1-2.27.56c-.84 0-1.66-.22-2.39-.64-1.92-1.12-2.92-3.23-2.52-5.4.39-2.18 2.1-3.84 4.31-4.2 2.22-.36 4.38.68 5.43 2.62.53.98.67 2.12.39 3.22-.27 1.1-.98 2.01-1.97 2.53z" />
+                  </svg>
+                  <span>Post to Threads</span>
+                </a>
+                <a
+                  role="menuitem"
+                  href={blueskyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setOpen(false)}
+                  className={menuItem}
+                >
+                  <svg className="size-4 shrink-0 fill-[#1185fe]" viewBox="0 0 568 501" aria-hidden="true">
+                    <path d="M123.121 33.664C188.241 82.553 258.281 181.68 284 234.873c25.719-53.192 95.759-152.32 160879-201.21C491.866-1.611 568-28.906 568 57.947c0 17.346-9.945 145.713-15.778 166.555-20.575 73.253-95.619 92.05-162.775 80.375 116.326 19.986 145.98 90.938 81.99 156.453-122.38 125.321-170.835-31.282-187.437-128.531C267.4 430.048 218.945 586.654 96.565 461.33-32.575 395.815-2.921 324.863 113.405 304.877 46.249 316.552-28.795 297.755-49.37 224.502-55.203 203.66-65.148 75.293-65.148 57.947c0-86.853 76.134-59.558 123.121-24.283z" />
+                  </svg>
+                  <span>Post to Bluesky</span>
+                </a>
+                <a role="menuitem" href={mailto} onClick={() => setOpen(false)} className={menuItem}>
+                  <svg className="size-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect width="20" height="16" x="2" y="4" rx="2" />
+                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                  </svg>
+                  <span>Email</span>
+                </a>
+              </div>
             )}
           </div>
         )}

@@ -1673,12 +1673,11 @@ describe("TIER 5: Milestone M1 Theatrical & Responsive Polish Guardrails", () =>
     });
   });
 
-  describe("F4: Smooth Anchor Scroll for 'Spin a Reel While You Wait'", () => {
-    it("configures smooth scrolling for spin a reel while you wait link", () => {
+  describe("F4: Curator Roulette Removed From Home Page (Beta Feedback 2.b)", () => {
+    it("confirms roulette and #reel anchor are cut from home-client.tsx to reduce distractions", () => {
       const code = readFileSync(join(rootDir, "src/app/(site)/home-client.tsx"), "utf8");
-      expect(code).toMatch(/document\.getElementById\("reel"\)\?\.scrollIntoView\(\{\s*behavior:\s*["']smooth["']\s*\}\)/);
-      expect(code).toContain("e.preventDefault()");
-      expect(code).toContain('href="#reel"');
+      expect(code).not.toContain('id="reel"');
+      expect(code).not.toContain('href="#reel"');
     });
   });
 

@@ -145,7 +145,7 @@ function Side({
         className="group relative mx-auto block w-fit select-none rounded-xl sm:rounded-2xl transition-all duration-500 ease-out transform-gpu hover:scale-[1.02] focus:outline-none focus-visible:outline-none active:scale-[0.98] cursor-pointer"
       >
         <div
-          className={`aspect-[2/3] h-[min(50svh,64vw)] sm:h-[min(58svh,36vw)] md:h-[min(65svh,34vw,650px)] lg:h-[min(70svh,32vw,750px)] overflow-hidden rounded-xl sm:rounded-2xl bg-surface transition-all duration-500 ease-out group-focus-visible:ring-2 group-focus-visible:ring-gold group-active:ring-gold ${
+          className={`aspect-[2/3] h-[min(50svh,64vw)] sm:h-[min(58svh,36vw)] md:h-[min(65svh,34vw,650px)] lg:h-[min(70svh,32vw,750px)] portrait:sm:h-[min(54svh,58vw,680px)] overflow-hidden rounded-xl sm:rounded-2xl bg-surface transition-all duration-500 ease-out group-focus-visible:ring-2 group-focus-visible:ring-gold group-active:ring-gold ${
             isWinning
               ? "animate-poster-winner ring-2 ring-gold"
               : streak >= 4
@@ -283,7 +283,7 @@ export default function MatchupStage({
   return (
     <section
       aria-label="Which movie is better?"
-      className="matchup-stage-container mx-auto flex w-full max-w-6xl xl:max-w-7xl flex-1 items-center justify-center gap-1.5 sm:gap-10 md:gap-14 lg:gap-20 px-1.5 sm:px-2 py-2 select-none"
+      className="matchup-stage-container mx-auto flex w-full max-w-6xl xl:max-w-7xl flex-1 items-center justify-center gap-1.5 sm:gap-10 md:gap-14 lg:gap-20 portrait:sm:gap-6 portrait:md:gap-8 portrait:lg:gap-10 px-1.5 sm:px-2 py-2 select-none"
     >
       <Side
         key={a.tmdbId}

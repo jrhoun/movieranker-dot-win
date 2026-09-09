@@ -168,7 +168,7 @@ export const TAGLINES: TaglineItem[] = [
     slot: "tagline",
     name: "Betamax",
     text: "Betamax was better",
-    set: "Beta Pioneer",
+    set: "Beta Test Screener",
     unlock: { kind: "challenge", key: "beta_pioneer" },
     rarity: "legendary",
     rights: "owned",

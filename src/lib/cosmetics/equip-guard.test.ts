@@ -36,9 +36,9 @@ describe("validateEquipPatch", () => {
   });
 
   it("refuses an id that is owned but belongs to a different slot", () => {
-    // background.filmstrip is a starter (owned by everyone) but it's a
+    // background.spotlight is a starter (owned by everyone) but it's a
     // background, not a frame — canEquip alone never checked that.
-    const r = validateEquipPatch({ frame: "background.filmstrip" }, owned, films);
+    const r = validateEquipPatch({ frame: "background.spotlight" }, owned, films);
     expect(r.ok).toBe(false);
   });
 

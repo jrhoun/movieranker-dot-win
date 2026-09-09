@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import MoviePoster from "./MoviePoster";
 import type { RankedRow } from "@/lib/list-view";
 import { tmdbMovieUrl } from "@/lib/tmdb";
@@ -44,6 +47,7 @@ function RankBadge({ rank }: { rank: number }) {
 }
 
 export default function RowsView({ movies }: { movies: RankedRow[] }) {
+  const [isHaventSeenOpen, setIsHaventSeenOpen] = useState(false);
   const ranked = movies.filter((m) => m.rank !== null);
   const unranked = movies.filter((m) => m.rank === null);
 
@@ -149,56 +153,76 @@ export default function RowsView({ movies }: { movies: RankedRow[] }) {
 
       {unranked.length > 0 && (
         <div className="rounded-2xl border border-white/5 bg-surface/40 p-4 sm:p-5 ring-1 ring-white/5">
-          <div className="mb-4 flex items-center justify-between">
-            <h4 className="font-display text-sm uppercase tracking-wider text-muted">
-              Haven&apos;t seen ({unranked.length})
-            </h4>
-            <span className="rounded-full bg-white/5 px-2.5 py-0.5 text-[11px] font-medium text-muted ring-1 ring-white/10">
-              Unranked
-            </span>
-          </div>
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {unranked.map((m) => (
-              <li
-                key={m.tmdbId}
-                className="flex items-center gap-3.5 p-2.5 rounded-xl border border-white/5 bg-surface/50 text-muted transition-colors hover:text-text hover:bg-surface-raised"
+          <button
+            type="button"
+            onClick={() => setIsHaventSeenOpen(!isHaventSeenOpen)}
+            aria-expanded={isHaventSeenOpen}
+            className="flex w-full items-center justify-between text-left transition-colors hover:text-gold focus-visible:outline-2 focus-visible:outline-gold cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <span
+                aria-hidden="true"
+                className={`text-gold text-xs transition-transform duration-200 ${isHaventSeenOpen ? "rotate-90" : ""}`}
               >
-                <a
-                  href={tmdbMovieUrl(m.tmdbId)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={`View ${m.title} on TMDB (opens in new tab)`}
-                  className="block shrink-0 overflow-hidden rounded-lg ring-1 ring-white/10 grayscale-[35%]"
+                ▶
+              </span>
+              <h4 className="font-display text-sm uppercase tracking-wider text-muted">
+                Haven&apos;t seen ({unranked.length})
+              </h4>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted/70">
+                {isHaventSeenOpen ? "Hide" : "Show movies"}
+              </span>
+              <span className="rounded-full bg-white/5 px-2.5 py-0.5 text-[11px] font-medium text-muted ring-1 ring-white/10">
+                Unranked
+              </span>
+            </div>
+          </button>
+          {isHaventSeenOpen && (
+            <ul className="mt-4 grid gap-3 sm:grid-cols-2 animate-fade-in">
+              {unranked.map((m) => (
+                <li
+                  key={m.tmdbId}
+                  className="flex items-center gap-3.5 p-2.5 rounded-xl border border-white/5 bg-surface/50 text-muted transition-colors hover:text-text hover:bg-surface-raised"
                 >
-                  <MoviePoster
-                    title={m.title}
-                    posterPath={m.posterPath}
-                    tmdbId={m.tmdbId}
-                    className="w-12 min-w-12 sm:w-14 sm:min-w-14 shrink-0"
-                  />
-                </a>
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-sm text-text/90 leading-snug">
-                    <a
-                      href={tmdbMovieUrl(m.tmdbId)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={`View ${m.title} on TMDB (opens in new tab)`}
-                      className="transition-colors hover:text-gold hover:underline focus-visible:outline-1 focus-visible:outline-gold"
-                    >
-                      {m.title}
-                    </a>{" "}
-                    {m.releaseYear && (
-                      <span className="font-mono text-xs font-normal text-muted">
-                        ({m.releaseYear})
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-[11px] text-muted mt-0.5">Haven&apos;t seen</p>
-                </div>
-              </li>
-            ))}
-          </ul>
+                  <a
+                    href={tmdbMovieUrl(m.tmdbId)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`View ${m.title} on TMDB (opens in new tab)`}
+                    className="block shrink-0 overflow-hidden rounded-lg ring-1 ring-white/10 grayscale-[35%]"
+                  >
+                    <MoviePoster
+                      title={m.title}
+                      posterPath={m.posterPath}
+                      tmdbId={m.tmdbId}
+                      className="w-12 min-w-12 sm:w-14 sm:min-w-14 shrink-0"
+                    />
+                  </a>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm text-text/90 leading-snug">
+                      <a
+                        href={tmdbMovieUrl(m.tmdbId)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={`View ${m.title} on TMDB (opens in new tab)`}
+                        className="transition-colors hover:text-gold hover:underline focus-visible:outline-1 focus-visible:outline-gold"
+                      >
+                        {m.title}
+                      </a>{" "}
+                      {m.releaseYear && (
+                        <span className="font-mono text-xs font-normal text-muted">
+                          ({m.releaseYear})
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-[11px] text-muted mt-0.5">Haven&apos;t seen</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>

@@ -59,7 +59,7 @@ export default function ProfileBackdrop({
   posters: { title: string; posterPath: string | null }[];
   variant?: "page" | "preview";
 }) {
-  const background = equipped.background ?? "background.filmstrip";
+  const background = equipped.background ?? "background.spotlight";
   const art = posters.flatMap((p) => (p.posterPath ? [p.posterPath] : [])).slice(0, 8);
   const heroPoster = equipped.avatarPosterPath ?? art[0] ?? null;
   const position = variant === "page" ? "fixed inset-0 -z-10" : "absolute inset-0 z-0";

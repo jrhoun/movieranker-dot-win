@@ -223,9 +223,10 @@ describe("M1 Challenger Empirical Stress Tests", () => {
       }
     });
 
-    it("verifies target #reel exists in home-client.tsx with scroll-mt-6", () => {
+    it("verifies roulette section #reel is omitted from home-client.tsx per beta feedback", () => {
       const code = readFileSync(join(rootDir, "src/app/(site)/home-client.tsx"), "utf8");
-      expect(code).toMatch(/id="reel"[^>]*scroll-mt-6/);
+      expect(code).not.toContain('id="reel"');
+      expect(code).not.toContain('href="#reel"');
     });
   });
 

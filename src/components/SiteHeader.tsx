@@ -4,7 +4,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import SignInLink from "@/components/SignInLink";
 import IdentityDropdown from "@/components/IdentityDropdown";
 import BetaBadge from "@/components/BetaBadge";
-import { FeedbackTrigger } from "@/components/feedback";
 import { isOwnerEmail } from "@/lib/proposals-api";
 
 async function signOut() {
@@ -59,9 +58,6 @@ export default async function SiteHeader() {
           >
             Updates
           </Link>
-          <FeedbackTrigger className="flex min-h-9 items-center px-2 py-1 text-xs font-semibold uppercase tracking-wider text-muted transition-colors duration-200 ease-out hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold">
-            Feedback
-          </FeedbackTrigger>
           {data.user ? (
             <IdentityDropdown handle={handle} signOut={signOut} isOwner={isOwner} />
           ) : (

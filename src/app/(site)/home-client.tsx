@@ -8,7 +8,6 @@ import MarqueeHeading from "@/components/MarqueeHeading";
 import MarqueeInfoModal from "@/components/MarqueeInfoModal";
 import MoviePoster from "@/components/list/MoviePoster";
 import SearchPanel from "@/components/SearchPanel";
-import CuratorRoulette from "@/components/roulette/CuratorRoulette";
 import UpvoteButton from "@/components/community/UpvoteButton";
 import ForkButton from "@/components/community/ForkButton";
 import { FAN_POSTERS } from "@/lib/hero-posters";
@@ -406,18 +405,6 @@ export default function HomeClient({
                   >
                     See how you compared
                   </Link>
-                  {/* The one visitor for whom a random pack is the right offer:
-                      this week is done and Monday is hours away. */}
-                  <a
-                    href="#reel"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      document.getElementById("reel")?.scrollIntoView({ behavior: "smooth" });
-                    }}
-                    className="text-xs text-muted underline decoration-white/25 underline-offset-4 transition-colors hover:text-gold hover:decoration-gold focus-visible:outline-2 focus-visible:outline-gold"
-                  >
-                    or spin a reel while you wait
-                  </a>
                 </div>
               ) : (
                 <button
@@ -718,29 +705,60 @@ export default function HomeClient({
             );
           }
 
-          /* Empty Spotlight. This was a blurred placeholder grid under a gold
-             "Coming Soon" card — a decorated absence. An empty section should
-             offer the thing that fills it: a ready-made reel to rank right now,
-             which is the one context where the roulette is the right door. */
           return (
-            <div id="reel" className="mt-8 scroll-mt-6">
-              <p className="mb-4 text-center text-xs text-muted sm:text-sm">
-                Nothing settled here yet. Rank a reel and be the first on the board.
-              </p>
-              <CuratorRoulette />
+            <div className="relative mt-8 min-h-[300px] overflow-hidden rounded-2xl border border-white/10 bg-surface/40 p-6">
+              {/* Blurred Silhouette Preview Grid */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none select-none filter blur-md opacity-20 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+              >
+                {[1, 2, 3].map((placeholderIdx) => (
+                  <div
+                    key={placeholderIdx}
+                    className="flex flex-col justify-between rounded-2xl border border-white/10 bg-surface/80 p-5"
+                  >
+                    <div>
+                      <div className="h-6 w-3/4 rounded bg-white/20 mb-2" />
+                      <div className="h-3 w-1/2 rounded bg-white/10 mb-4" />
+                      <div className="flex justify-center gap-2 py-4">
+                        <div className="aspect-[2/3] w-20 rounded bg-white/10" />
+                        <div className="aspect-[2/3] w-20 rounded bg-white/15" />
+                        <div className="aspect-[2/3] w-20 rounded bg-white/10" />
+                      </div>
+                    </div>
+                    <div className="h-4 w-1/3 rounded bg-white/10" />
+                  </div>
+                ))}
+              </div>
+
+              {/* Centered Coming Soon Marquee Card */}
+              <div className="absolute inset-0 flex items-center justify-center p-4">
+                <div className="max-w-md rounded-2xl border border-gold/30 bg-surface/95 p-6 sm:p-8 text-center shadow-2xl backdrop-blur-md ring-1 ring-gold/20">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/10 px-3 py-1 font-display text-xs uppercase tracking-widest text-gold ring-1 ring-gold/40">
+                    ✦ Coming Soon ✦
+                  </span>
+                  <h3 className="mt-3 font-display text-2xl uppercase tracking-wider text-text sm:text-3xl">
+                    Community Spotlight
+                  </h3>
+                  <p className="mt-2 text-xs leading-relaxed text-muted sm:text-sm">
+                    Featured community rankings will appear here as custom lists are created and shared by the community.
+                  </p>
+                  <div className="mt-5">
+                    <button
+                      type="button"
+                      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+                      className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-bg shadow-lg transition-transform hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+                    >
+                      <span>Start a Ranking</span>
+                      <span aria-hidden="true">→</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           );
         })()}
       </section>
-
-      {/* Returning player, populated Spotlight: the reel is the only thing
-          left to offer, so it gets the last slot rather than a hero slot. When
-          the Spotlight is empty it has already rendered the reel itself. */}
-      {alreadyRankedThisWeek && trendingLists.length >= 3 && (
-        <section id="reel" aria-label="Spin a reel" className="mt-14 scroll-mt-6">
-          <CuratorRoulette />
-        </section>
-      )}
 
       <CandidateTray
         candidates={candidates}

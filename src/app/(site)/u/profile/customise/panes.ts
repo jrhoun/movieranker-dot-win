@@ -131,7 +131,7 @@ export function avatarGroups(claimed: CosmeticItem[] = []): ItemGroup[] {
     ...[...byStyle.entries()].map(([style, items]) => ({
       key: `illustrated-${style}`,
       section: "Illustrated",
-      title: style === "other" ? "More" : titleCase(style),
+      title: style === "other" ? "Promotional" : titleCase(style),
       items,
     })),
     { key: "gradients", title: "Gradients", items: gradients },

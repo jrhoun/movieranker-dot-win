@@ -1,10 +1,114 @@
 "use client";
 
-import React, { useState, useTransition, useEffect } from "react";
+import React, { useState, useTransition, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { playGoldenChime } from "@/lib/audio";
 import { patchShowcase } from "@/lib/public-profile";
+
+function CanisterConfetti({ onComplete }: { onComplete?: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animId: number;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * (window.devicePixelRatio || 1);
+    canvas.height = rect.height * (window.devicePixelRatio || 1);
+    ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+
+    const colors = ["#f5c518", "#ffd700", "#ffffff", "#e50914", "#ff8c00", "#00e5ff"];
+    const particles: {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      color: string;
+      size: number;
+      rotation: number;
+      vRot: number;
+      shape: "rect" | "circle";
+      opacity: number;
+    }[] = [];
+
+    const count = 120;
+    const originX = rect.width / 2;
+    const originY = rect.height * 0.45;
+
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+      const speed = Math.random() * 8 + 4;
+      particles.push({
+        x: originX,
+        y: originY,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 5,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: Math.random() * 8 + 4,
+        rotation: Math.random() * 360,
+        vRot: (Math.random() - 0.5) * 12,
+        shape: Math.random() > 0.3 ? "rect" : "circle",
+        opacity: 1,
+      });
+    }
+
+    let start: number | null = null;
+    const duration = 4000;
+
+    const render = (time: number) => {
+      if (!start) start = time;
+      const elapsed = time - start;
+      const progress = elapsed / duration;
+
+      ctx.clearRect(0, 0, rect.width, rect.height);
+
+      for (const p of particles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.18; // gravity
+        p.vx *= 0.985; // air drag
+        p.rotation += p.vRot;
+        p.opacity = Math.max(0, 1 - progress);
+
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate((p.rotation * Math.PI) / 180);
+        ctx.globalAlpha = p.opacity;
+        ctx.fillStyle = p.color;
+
+        if (p.shape === "rect") {
+          ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+        } else {
+          ctx.beginPath();
+          ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      if (progress < 1) {
+        animId = requestAnimationFrame(render);
+      } else {
+        onComplete?.();
+      }
+    };
+
+    animId = requestAnimationFrame(render);
+    return () => cancelAnimationFrame(animId);
+  }, [onComplete]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="pointer-events-none absolute inset-0 z-30 h-full w-full"
+      aria-hidden="true"
+    />
+  );
+}
 
 export interface BetaWalkthroughCardProps {
   isSignedIn?: boolean;
@@ -29,6 +133,9 @@ export default function BetaWalkthroughCard({
   const [isPending, startTransition] = useTransition();
   const [equippedItems, setEquippedItems] = useState(equipped ?? {});
   const [equippingSlot, setEquippingSlot] = useState<string | null>(null);
+  const [celebrating, setCelebrating] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(false);
 
   const step1Done = Boolean(isSignedIn);
   const step2Done = Boolean(hasHandle);
@@ -46,13 +153,45 @@ export default function BetaWalkthroughCard({
   const [claimedCanister, setClaimedCanister] = useState(isAnyBetaEquipped);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && localStorage.getItem("mr_beta_canister_claimed") === "1") {
-      setClaimedCanister(true);
+    if (typeof window !== "undefined") {
+      if (localStorage.getItem("mr_beta_canister_claimed") === "1") {
+        setClaimedCanister(true);
+      }
+      if (localStorage.getItem("mr_beta_card_collapsed") === "1") {
+        setIsCollapsed(true);
+      }
+      if (localStorage.getItem("mr_beta_card_dismissed") === "1") {
+        setIsDismissed(true);
+      }
     }
   }, []);
 
+  const toggleCollapse = () => {
+    const next = !isCollapsed;
+    setIsCollapsed(next);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("mr_beta_card_collapsed", next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  const handleDismiss = () => {
+    setIsDismissed(true);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("mr_beta_card_dismissed", "1");
+      } catch {
+        // ignore
+      }
+    }
+  };
+
   const handleClaim = () => {
     playGoldenChime();
+    setCelebrating(true);
     setClaimedCanister(true);
     if (typeof window !== "undefined") {
       try {
@@ -75,11 +214,74 @@ export default function BetaWalkthroughCard({
     });
   };
 
+  if (isDismissed) {
+    return (
+      <div className="flex justify-end py-1">
+        <button
+          type="button"
+          onClick={() => {
+            setIsDismissed(false);
+            try {
+              localStorage.removeItem("mr_beta_card_dismissed");
+            } catch {
+              // ignore
+            }
+          }}
+          className="text-xs text-muted/70 hover:text-gold transition-colors cursor-pointer"
+        >
+          ✦ Show Beta Test Screening Card
+        </button>
+      </div>
+    );
+  }
+
+  if (isCollapsed) {
+    return (
+      <section
+        aria-label="Public Beta Test Screening"
+        className={`relative overflow-hidden rounded-2xl border border-gold/30 bg-bg/90 p-4 shadow-md backdrop-blur-md flex flex-wrap items-center justify-between gap-3 ${className ?? ""}`}
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-2xl text-gold" aria-hidden="true">📼</span>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center rounded-md bg-gold/15 px-2 py-0.5 font-display text-[10px] uppercase tracking-widest text-gold ring-1 ring-gold/40">
+                Beta Event
+              </span>
+              <h2 className="font-display text-base uppercase tracking-wider text-text sm:text-lg">
+                Beta Test Screening
+              </h2>
+            </div>
+            <p className="text-xs text-muted mt-0.5">
+              {allCompleted
+                ? claimedCanister
+                  ? "All 3 steps complete · Beta Canister Unlocked"
+                  : "3 / 3 steps done · Ready to claim canister!"
+                : `${completedCount} of 3 steps completed`}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleCollapse}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-surface/80 px-3 py-1.5 text-xs font-semibold text-text hover:border-gold hover:text-gold transition-colors cursor-pointer"
+          >
+            <span>Show Details</span>
+            <span aria-hidden="true">▼</span>
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section
-      aria-label="Public Beta Pioneer Challenge"
+      aria-label="Public Beta Test Screening"
       className={`relative overflow-hidden rounded-2xl border border-gold/30 bg-bg/90 p-5 sm:p-7 shadow-lg backdrop-blur-md ${className ?? ""}`}
     >
+      {celebrating && <CanisterConfetti onComplete={() => setCelebrating(false)} />}
+
       {/* Decorative cinema background tint */}
       <div
         aria-hidden="true"
@@ -93,26 +295,49 @@ export default function BetaWalkthroughCard({
               Beta Event
             </span>
             <span className="text-xs font-semibold uppercase tracking-wider text-muted">
-              Pioneer Challenge
+              Beta Test Screening
             </span>
           </div>
           <h2 className="mt-1.5 font-display text-2xl uppercase tracking-wider text-text sm:text-3xl">
             Claim Your Beta Canister
           </h2>
           <p className="mt-1 max-w-[60ch] text-xs leading-relaxed text-muted sm:text-sm">
-            Complete all three pioneer onboarding steps during public beta to unlock the exclusive
-            legendary Beta Canister cosmetic suite.
+            Complete all three onboarding steps during public beta to become a Beta Test Screener and
+            unlock the exclusive Beta Canister cosmetic suite.
           </p>
         </div>
 
-        {/* Progress summary badge */}
-        <div className="flex items-center gap-3 sm:flex-col sm:items-end sm:gap-1">
-          <span className="font-display text-xl text-gold sm:text-2xl">
-            {completedCount} / 3
-          </span>
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted">
-            Steps Done
-          </span>
+        {/* Progress summary badge & collapse control */}
+        <div className="flex items-center justify-between sm:flex-col sm:items-end sm:gap-2">
+          <div className="flex flex-col sm:items-end">
+            <span className="font-display text-xl text-gold sm:text-2xl">
+              {completedCount} / 3
+            </span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted">
+              Steps Done
+            </span>
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={toggleCollapse}
+              title="Minimize card"
+              className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-surface/60 px-2.5 py-1 text-xs text-muted hover:border-gold/50 hover:text-text transition-colors cursor-pointer"
+            >
+              <span>Minimize</span>
+              <span aria-hidden="true">▲</span>
+            </button>
+            {claimedCanister && (
+              <button
+                type="button"
+                onClick={handleDismiss}
+                title="Dismiss card"
+                className="inline-flex items-center rounded-md border border-white/10 bg-surface/60 px-2 py-1 text-xs text-muted hover:border-red-500/50 hover:text-red-400 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -120,7 +345,7 @@ export default function BetaWalkthroughCard({
       <div className="mt-4">
         <div
           role="progressbar"
-          aria-label="Pioneer challenge progress"
+          aria-label="Beta test screening progress"
           aria-valuenow={completedCount}
           aria-valuemin={0}
           aria-valuemax={3}
@@ -262,29 +487,29 @@ export default function BetaWalkthroughCard({
                   </h3>
                 </div>
                 <p className="mt-1 text-xs text-text/80 sm:text-sm">
-                  You conquered the 3-step Pioneer Challenge. Claim your Beta Canister to reveal your
+                  You conquered the 3-step Beta Test Screening! Claim your Beta Canister to reveal your
                   cosmetics.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={handleClaim}
-                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-gold px-6 py-2.5 font-display text-base uppercase tracking-wider text-bg shadow-[0_0_24px_rgba(245,197,24,0.45)] transition-all hover:bg-gold/90 hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-gold active:scale-[0.98]"
+                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-gold px-6 py-2.5 font-display text-base uppercase tracking-wider text-bg shadow-[0_0_24px_rgba(245,197,24,0.45)] transition-all hover:bg-gold/90 hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-gold active:scale-[0.98] cursor-pointer"
               >
                 <span>📼</span>
                 <span>Claim Beta Canister</span>
               </button>
             </div>
           ) : (
-            <div className="rounded-xl border border-gold/30 bg-surface/60 p-5 backdrop-blur-md">
+            <div className="relative rounded-xl border border-gold/40 bg-surface/80 p-5 backdrop-blur-md shadow-[0_0_35px_rgba(245,197,24,0.25)] ring-1 ring-gold/30">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">✨</span>
+                  <span className="text-xl animate-bounce">✨</span>
                   <h3 className="font-display text-lg uppercase tracking-wider text-gold sm:text-xl">
                     Beta Canister Cosmetics Unlocked
                   </h3>
                 </div>
-                <span className="rounded bg-gold/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-gold">
+                <span className="rounded bg-gold/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-gold shadow-sm ring-1 ring-gold/40">
                   Legendary Bundle
                 </span>
               </div>

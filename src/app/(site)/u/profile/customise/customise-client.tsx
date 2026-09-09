@@ -58,10 +58,10 @@ import {
  */
 
 const PRIMARY =
-  "min-h-11 rounded-full bg-gold px-5 font-semibold text-bg transition-opacity duration-200 ease-out hover:opacity-90 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold";
+  "inline-flex min-h-11 items-center justify-center rounded-full bg-gold px-5 font-semibold text-bg transition-opacity duration-200 ease-out hover:opacity-90 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold cursor-pointer";
 
 const TEXT_LINK =
-  "min-h-11 rounded px-1 text-base text-gold underline-offset-4 transition-colors duration-200 ease-out hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold";
+  "inline-flex min-h-11 items-center justify-center rounded px-3 text-base text-gold underline-offset-4 transition-colors duration-200 ease-out hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold cursor-pointer";
 
 const PANE_HEADING = "font-display text-2xl uppercase tracking-[0.12em] text-text";
 const GROUP_HEADING = "font-display text-lg uppercase tracking-[0.12em] text-text";
@@ -394,19 +394,32 @@ function ClaimPosters({
   error: string | null;
   onClaim: (tmdbId: number) => void;
 }) {
-  const [pending, setPending] = useState<number | null>(null);
+  const [confirmingFilm, setConfirmingFilm] = useState<{
+    tmdbId: number;
+    title: string;
+    posterPath: string | null;
+  } | null>(null);
+  const [showAllPosters, setShowAllPosters] = useState(false);
   const claimedSet = new Set(claimed);
   const unclaimed = films.filter((f) => !claimedSet.has(f.tmdbId));
   const remaining = Math.max(0, allowance - claimed.length);
+
+  const INITIAL_ROWS_LIMIT = 12;
+  const displayedFilms = showAllPosters ? unclaimed : unclaimed.slice(0, INITIAL_ROWS_LIMIT);
 
   if (films.length === 0) return null;
 
   return (
     <div className="mt-8 border-t border-white/10 pt-6">
-      <h4 className={SUB_HEADING}>Claim a poster</h4>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h4 className={SUB_HEADING}>Movie Poster Avatars</h4>
+        <span className="rounded-full bg-gold/15 px-2.5 py-0.5 font-mono text-xs font-semibold text-gold ring-1 ring-gold/30">
+          {remaining} of {allowance} available
+        </span>
+      </div>
       <p className="mt-2 max-w-[70ch] text-base leading-relaxed text-text/90">
-        Any film you have ranked can become your avatar. {claimed.length} of {allowance} claim
-        {allowance === 1 ? "" : "s"} used.{" "}
+        Any film you have ranked can become your avatar. Claim a poster: {claimed.length} of {allowance} claim
+        {allowance === 1 ? "" : "s"} used ({remaining} claim{remaining === 1 ? "" : "s"} available).{" "}
         {remaining > 0
           ? "A claim is permanent and saves straight away — Cancel does not undo it. Every level earns you another."
           : "Every level up earns you another."}
@@ -423,20 +436,18 @@ function ClaimPosters({
           Every film you have ranked is already claimed.
         </p>
       ) : (
-        <ul className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(88px,1fr))] gap-x-3 gap-y-4">
-          {unclaimed.map((film) => {
-            const isPending = pending === film.tmdbId;
-            return (
+        <>
+          <ul className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(88px,1fr))] gap-x-3 gap-y-4">
+            {displayedFilms.map((film) => (
               <li key={film.tmdbId}>
                 <button
                   type="button"
                   disabled={remaining === 0 || busy}
-                  onClick={() => (isPending ? onClaim(film.tmdbId) : setPending(film.tmdbId))}
-                  onBlur={() => isPending && setPending(null)}
+                  onClick={() => setConfirmingFilm(film)}
                   title={film.title}
                   className={`flex w-full flex-col items-center gap-2 rounded-lg p-1.5 text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${
-                    isPending ? "ring-1 ring-gold" : ""
-                  } ${remaining === 0 ? "cursor-not-allowed opacity-40" : ""}`}
+                    remaining === 0 ? "cursor-not-allowed opacity-40" : "hover:ring-1 hover:ring-gold/50 cursor-pointer"
+                  }`}
                 >
                   <span className="block h-[117px] w-[78px] shrink-0 overflow-hidden rounded-sm bg-surface-raised">
                     {film.posterPath && (
@@ -452,13 +463,71 @@ function ClaimPosters({
                     {film.title}
                   </span>
                   <span className="text-xs leading-tight text-gold">
-                    {isPending ? (busy ? "Claiming…" : "Tap again to claim") : "Claim"}
+                    Claim
                   </span>
                 </button>
               </li>
-            );
-          })}
-        </ul>
+            ))}
+          </ul>
+
+          {unclaimed.length > INITIAL_ROWS_LIMIT && (
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setShowAllPosters(!showAllPosters)}
+                className="inline-flex min-h-9 items-center justify-center rounded-lg border border-white/10 bg-surface/60 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-gold hover:border-gold/50 hover:bg-gold/10 transition-colors focus-visible:outline-2 focus-visible:outline-gold cursor-pointer"
+              >
+                {showAllPosters
+                  ? "Show less"
+                  : `Show all (${unclaimed.length - INITIAL_ROWS_LIMIT} remaining)`}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmingFilm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-claim-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+        >
+          <div className="w-full max-w-sm rounded-2xl border border-gold/40 bg-surface p-6 shadow-2xl ring-1 ring-gold/30 text-center">
+            <h5 id="confirm-claim-title" className="font-display text-lg uppercase tracking-wider text-gold">
+              Are you sure?
+            </h5>
+            <p className="mt-2 text-sm text-text leading-relaxed">
+              Claim <strong className="text-gold font-semibold">{confirmingFilm.title}</strong> as your avatar?
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              This uses 1 of your {remaining} available claims. A claim is permanent and saves straight away.
+            </p>
+            <div className="mt-5 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmingFilm(null)}
+                disabled={busy}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-white/20 bg-surface-raised px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-text hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  const filmId = confirmingFilm.tmdbId;
+                  setConfirmingFilm(null);
+                  await onClaim(filmId);
+                }}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg bg-gold px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-bg shadow hover:bg-gold/90 transition-transform active:scale-95 cursor-pointer"
+              >
+                {busy ? "Claiming…" : "Confirm claim"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -832,38 +901,7 @@ export default function CustomiseClient({
 
   return (
     <div className="mt-8">
-      <div className="lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-x-12">
-        {/*
-          THE MIRROR: the draft, not what is stored, and composed exactly as the
-          real profile composes it — the equipped background painted behind a
-          translucent card rather than inside it. A tap is a fitting, not a
-          guess.
-        */}
-        <div className="relative min-h-[360px] overflow-hidden rounded-2xl lg:col-start-2 lg:row-start-1">
-          <ProfileBackdrop equipped={draft} posters={posters} variant="preview" />
-          <div className="relative z-[1] flex min-h-[360px] items-center px-4 py-6 sm:px-6">
-            {/*
-              `w-full` on this wrapper, not on the panel: ProfileCanvas sizes
-              itself by CONTAINER, and as a bare flex item its `mx-auto
-              max-w-4xl` gave it no width to size against — it shrank to its
-              own 2px of border and the avatar vanished. The panel needs a
-              full-width BLOCK parent to measure, exactly as it has on both
-              profile pages.
-            */}
-            <div className="w-full">
-              <ProfileCanvas
-                handle={handle}
-                level={level}
-                equipped={draft}
-                posters={posters}
-                taglineText={draft.tagline ? taglineTexts[draft.tagline] : null}
-                statsLine={statsLine}
-                pinned={featuredLaurels}
-              />
-            </div>
-          </div>
-        </div>
-
+      <div className="flex flex-col lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-x-12">
         {/*
           The nav. A column beside the panes on a desktop, a scrolling row under
           the mirror on a phone — where a seven-item column would push the pane
@@ -871,7 +909,7 @@ export default function CustomiseClient({
         */}
         <nav
           aria-label="Profile sections"
-          className="mt-6 -mx-4 overflow-x-auto px-4 lg:col-start-1 lg:row-start-1 lg:row-span-2 lg:mx-0 lg:mt-0 lg:self-start lg:overflow-visible lg:px-0 lg:sticky lg:top-6"
+          className="order-2 mt-6 -mx-4 overflow-x-auto px-4 lg:order-none lg:col-start-1 lg:mx-0 lg:mt-0 lg:self-start lg:overflow-visible lg:px-0 lg:sticky lg:top-6"
         >
           <ul className="flex gap-x-6 whitespace-nowrap lg:flex-col lg:gap-x-0 lg:gap-y-1">
             {SECTIONS.map((s) => {
@@ -894,13 +932,36 @@ export default function CustomiseClient({
           </ul>
         </nav>
 
-        {/* The active pane. `id` is the fragment the nav and deep links aim at. */}
-        <section
-          id={section}
-          aria-label={sectionLabel}
-          className="mt-10 scroll-mt-6 lg:col-start-2 lg:row-start-2"
-        >
-          <h2 className={PANE_HEADING}>{sectionLabel}</h2>
+        {/* Right column container on desktop: hosts both the sticky mirror and the active scrolling pane */}
+        <div className="contents lg:block lg:col-start-2">
+          {/*
+            THE MIRROR: sticky on desktop so as the user scrolls through items,
+            they see their choices reflected immediately without scrolling back up.
+          */}
+          <div className="order-1 relative min-h-[360px] overflow-hidden rounded-2xl border border-white/5 bg-bg/95 shadow-2xl backdrop-blur-md lg:sticky lg:top-4 lg:z-20">
+            <ProfileBackdrop equipped={draft} posters={posters} variant="preview" />
+            <div className="relative z-[1] flex min-h-[360px] items-center px-4 py-6 sm:px-6">
+              <div className="w-full">
+                <ProfileCanvas
+                  handle={handle}
+                  level={level}
+                  equipped={draft}
+                  posters={posters}
+                  taglineText={draft.tagline ? taglineTexts[draft.tagline] : null}
+                  statsLine={statsLine}
+                  pinned={featuredLaurels}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* The active pane. `id` is the fragment the nav and deep links aim at. */}
+          <section
+            id={section}
+            aria-label={sectionLabel}
+            className="order-3 mt-10 scroll-mt-6"
+          >
+            <h2 className={PANE_HEADING}>{sectionLabel}</h2>
 
           {section === "featured-achievements" && (
             <AchievementsPane
@@ -1049,6 +1110,7 @@ export default function CustomiseClient({
             </>
           )}
         </section>
+        </div>
       </div>
 
       {/*

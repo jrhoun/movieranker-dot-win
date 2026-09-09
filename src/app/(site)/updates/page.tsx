@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SITE_UPDATES } from "@/data/updates";
-import { CONTACT_EMAIL } from "@/lib/site";
+import FeedbackTrigger from "@/components/FeedbackTrigger";
 
 export const metadata: Metadata = {
   title: "Site Updates & News | MovieRanker",
@@ -75,6 +75,15 @@ export default function UpdatesPage() {
               {update.summary}
             </p>
 
+            {/* Extended Personal Content */}
+            {update.content && update.content.length > 0 && (
+              <div className="mt-4 space-y-3 rounded-xl bg-surface-raised/40 p-4 border border-white/5 text-xs sm:text-sm text-text/90 leading-relaxed">
+                {update.content.map((paragraph, pIdx) => (
+                  <p key={pIdx}>{paragraph}</p>
+                ))}
+              </div>
+            )}
+
             {/* Key Highlights */}
             {update.highlights && update.highlights.length > 0 && (
               <div className="mt-4 rounded-xl bg-surface-raised/50 p-4 border border-white/5">
@@ -105,12 +114,9 @@ export default function UpdatesPage() {
           MovieRanker is built for movie lovers. If there&apos;s a theme, tool, or feature you&apos;d love to see, let us know!
         </p>
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-          <a
-            href={`mailto:${CONTACT_EMAIL}?subject=MovieRanker Feature Request`}
-            className="inline-flex min-h-10 items-center rounded-full bg-gold px-5 text-xs font-bold uppercase tracking-wider text-bg shadow hover:opacity-90 active:scale-95 transition-all"
-          >
+          <FeedbackTrigger className="inline-flex min-h-10 items-center rounded-full bg-gold px-5 text-xs font-bold uppercase tracking-wider text-bg shadow hover:opacity-90 active:scale-95 transition-all cursor-pointer">
             ✉ Send Feedback
-          </a>
+          </FeedbackTrigger>
           <Link
             href="/"
             className="inline-flex min-h-10 items-center rounded-full bg-surface-raised px-5 text-xs font-semibold uppercase tracking-wider text-text ring-1 ring-white/10 hover:ring-gold hover:text-gold active:scale-95 transition-all"

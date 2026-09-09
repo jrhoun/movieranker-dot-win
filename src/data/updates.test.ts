@@ -9,10 +9,9 @@ describe("SITE_UPDATES", () => {
     expect(latest.date).toBe("September 2026");
     expect(latest.version).toBe("Beta");
     expect(latest.tag).toBe("Announcement");
-    expect(latest.title).toBe("MovieRanker Enters Public Beta");
-    expect(latest.summary).toBe(
-      "We are officially in public beta! Complete the new Beta Pioneer Challenge to claim an exclusive Beta Canister.",
-    );
+    expect(latest.title).toBe("Welcome to the MovieRanker Public Beta!");
+    expect(latest.summary).toContain("JR Houn");
+    expect(latest.content?.length).toBeGreaterThan(0);
   });
 
   it("contains all required public beta release highlights", () => {
@@ -21,16 +20,16 @@ describe("SITE_UPDATES", () => {
     expect(beta?.highlights).toBeDefined();
     const highlights = beta?.highlights ?? [];
 
-    expect(highlights.some((h) => h.includes("Pioneer"))).toBe(true);
-    expect(highlights.some((h) => h.includes("Curator Roulette"))).toBe(true);
-    expect(highlights.some((h) => h.includes("Community Spotlight"))).toBe(true);
-    expect(highlights.some((h) => h.includes("Cinema Lighting") || h.includes("Dim Lights"))).toBe(true);
+    expect(highlights.some((h) => h.includes("Beta Test Screening"))).toBe(true);
+    expect(highlights.some((h) => h.includes("Curated Weekly Themes"))).toBe(true);
+    expect(highlights.some((h) => h.includes("Community Stats"))).toBe(true);
     expect(highlights.some((h) => h.includes("In-App Feedback") || h.includes("Feedback"))).toBe(true);
   });
 
-  it("preserves initial-launch entry", () => {
+  it("preserves initial-launch entry with preview versioning", () => {
     const initial = SITE_UPDATES.find((u) => u.id === "initial-launch");
     expect(initial).toBeDefined();
     expect(initial?.tag).toBe("Milestone");
+    expect(initial?.version).toBe("v0.1");
   });
 });

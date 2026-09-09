@@ -572,7 +572,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   },
   {
     key: "beta_pioneer",
-    name: "Beta Pioneer",
+    name: "Beta Test Screener",
     description: "Signed up, claimed a handle, and contributed a public ranking during public beta",
     icon: "📼",
     rarity: "legendary",

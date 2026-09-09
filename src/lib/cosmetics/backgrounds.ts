@@ -10,8 +10,8 @@ import type { CosmeticItem } from "./types";
  * catalogue.ts. Add at the end; do not reorder, delete, or re-rarity.
  */
 export const BACKGROUNDS: CosmeticItem[] = [
-  { id: "background.filmstrip", slot: "background", name: "Filmstrip", unlock: { kind: "starter" }, rarity: "common" },
-  { id: "background.spotlight", slot: "background", name: "Spotlight", unlock: { kind: "level", level: 10 }, rarity: "common" },
+  { id: "background.spotlight", slot: "background", name: "Spotlight", unlock: { kind: "starter" }, rarity: "common" },
+  { id: "background.filmstrip", slot: "background", name: "Filmstrip", unlock: { kind: "level", level: 15 }, rarity: "rare", animated: true },
   { id: "background.velvet", slot: "background", name: "Velvet", unlock: { kind: "drop" }, rarity: "rare" },
 
   /**

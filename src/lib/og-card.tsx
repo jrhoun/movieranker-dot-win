@@ -861,7 +861,7 @@ function ProfileCard({
   // over from the wider `Equipped` shape (see its doc comment) — but the
   // starter ids are the correct thing to fall back to even if one did.
   const frameId = equipped.frame ?? "frame.brass";
-  const backgroundId = equipped.background ?? "background.filmstrip";
+  const backgroundId = equipped.background ?? "background.spotlight";
   const overlayId = equipped.overlay ?? "overlay.none";
 
   const frameStyle = FRAME_STYLE[frameId] ?? FRAME_STYLE["frame.brass"];

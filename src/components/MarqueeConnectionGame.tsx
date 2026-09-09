@@ -234,17 +234,27 @@ export default function MarqueeConnectionGame({
             })}
           </div>
 
-          <div className="flex justify-between items-center pt-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-white/5">
             <span className="text-[11px] text-muted">
               A correct guess is worth {CONNECTION_SOLVE_XP} XP.
             </span>
-            <button
-              type="button"
-              onClick={handleSkipToReveal}
-              className="text-xs text-muted/70 hover:text-gold hover:underline transition-colors"
-            >
-              Reveal without guessing
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                className="text-xs text-muted hover:text-text transition-colors cursor-pointer"
+              >
+                Skip for now
+              </button>
+              <span className="text-white/20" aria-hidden="true">·</span>
+              <button
+                type="button"
+                onClick={handleSkipToReveal}
+                className="text-xs text-muted/80 hover:text-gold hover:underline transition-colors cursor-pointer"
+              >
+                Reveal without guessing
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -289,17 +299,40 @@ export default function MarqueeConnectionGame({
     </div>
   );
 
+  const compactTeaser = (
+    <div
+      className={`w-full max-w-xl mx-auto rounded-2xl border border-gold/30 bg-surface/70 p-4 sm:p-5 shadow-lg backdrop-blur-md ring-1 ring-gold/20 flex flex-col sm:flex-row items-center justify-between gap-4 ${className}`}
+    >
+      <div className="flex items-center gap-3 text-center sm:text-left">
+        <span className="text-2xl text-gold" aria-hidden="true">✦</span>
+        <div>
+          <h3 className="font-display text-lg uppercase tracking-wide text-gold">Guess the connection</h3>
+          <p className="text-xs text-muted">{weekLabel} · What hidden thread connects these films?</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2.5 shrink-0">
+        <button
+          type="button"
+          onClick={() => setModalOpen(true)}
+          className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-gold px-5 py-2 font-display text-xs uppercase tracking-wider text-bg shadow hover:bg-gold/90 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-gold"
+        >
+          <span>Guess Connection</span>
+          <span aria-hidden="true">→</span>
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <>
-      {/* One instance, not two. The card used to be rendered inline AND again
-          inside the overlay, so the same interactive quiz existed twice in the
-          DOM at once. It now lives in exactly one place at a time. */}
-      {!modalOpen && card}
+      {/*
+        When unrevealed, render a compact teaser banner on the page to keep information density high.
+        When revealed, render the concise revealed story card inline.
+      */}
+      {!modalOpen && (revealed ? card : compactTeaser)}
       <dialog
         ref={dialogRef}
         aria-label="Bonus round: the secret connection"
-        // Keeps React in step when the platform closes it — Escape, or the
-        // close() call above.
         onClose={() => setModalOpen(false)}
         onClick={(e) => {
           if (e.target === dialogRef.current) setModalOpen(false);
@@ -312,7 +345,7 @@ export default function MarqueeConnectionGame({
               type="button"
               onClick={() => setModalOpen(false)}
               aria-label="Close"
-              className="absolute -top-2 -right-2 z-10 rounded-full bg-surface-raised p-1.5 text-muted ring-1 ring-white/15 transition-colors hover:bg-white/10 hover:text-text focus-visible:outline-2 focus-visible:outline-gold"
+              className="absolute -top-2 -right-2 z-10 rounded-full bg-surface-raised p-1.5 text-muted ring-1 ring-white/15 transition-colors hover:bg-white/10 hover:text-text focus-visible:outline-2 focus-visible:outline-gold cursor-pointer"
             >
               <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                 <path d="M18 6 6 18M6 6l12 12" />

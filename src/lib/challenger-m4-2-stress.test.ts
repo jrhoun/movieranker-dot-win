@@ -355,38 +355,32 @@ describe("Milestone M4 Empirical Challenger Stress Tests", () => {
       expect(betaUpdate.date).toBe("September 2026");
       expect(betaUpdate.version).toBe("Beta");
       expect(betaUpdate.tag).toBe("Announcement");
-      expect(betaUpdate.title).toBe("MovieRanker Enters Public Beta");
-      expect(betaUpdate.summary).toContain("officially in public beta");
-      expect(betaUpdate.summary).toContain("Beta Pioneer Challenge");
+      expect(betaUpdate.title).toBe("Welcome to the MovieRanker Public Beta!");
+      expect(betaUpdate.summary).toContain("JR Houn");
+      expect(betaUpdate.summary).toContain("Beta Test Screening");
     });
 
-    it("verifies all 5 required M4 launch highlights are present in public-beta", () => {
+    it("verifies required M4 launch highlights are present in public-beta", () => {
       const betaUpdate = SITE_UPDATES.find((u) => u.id === "public-beta");
       expect(betaUpdate).toBeDefined();
       expect(betaUpdate?.highlights).toBeDefined();
 
       const highlightsText = (betaUpdate?.highlights || []).join("\n");
 
-      // 1. Beta Pioneer Walkthrough & Cosmetics
-      expect(highlightsText).toContain("Beta Pioneer Walkthrough");
+      // 1. Beta Test Screening & Cosmetics
+      expect(highlightsText).toContain("Beta Test Screening");
       expect(highlightsText).toContain("Beta Reel Avatar");
       expect(highlightsText).toContain("Cassette Frame");
       expect(highlightsText).toContain("Betamax was better");
 
-      // 2. Curator Roulette
-      expect(highlightsText).toContain("Curator Roulette");
-      expect(highlightsText).toContain("micro-packs");
+      // 2. Curated Themes
+      expect(highlightsText).toContain("Curated Weekly Themes");
 
-      // 3. Community Spotlight
-      expect(highlightsText).toContain("Community Spotlight");
+      // 3. Community Stats
+      expect(highlightsText).toContain("Community Stats");
 
-      // 4. Enhanced Cinema Lighting
-      expect(highlightsText).toContain("Enhanced Cinema Lighting");
-      expect(highlightsText).toContain("Dim Lights");
-
-      // 5. In-App Feedback
+      // 4. In-App Feedback
       expect(highlightsText).toContain("In-App Feedback");
-      expect(highlightsText).toContain("feedback dialog");
     });
 
     it("verifies uniqueness of update IDs across the entire catalogue", () => {
@@ -437,21 +431,20 @@ describe("Milestone M4 Empirical Challenger Stress Tests", () => {
 
       // Public beta article rendered
       expect(html).toContain('id="public-beta"');
-      expect(html).toContain("MovieRanker Enters Public Beta");
+      expect(html).toContain("Welcome to the MovieRanker Public Beta!");
       expect(html).toContain("September 2026");
       expect(html).toContain("Beta");
       expect(html).toContain("Announcement");
 
       // Initial launch article rendered
       expect(html).toContain('id="initial-launch"');
-      expect(html).toContain("MovieRanker Initial Launch");
+      expect(html).toContain("MovieRanker Initial Preview");
       expect(html).toContain("August 2026");
-      expect(html).toContain("v1.0");
+      expect(html).toContain("v0.1");
       expect(html).toContain("Milestone");
 
       // Highlights rendered
-      expect(html).toContain("Beta Pioneer Walkthrough");
-      expect(html).toContain("Curator Roulette");
+      expect(html).toContain("Beta Test Screening");
 
       // Timeline marker dots rendered
       expect(html).toContain("bg-gold ring-4 ring-bg");
