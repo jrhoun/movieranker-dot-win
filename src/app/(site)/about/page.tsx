@@ -41,7 +41,7 @@ export default function AboutPage() {
           </div>
 
           <p>
-            Created by JR Houn for people who love making lists and as a fun and shareable way to settle movie arguments with friends. Built with Next.js, Tailwind CSS, and Supabase, powered by TMDB metadata.
+            Created by JR for people who love making lists and as a fun and shareable way to settle movie arguments with friends. Built with Next.js, Tailwind CSS, and Supabase, powered by TMDB metadata.
           </p>
 
           <div className="space-y-3 rounded-lg border border-white/5 bg-surface-raised/60 p-4 sm:p-5">
@@ -49,7 +49,7 @@ export default function AboutPage() {
               How AI is used here
             </h2>
             <p className="text-xs leading-relaxed text-text/90">
-              Hi there and welcome to Movieranker.win, a site by JR Houn. I am writing these words
+              Hi there and welcome to Movieranker.win, a site by JR. I am writing these words
               entirely with my own human cognition and typing them with my fingers. However, I want
               you to know that I used a variety of different large language models and LLM harnesses
               in the production of this site. All of the code and much of the prose has been generated

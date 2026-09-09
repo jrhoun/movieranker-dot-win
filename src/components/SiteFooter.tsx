@@ -108,7 +108,7 @@ export default function SiteFooter() {
             . This product uses the TMDB API but is not endorsed or certified by TMDB.
           </p>
           <p className="shrink-0">
-            © 2026 JR Houn · MovieRanker.win
+            © 2026 JR · MovieRanker.win
           </p>
         </div>
       </div>

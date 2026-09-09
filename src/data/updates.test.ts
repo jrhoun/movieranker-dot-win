@@ -10,7 +10,7 @@ describe("SITE_UPDATES", () => {
     expect(latest.version).toBe("Beta");
     expect(latest.tag).toBe("Announcement");
     expect(latest.title).toBe("Welcome to the MovieRanker Public Beta!");
-    expect(latest.summary).toContain("JR Houn");
+    expect(latest.summary).toContain("JR");
     expect(latest.content?.length).toBeGreaterThan(0);
   });
 

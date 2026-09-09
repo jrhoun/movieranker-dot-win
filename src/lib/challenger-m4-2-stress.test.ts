@@ -356,7 +356,7 @@ describe("Milestone M4 Empirical Challenger Stress Tests", () => {
       expect(betaUpdate.version).toBe("Beta");
       expect(betaUpdate.tag).toBe("Announcement");
       expect(betaUpdate.title).toBe("Welcome to the MovieRanker Public Beta!");
-      expect(betaUpdate.summary).toContain("JR Houn");
+      expect(betaUpdate.summary).toContain("JR");
       expect(betaUpdate.summary).toContain("Beta Test Screening");
     });
 

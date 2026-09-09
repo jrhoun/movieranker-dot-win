@@ -49,17 +49,17 @@ export default function UpdatesPage() {
             {/* Header info */}
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-3.5">
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xs font-medium text-muted">
+                <span className="font-mono text-xs sm:text-sm font-medium text-muted">
                   {update.date}
                 </span>
                 {update.version && (
-                  <span className="rounded bg-white/5 px-2 py-0.5 font-mono text-[11px] font-bold text-text/80">
+                  <span className="rounded bg-white/5 px-2 py-0.5 font-mono text-xs font-bold text-text/80">
                     {update.version}
                   </span>
                 )}
               </div>
               <span
-                className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                className={`rounded-full border px-2.5 py-0.5 text-[11px] sm:text-xs font-bold uppercase tracking-wider ${
                   tagStyles[update.tag]
                 }`}
               >
@@ -71,13 +71,13 @@ export default function UpdatesPage() {
             <h2 className="mt-3 font-display text-xl uppercase tracking-wide text-text sm:text-2xl">
               {update.title}
             </h2>
-            <p className="mt-1.5 text-xs text-muted leading-relaxed sm:text-sm">
+            <p className="mt-2 text-sm text-muted leading-relaxed sm:text-base">
               {update.summary}
             </p>
 
             {/* Extended Personal Content */}
             {update.content && update.content.length > 0 && (
-              <div className="mt-4 space-y-3 rounded-xl bg-surface-raised/40 p-4 border border-white/5 text-xs sm:text-sm text-text/90 leading-relaxed">
+              <div className="mt-5 space-y-4 rounded-xl bg-surface-raised/40 p-5 sm:p-6 border border-white/5 text-sm sm:text-base text-text/90 leading-relaxed sm:leading-7">
                 {update.content.map((paragraph, pIdx) => (
                   <p key={pIdx}>{paragraph}</p>
                 ))}
@@ -86,14 +86,14 @@ export default function UpdatesPage() {
 
             {/* Key Highlights */}
             {update.highlights && update.highlights.length > 0 && (
-              <div className="mt-4 rounded-xl bg-surface-raised/50 p-4 border border-white/5">
-                <h3 className="font-display text-xs uppercase tracking-widest text-gold mb-2 flex items-center gap-1.5">
+              <div className="mt-5 rounded-xl bg-surface-raised/50 p-5 sm:p-6 border border-white/5">
+                <h3 className="font-display text-xs sm:text-sm uppercase tracking-widest text-gold mb-3 flex items-center gap-1.5">
                   <span>✦</span>
                   <span>Highlights</span>
                 </h3>
-                <ul className="space-y-2">
+                <ul className="space-y-2.5">
                   {update.highlights.map((point, index) => (
-                    <li key={index} className="flex items-start gap-2.5 text-xs text-text leading-relaxed">
+                    <li key={index} className="flex items-start gap-2.5 text-xs sm:text-sm text-text/90 leading-relaxed">
                       <span className="text-gold shrink-0 mt-0.5">▪</span>
                       <span>{point}</span>
                     </li>
@@ -107,19 +107,19 @@ export default function UpdatesPage() {
 
       {/* Community feedback callout */}
       <footer className="mt-14 rounded-2xl border border-gold/30 bg-surface/80 p-6 text-center sm:p-8">
-        <h2 className="font-display text-xl uppercase tracking-wider text-gold">
+        <h2 className="font-display text-xl uppercase tracking-wider text-gold sm:text-2xl">
           Have an idea or feature request?
         </h2>
-        <p className="mt-2 text-xs text-muted leading-relaxed sm:text-sm max-w-lg mx-auto">
+        <p className="mt-2 text-sm text-muted leading-relaxed max-w-lg mx-auto sm:text-base">
           MovieRanker is built for movie lovers. If there&apos;s a theme, tool, or feature you&apos;d love to see, let us know!
         </p>
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-          <FeedbackTrigger className="inline-flex min-h-10 items-center rounded-full bg-gold px-5 text-xs font-bold uppercase tracking-wider text-bg shadow hover:opacity-90 active:scale-95 transition-all cursor-pointer">
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <FeedbackTrigger className="inline-flex min-h-11 items-center rounded-full bg-gold px-5 text-xs sm:text-sm font-bold uppercase tracking-wider text-bg shadow hover:opacity-90 active:scale-95 transition-all cursor-pointer">
             ✉ Send Feedback
           </FeedbackTrigger>
           <Link
             href="/"
-            className="inline-flex min-h-10 items-center rounded-full bg-surface-raised px-5 text-xs font-semibold uppercase tracking-wider text-text ring-1 ring-white/10 hover:ring-gold hover:text-gold active:scale-95 transition-all"
+            className="inline-flex min-h-11 items-center rounded-full bg-surface-raised px-5 text-xs sm:text-sm font-semibold uppercase tracking-wider text-text ring-1 ring-white/10 hover:ring-gold hover:text-gold active:scale-95 transition-all"
           >
             ✦ Rank Movies
           </Link>
