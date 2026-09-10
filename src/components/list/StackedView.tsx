@@ -101,10 +101,10 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
                   </div>
 
                   <p
-                    className={`mt-2 w-full truncate text-center font-medium ${
+                    className={`mt-2 w-full text-center font-medium ${
                       isWinner
-                        ? "text-xs font-bold text-gold sm:text-sm"
-                        : "text-[11px] text-text sm:text-xs"
+                        ? "line-clamp-2 text-[15px] font-bold text-gold sm:text-base"
+                        : "truncate text-sm text-text sm:text-sm"
                     }`}
                   >
                     <a
@@ -118,7 +118,7 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
                     </a>
                     <span className="sr-only"> — ranked #{m.rank}</span>
                   </p>
-                  <p className="text-center font-mono text-[10px] text-muted">
+                  <p className="text-center font-mono text-xs text-muted">
                     {m.releaseYear ?? "—"}
                   </p>
 
@@ -126,10 +126,10 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
                   <div
                     className={`mt-2 flex w-full items-center justify-center rounded-t-lg border-t font-display uppercase tracking-widest text-center ${
                       isWinner
-                        ? "h-9 border-gold/60 bg-gradient-to-b from-gold/25 to-gold/5 text-xs font-bold text-gold shadow-inner"
+                        ? "h-9 border-gold/60 bg-gradient-to-b from-gold/25 to-gold/5 text-[13px] font-bold text-gold shadow-inner"
                         : isSecond
-                          ? "h-7 border-white/30 bg-gradient-to-b from-white/15 to-white/5 text-[10px] text-[#d0d4dc]"
-                          : "h-5 border-amber-700/40 bg-gradient-to-b from-amber-900/25 to-amber-900/5 text-[9px] text-[#cd7f32]"
+                          ? "h-7 border-white/30 bg-gradient-to-b from-white/15 to-white/5 text-xs text-[#d0d4dc]"
+                          : "h-5 border-amber-700/40 bg-gradient-to-b from-amber-900/25 to-amber-900/5 text-xs text-[#cd7f32]"
                     }`}
                   >
                     {isWinner ? "✦ 1st Place ✦" : isSecond ? "2nd" : "3rd"}
@@ -157,7 +157,7 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
                 <div className="relative w-full overflow-hidden rounded-lg shadow-md ring-1 ring-white/10">
                   <span
                     aria-hidden="true"
-                    className="absolute top-1 left-1 z-10 flex size-5 items-center justify-center rounded-md bg-bg/85 font-mono text-[10px] font-bold text-gold ring-1 ring-white/15 backdrop-blur-xs"
+                    className="absolute top-1 left-1 z-10 flex size-5 items-center justify-center rounded-md bg-bg/85 font-mono text-xs font-bold text-gold ring-1 ring-white/15 backdrop-blur-xs"
                   >
                     #{m.rank}
                   </span>
@@ -175,7 +175,7 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
                     />
                   </a>
                 </div>
-                <p className="mt-1.5 line-clamp-2 w-full text-xs font-medium leading-tight text-text">
+                <p className="mt-1.5 line-clamp-2 w-full text-sm font-medium leading-tight text-text">
                   <a
                     href={tmdbMovieUrl(m.tmdbId)}
                     target="_blank"
@@ -187,7 +187,7 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
                   </a>
                   <span className="sr-only"> — ranked #{m.rank}</span>
                 </p>
-                <p className="mt-0.5 font-mono text-[10px] text-muted">{m.releaseYear ?? "—"}</p>
+                <p className="mt-0.5 font-mono text-xs text-muted">{m.releaseYear ?? "—"}</p>
               </li>
             ))}
           </ol>
@@ -216,7 +216,7 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
               <span className="text-xs text-muted/70">
                 {isHaventSeenOpen ? "Hide" : "Show movies"}
               </span>
-              <span className="rounded-full bg-white/5 px-2.5 py-0.5 text-[11px] font-medium text-muted ring-1 ring-white/10">
+              <span className="rounded-full bg-white/5 px-2.5 py-0.5 text-xs font-medium text-muted ring-1 ring-white/10">
                 Unranked
               </span>
             </div>
@@ -243,7 +243,7 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
                       />
                     </a>
                   </div>
-                  <p className="mt-1.5 line-clamp-2 w-full text-xs font-medium leading-tight text-text/90">
+                  <p className="mt-1.5 line-clamp-2 w-full text-sm font-medium leading-tight text-text/90">
                     <a
                       href={tmdbMovieUrl(m.tmdbId)}
                       target="_blank"
@@ -254,7 +254,7 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
                       {m.title}
                     </a>
                   </p>
-                  <p className="mt-0.5 font-mono text-[10px] text-muted">{m.releaseYear ?? "—"}</p>
+                  <p className="mt-0.5 font-mono text-xs text-muted">{m.releaseYear ?? "—"}</p>
                 </li>
               ))}
             </ol>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import CompareModal from "@/components/list/CompareModal";
 import CompletionSummaryCard from "@/components/CompletionSummaryCard";
 import ListViews from "@/components/list/ListViews";
@@ -436,7 +437,7 @@ export default async function PublicListPage({
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">
-            <h1 className="flex items-center gap-2 font-display text-2xl uppercase tracking-wide text-text leading-tight break-words sm:text-3xl">
+            <h1 className="flex items-center gap-2 font-display text-[28px] uppercase tracking-wide text-text leading-tight break-words sm:text-3xl">
               <span aria-hidden="true" className="shrink-0 text-gold">✦</span>
               {list.theme_slug ? (
                 <MarqueeListTitle themeSlug={list.theme_slug} themeTitle={list.title} />
@@ -445,54 +446,81 @@ export default async function PublicListPage({
               )}
             </h1>
           </div>
-          {/* ONE PRIMARY ACTION (DESIGN.md). Share is the whole point of this
-              page, so it is the only gold thing up here and the only action
-              that sits beside the title. Upvote, Rank-these-yourself and Compare used to sit
-              at equal weight in the same cluster — four buttons that wrapped
-              onto a second row at 390px and made the title look like the
-              caption on a toolbar. They are still one tap away, one row down
-              and quiet. */}
-          <div className="shrink-0">
-            <ShareButton
-              title={displayTitle}
-              url={url}
-              themeSlug={list.theme_slug}
-              marqueeNumber={listMarqueeNumber}
-              topMovies={sharePodium}
-              totalMovies={rows.length}
-              curatorHandle={ownerProfile?.handle ?? null}
-              passOptions={list.status === "done" && rows.length > 0 ? passOptions : undefined}
-            />
+          {/* Primary action(s). For a finished list, "Rank these yourself" is
+              the one thing worth a gold pill here — it is how this page turns
+              a reader into a player — with Share beside it as a quieter
+              secondary so both fit one row at 390px. A list still in progress
+              has nothing to fork yet, so Share stays the lone primary action,
+              as it always has. */}
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {list.status === "done" && rows.length > 0 ? (
+              <>
+                <ForkButton
+                  list={{
+                    // The withheld title, not list.title: this string is the
+                    // forked session's name AND this button's accessible
+                    // label, and the person forking a Marquee is by
+                    // definition about to play it. `themeSlug` below is what
+                    // carries the theme's identity into the fork — every
+                    // system that matters (the quiz, marquee standing,
+                    // community stats) keys on the slug, not the words.
+                    id,
+                    title: displayTitle,
+                    movies: rows,
+                    themeSlug: list.theme_slug,
+                  }}
+                  ownerHandle={ownerProfile?.handle}
+                  variant="primary"
+                />
+                <ShareButton
+                  title={displayTitle}
+                  url={url}
+                  themeSlug={list.theme_slug}
+                  marqueeNumber={listMarqueeNumber}
+                  topMovies={sharePodium}
+                  totalMovies={rows.length}
+                  curatorHandle={ownerProfile?.handle ?? null}
+                  passOptions={passOptions}
+                  variant="secondary"
+                />
+              </>
+            ) : (
+              <ShareButton
+                title={displayTitle}
+                url={url}
+                themeSlug={list.theme_slug}
+                marqueeNumber={listMarqueeNumber}
+                topMovies={sharePodium}
+                totalMovies={rows.length}
+                curatorHandle={ownerProfile?.handle ?? null}
+                passOptions={undefined}
+              />
+            )}
           </div>
         </div>
 
-        {/* The quiet row. Every control here is a `compact`-scale pill, which is
-            what lets all three fit on one line at 390px instead of wrapping. */}
+        {/* The quiet row. Upvote and Compare are still one tap away, one row
+            down, at `compact` scale — the by-line sits at the far end of the
+            same row instead of taking a line of its own. */}
         {list.status === "done" && (
-          <div className="flex items-center gap-1.5 border-t border-white/5 pt-3 sm:gap-2">
-            <UpvoteButton
-              listId={id}
-              initialCount={upvotesCount}
-              initialHasUpvoted={hasUpvoted}
-              variant="compact"
-            />
-            <ForkButton
-              list={{
-                // The withheld title, not list.title: this string is the forked
-                // session's name AND this button's accessible label, and the
-                // person forking a Marquee is by definition about to play it.
-                // `themeSlug` below is what carries the theme's identity into
-                // the fork — every system that matters (the quiz, marquee
-                // standing, community stats) keys on the slug, not the words.
-                id,
-                title: displayTitle,
-                movies: rows,
-                themeSlug: list.theme_slug,
-              }}
-              ownerHandle={ownerProfile?.handle}
-              variant="compact"
-            />
-            <CompareModal listId={id} listTitle={displayTitle} />
+          <div className="flex items-center justify-between gap-2 border-t border-white/5 pt-3">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <UpvoteButton
+                listId={id}
+                initialCount={upvotesCount}
+                initialHasUpvoted={hasUpvoted}
+                variant="compact"
+              />
+              <CompareModal listId={id} listTitle={displayTitle} />
+            </div>
+            {ownerProfile?.handle && (
+              <Link
+                href={`/u/${ownerProfile.handle}`}
+                className="shrink-0 truncate text-sm text-muted transition-colors hover:text-gold"
+              >
+                by @{ownerProfile.handle}
+              </Link>
+            )}
           </div>
         )}
 

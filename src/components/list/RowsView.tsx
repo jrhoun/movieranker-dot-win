@@ -96,17 +96,17 @@ export default function RowsView({ movies }: { movies: RankedRow[] }) {
               {/* Title & Rich Metadata Details */}
               <div className="min-w-0 flex-1 flex flex-col justify-center gap-1 sm:gap-1.5 py-0.5">
                 {isFirst && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-gold">
+                  <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-gold">
                     <span aria-hidden="true">✦</span> #1 Champion
                   </span>
                 )}
                 {isSecond && (
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#d0d4dc]">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#d0d4dc]">
                     2nd Place
                   </span>
                 )}
                 {isThird && (
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#cd7f32]">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#cd7f32]">
                     3rd Place
                   </span>
                 )}
@@ -129,7 +129,7 @@ export default function RowsView({ movies }: { movies: RankedRow[] }) {
                 </h3>
 
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3 pt-0.5 text-xs text-muted">
-                  <span className="inline-flex items-center gap-1 rounded-md bg-white/5 px-2 sm:px-2.5 py-0.5 font-mono text-[11px] sm:text-xs text-muted/90 ring-1 ring-white/10">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-white/5 px-2 sm:px-2.5 py-0.5 font-mono text-xs text-muted/90 ring-1 ring-white/10">
                     <span>{m.comparisons}</span>
                     <span>head-to-head vote{m.comparisons === 1 ? "" : "s"}</span>
                   </span>
@@ -142,7 +142,7 @@ export default function RowsView({ movies }: { movies: RankedRow[] }) {
                     className="hidden sm:inline-flex items-center gap-1 text-xs text-muted/70 hover:text-gold transition-colors focus-visible:outline-1 focus-visible:outline-gold"
                   >
                     <span>TMDB</span>
-                    <span aria-hidden="true" className="text-[10px]">↗</span>
+                    <span aria-hidden="true" className="text-xs">↗</span>
                   </a>
                 </div>
               </div>
@@ -174,7 +174,7 @@ export default function RowsView({ movies }: { movies: RankedRow[] }) {
               <span className="text-xs text-muted/70">
                 {isHaventSeenOpen ? "Hide" : "Show movies"}
               </span>
-              <span className="rounded-full bg-white/5 px-2.5 py-0.5 text-[11px] font-medium text-muted ring-1 ring-white/10">
+              <span className="rounded-full bg-white/5 px-2.5 py-0.5 text-xs font-medium text-muted ring-1 ring-white/10">
                 Unranked
               </span>
             </div>
@@ -217,7 +217,7 @@ export default function RowsView({ movies }: { movies: RankedRow[] }) {
                         </span>
                       )}
                     </p>
-                    <p className="text-[11px] text-muted mt-0.5">Haven&apos;t seen</p>
+                    <p className="text-xs text-muted mt-0.5">Haven&apos;t seen</p>
                   </div>
                 </li>
               ))}

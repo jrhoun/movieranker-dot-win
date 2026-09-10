@@ -2,7 +2,7 @@ import Link from "next/link";
 import { FeedbackTrigger } from "@/components/feedback";
 
 const linkCls =
-  "text-xs text-muted transition-colors duration-200 ease-out hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold";
+  "text-sm text-muted transition-colors duration-200 ease-out hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold";
 
 export default function SiteFooter() {
   return (
@@ -17,7 +17,7 @@ export default function SiteFooter() {
                 MovieRanker.win
               </span>
             </div>
-            <p className="text-xs leading-relaxed text-muted">
+            <p className="text-sm leading-relaxed text-muted">
               Rank movies head-to-head, solo or with friends, with a new themed Marquee
               and hidden connection every week — for people who love lists and cinema.
             </p>
@@ -93,7 +93,7 @@ export default function SiteFooter() {
         </div>
 
         {/* TMDB Notice & Copyright */}
-        <div className="mt-8 border-t border-white/5 pt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs text-muted leading-relaxed">
+        <div className="mt-8 border-t border-white/5 pt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm text-muted leading-relaxed">
           <p>
             Movie metadata and poster art provided by{" "}
             <a

@@ -27,6 +27,13 @@ export interface ShareButtonProps {
   totalMovies?: number | null;
   curatorHandle?: string | null;
   passOptions?: TicketRenderOptions;
+  /**
+   * "compact" (default) is the small solid-gold pill used wherever Share is
+   * the lone primary action beside a title. "secondary" is a larger outlined
+   * pill sized to sit next to a gold primary action (e.g. "Rank these
+   * yourself" on /l/[id] for a finished list) without competing with it.
+   */
+  variant?: "compact" | "secondary";
 }
 
 export default function ShareButton({
@@ -38,6 +45,7 @@ export default function ShareButton({
   totalMovies,
   curatorHandle,
   passOptions,
+  variant = "compact",
 }: ShareButtonProps) {
   const [open, setOpen] = useState(false);
   const [showMore, setShowMore] = useState(false);
@@ -162,6 +170,14 @@ export default function ShareButton({
   const threadsUrl = `https://www.threads.com/intent/post?text=${encodedText}`;
   const blueskyUrl = `https://bsky.app/intent/compose?text=${encodedText}`;
 
+  // Icon `block shrink-0` + label `leading-none` keeps the glyph and text
+  // baseline-aligned inside these short pills — a plain inline icon glyph
+  // sits a hair high next to line-height-cropped text otherwise.
+  const triggerStyles =
+    variant === "secondary"
+      ? "inline-flex min-h-10 items-center gap-1.5 rounded-full bg-surface-raised px-4 py-2 text-sm font-bold uppercase tracking-wider text-text ring-1 ring-white/15 shadow-sm transition-transform duration-200 ease-out hover:-translate-y-0.5 hover:text-gold hover:ring-gold/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
+      : "inline-flex min-h-8 items-center gap-1 rounded-full bg-gold px-3 py-1 text-xs font-bold uppercase tracking-wider text-bg shadow-sm transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]";
+
   return (
     <>
       <div ref={wrapRef} className="relative shrink-0">
@@ -170,10 +186,10 @@ export default function ShareButton({
           aria-haspopup="menu"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="flex min-h-8 items-center gap-1 rounded-full bg-gold px-3 py-1 text-xs font-bold uppercase tracking-wider text-bg shadow-sm transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
+          className={triggerStyles}
         >
-          <span aria-hidden="true">✦</span>
-          Share
+          <span aria-hidden="true" className="block shrink-0">✦</span>
+          <span className="leading-none">Share</span>
         </button>
         {open && (
           <div
