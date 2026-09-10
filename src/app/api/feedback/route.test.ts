@@ -1,7 +1,41 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
 
+let mockUser: { id: string } | null = null;
+let insertedRows: { table: string; row: Record<string, unknown> }[] = [];
+let insertError: Error | { message: string; code?: string } | null = null;
+
+vi.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: vi.fn(async () => ({
+    auth: {
+      getUser: vi.fn(async () => ({ data: { user: mockUser }, error: null })),
+    },
+  })),
+}));
+
+vi.mock("@/lib/supabase/admin", () => ({
+  supabaseAdmin: vi.fn(() => ({
+    from: vi.fn((table: string) => ({
+      insert: vi.fn(async (row: Record<string, unknown>) => {
+        if (insertError) {
+          return { data: null, error: insertError };
+        }
+        insertedRows.push({ table, row });
+        return { data: null, error: null };
+      }),
+    })),
+  })),
+  supabaseSecretKey: vi.fn(() => "mock-secret-key"),
+}));
+
 describe("POST /api/feedback", () => {
+  beforeEach(() => {
+    mockUser = null;
+    insertedRows = [];
+    insertError = null;
+    vi.clearAllMocks();
+  });
+
   it("rejects non-JSON or invalid JSON payload with 400", async () => {
     const res = await POST(
       new Request("http://localhost/api/feedback", {
@@ -130,6 +164,84 @@ describe("POST /api/feedback", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toEqual({ ok: true });
+  });
+
+  it("captures user_id when signed in, page_url from request body, and user-agent header", async () => {
+    mockUser = { id: "user-456" };
+    const res = await POST(
+      new Request("http://localhost/api/feedback", {
+        method: "POST",
+        body: JSON.stringify({
+          category: "bug",
+          message: "Poster clipped on mobile",
+          pageUrl: "/r/play",
+        }),
+        headers: {
+          "content-type": "application/json",
+          "x-forwarded-for": "10.0.0.10",
+          "user-agent": "Mozilla/5.0 TestAgent",
+        },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(insertedRows).toHaveLength(1);
+    expect(insertedRows[0].table).toBe("feedback");
+    expect(insertedRows[0].row).toMatchObject({
+      category: "bug",
+      message: "Poster clipped on mobile",
+      user_id: "user-456",
+      page_url: "/r/play",
+      user_agent: "Mozilla/5.0 TestAgent",
+    });
+  });
+
+  it("captures page_url when passed in snake_case format", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/feedback", {
+        method: "POST",
+        body: JSON.stringify({
+          category: "idea",
+          message: "A great idea",
+          page_url: "/l/custom-123",
+        }),
+        headers: {
+          "content-type": "application/json",
+          "x-forwarded-for": "10.0.0.11",
+        },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(insertedRows).toHaveLength(1);
+    expect(insertedRows[0].row).toMatchObject({
+      category: "idea",
+      message: "A great idea",
+      page_url: "/l/custom-123",
+    });
+  });
+
+  it("returns 500 and logs when Supabase insert fails", async () => {
+    insertError = { message: "relation public.feedback does not exist", code: "42P01" };
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await POST(
+      new Request("http://localhost/api/feedback", {
+        method: "POST",
+        body: JSON.stringify({
+          category: "bug",
+          message: "Database failure test",
+        }),
+        headers: {
+          "content-type": "application/json",
+          "x-forwarded-for": "10.0.0.12",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body).toHaveProperty("error");
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
   });
 
   it("enforces rate limiting per IP (5 submissions per window) with 429", async () => {

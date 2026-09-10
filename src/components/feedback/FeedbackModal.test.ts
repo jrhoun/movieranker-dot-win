@@ -61,10 +61,30 @@ describe("FeedbackModal component", () => {
     expect(html).toContain("Cancel");
   });
 
+  it("renders the updated plain placeholder for general feedback", () => {
+    const html = renderToStaticMarkup(
+      h(FeedbackModal, { isOpen: true, initialCategory: "other" }),
+    );
+    expect(html).toContain('placeholder="What happened, or what would you like to see?"');
+  });
+
+  it("renders the error banner when in error status", () => {
+    const html = renderToStaticMarkup(
+      h(FeedbackModal, {
+        isOpen: true,
+        initialStatus: "error",
+        initialErrorMessage: "Could not send feedback. Please try again.",
+      }),
+    );
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("Could not send feedback. Please try again.");
+  });
+
   it("re-export from src/components/FeedbackModal matches default export", () => {
     expect(FeedbackModalReExport).toBe(FeedbackModal);
   });
 });
+
 
 describe("FeedbackTrigger component", () => {
   it("renders button with default text and aria-haspopup", () => {

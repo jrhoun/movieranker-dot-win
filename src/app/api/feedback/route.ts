@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { LIMITS, rateKey, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 const VALID_CATEGORIES = new Set(["bug", "idea", "other"]);
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -92,6 +93,28 @@ export async function POST(request: Request) {
     validatedEmail = trimmedEmail;
   }
 
+  // Page URL validation (optional, from body.pageUrl or body.page_url)
+  const rawPageUrl =
+    (body as Record<string, unknown>).pageUrl ??
+    (body as Record<string, unknown>).page_url;
+  let pageUrl: string | null = null;
+  if (rawPageUrl !== undefined && rawPageUrl !== null && rawPageUrl !== "") {
+    if (typeof rawPageUrl !== "string") {
+      return NextResponse.json(
+        { error: "pageUrl must be a string if provided" },
+        { status: 400 },
+      );
+    }
+    const trimmedPageUrl = rawPageUrl.trim();
+    if (trimmedPageUrl.length > 2048) {
+      return NextResponse.json(
+        { error: "pageUrl must not exceed 2048 characters" },
+        { status: 400 },
+      );
+    }
+    pageUrl = trimmedPageUrl || null;
+  }
+
   // Structured logging
   console.info(
     "[feedback]",
@@ -103,19 +126,44 @@ export async function POST(request: Request) {
     }),
   );
 
-  // Optional Supabase persistence fallback (non-blocking if table is missing)
+  // Authenticated user if signed in
+  let userId: string | null = null;
   try {
-    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      const supabase = await createSupabaseServerClient();
-      await supabase.from("feedback").insert({
-        category: normalizedCategory,
-        message: trimmedMessage,
-        email: validatedEmail,
-        created_at: new Date().toISOString(),
-      });
-    }
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase.auth.getUser();
+    userId = data.user?.id ?? null;
   } catch {
-    // Fallback gracefully without breaking submission if Supabase table or cookie is unavailable
+    userId = null;
+  }
+
+  // User-Agent header
+  const userAgent = request.headers.get("user-agent") ?? null;
+
+  // Persist via service-role admin client (RLS on, no anon policies)
+  try {
+    const db = supabaseAdmin();
+    const { error } = await db.from("feedback").insert({
+      category: normalizedCategory,
+      message: trimmedMessage,
+      email: validatedEmail,
+      user_id: userId,
+      page_url: pageUrl,
+      user_agent: userAgent,
+    });
+
+    if (error) {
+      console.error("[feedback] Supabase insert error:", error);
+      return NextResponse.json(
+        { error: "Failed to save feedback" },
+        { status: 500 },
+      );
+    }
+  } catch (err) {
+    console.error("[feedback] Supabase admin error:", err);
+    return NextResponse.json(
+      { error: "Failed to save feedback" },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({ ok: true });

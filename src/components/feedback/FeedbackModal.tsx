@@ -1,12 +1,17 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { trackEvent } from "@/lib/analytics";
 
 export type FeedbackCategory = "bug" | "idea" | "other";
 
 export interface FeedbackModalProps {
   isOpen?: boolean;
   onClose?: () => void;
+  pageUrl?: string;
+  initialCategory?: FeedbackCategory;
+  initialStatus?: "idle" | "submitting" | "success" | "error";
+  initialErrorMessage?: string;
 }
 
 const CATEGORIES: { value: FeedbackCategory; label: string; icon: string }[] = [
@@ -18,13 +23,17 @@ const CATEGORIES: { value: FeedbackCategory; label: string; icon: string }[] = [
 export default function FeedbackModal({
   isOpen = false,
   onClose,
+  pageUrl,
+  initialCategory = "bug",
+  initialStatus = "idle",
+  initialErrorMessage = "",
 }: FeedbackModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [category, setCategory] = useState<FeedbackCategory>("bug");
+  const [category, setCategory] = useState<FeedbackCategory>(initialCategory);
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">(initialStatus);
+  const [errorMessage, setErrorMessage] = useState(initialErrorMessage);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -80,6 +89,10 @@ export default function FeedbackModal({
     setErrorMessage("");
 
     try {
+      const resolvedPageUrl =
+        pageUrl ??
+        (typeof window !== "undefined" ? window.location.pathname : undefined);
+
       const res = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -87,18 +100,22 @@ export default function FeedbackModal({
           category,
           message: trimmedMessage,
           email: trimmedEmail || undefined,
+          pageUrl: resolvedPageUrl,
         }),
       });
 
       const data = await res.json().catch(() => ({}));
 
-      if (res.ok && data.ok) {
+      if (res.ok && data?.ok) {
         setStatus("success");
+        trackEvent("feedback_sent", { category });
       } else {
         setStatus("error");
-        setErrorMessage(
-          data.error || "Something went wrong sending your feedback. Please try again.",
-        );
+        const msg =
+          typeof data?.error === "string" && data.error.trim()
+            ? data.error.trim()
+            : "Could not send feedback. Please try again.";
+        setErrorMessage(msg);
       }
     } catch {
       setStatus("error");
@@ -240,7 +257,7 @@ export default function FeedbackModal({
                     ? "What went wrong? Steps to reproduce help us fix it quickly..."
                     : category === "idea"
                     ? "What feature or improvement would make MovieRanker better?"
-                    : "Share your thoughts, suggestions, or impressions..."
+                    : "What happened, or what would you like to see?"
                 }
                 className="w-full resize-y rounded-lg border border-white/15 bg-bg/80 px-3 py-2 text-sm text-text placeholder-muted/60 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
               />

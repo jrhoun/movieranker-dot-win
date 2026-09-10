@@ -1,5 +1,23 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
+
+vi.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: vi.fn(async () => ({
+    auth: {
+      getUser: vi.fn(async () => ({ data: { user: null }, error: null })),
+    },
+  })),
+}));
+
+vi.mock("@/lib/supabase/admin", () => ({
+  supabaseAdmin: vi.fn(() => ({
+    from: vi.fn(() => ({
+      insert: vi.fn(async () => ({ data: null, error: null })),
+    })),
+  })),
+  supabaseSecretKey: vi.fn(() => "mock-secret-key"),
+}));
+
 
 /**
  * Helper to construct a POST /api/feedback Request.

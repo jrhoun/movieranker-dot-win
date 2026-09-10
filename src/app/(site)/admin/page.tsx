@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import MarqueeHeading from "@/components/MarqueeHeading";
 import ModerationQueue from "@/components/admin/ModerationQueue";
+import type { AdminFeedbackResponse } from "@/app/api/admin/feedback/route";
 
 interface ProposalFilm {
   tmdbId: number;
@@ -136,6 +137,90 @@ function Dashboard({ data }: { data: StatsResponse | null }) {
   );
 }
 
+/**
+ * Recent feedback submissions (up to 50), loaded via the service role.
+ */
+function FeedbackSection({ data }: { data: AdminFeedbackResponse | null }) {
+  if (data === null) return <p className="mt-4 text-sm text-muted">Loading…</p>;
+  if (!data.available) {
+    if (!data.reason) return null;
+    return (
+      <p className="mt-4 rounded bg-surface p-3 text-sm text-muted ring-1 ring-white/10">
+        Feedback unavailable. {data.reason}
+      </p>
+    );
+  }
+  if (data.feedback.length === 0) {
+    return <p className="mt-4 text-sm text-muted">No feedback submitted yet.</p>;
+  }
+  return (
+    <ul className="mt-4 space-y-3">
+      {data.feedback.map((item) => (
+        <li key={item.id} className="rounded bg-surface p-4 ring-1 ring-white/10">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span
+              className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
+                item.category === "bug"
+                  ? "bg-accent-red/15 text-accent-red ring-1 ring-accent-red/30"
+                  : item.category === "idea"
+                  ? "bg-gold/15 text-gold ring-1 ring-gold/30"
+                  : "bg-white/10 text-muted ring-1 ring-white/10"
+              }`}
+            >
+              {item.category === "bug"
+                ? "🐛 Bug"
+                : item.category === "idea"
+                ? "💡 Idea"
+                : "💬 Other"}
+            </span>
+            <span className="text-[11px] tabular-nums text-muted">
+              {new Date(item.created_at).toLocaleString()}
+            </span>
+          </div>
+          <p className="mt-2 text-sm text-text/90 whitespace-pre-wrap break-words">
+            {item.message}
+          </p>
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/5 pt-2 text-xs text-muted">
+            {item.page_url && (
+              <span>
+                Page: <span className="text-text/70">{item.page_url}</span>
+              </span>
+            )}
+            {item.email && (
+              <span>
+                Email:{" "}
+                <a
+                  href={`mailto:${item.email}`}
+                  className="text-gold hover:underline"
+                >
+                  {item.email}
+                </a>
+              </span>
+            )}
+            {item.user_id && (
+              <span title={item.user_id}>
+                User:{" "}
+                <span className="font-mono text-[11px]">
+                  {item.user_id.slice(0, 8)}…
+                </span>
+              </span>
+            )}
+            {!item.email && !item.user_id && <span>Anonymous</span>}
+          </div>
+          {item.user_agent && (
+            <p
+              className="mt-1 truncate text-[10px] text-muted/60"
+              title={item.user_agent}
+            >
+              {item.user_agent}
+            </p>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 interface WeekInfo {
   currentWeek: number;
   currentMarqueeNumber: number;
@@ -207,6 +292,7 @@ function ScheduleControl({
 export default function AdminPage() {
   const [proposals, setProposals] = useState<Proposal[] | null>(null);
   const [stats, setStats] = useState<StatsResponse | null>(null);
+  const [feedbackData, setFeedbackData] = useState<AdminFeedbackResponse | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [weekInfo, setWeekInfo] = useState<{
@@ -265,11 +351,22 @@ export default function AdminPage() {
     setStats((await res.json()) as StatsResponse);
   }
 
+  async function loadFeedback() {
+    const res = await fetch("/api/admin/feedback");
+    if (!res.ok) {
+      // Same silence as the proposals fetch: a non-owner learns nothing.
+      setFeedbackData({ available: false, reason: "" });
+      return;
+    }
+    setFeedbackData((await res.json()) as AdminFeedbackResponse);
+  }
+
   useEffect(() => {
     // async hop so pre-hydration markup matches first client render (same as home)
     const t = setTimeout(() => {
       void load();
       void loadStats();
+      void loadFeedback();
     }, 0);
     return () => clearTimeout(t);
   }, []);
@@ -310,6 +407,18 @@ export default function AdminPage() {
         The site right now
       </h3>
       <Dashboard data={stats} />
+
+      <h3 className="mt-10 flex items-baseline justify-between gap-3 border-b border-white/10 pb-1.5">
+        <span className="text-xs font-semibold uppercase tracking-wider text-text/80">
+          Feedback
+        </span>
+        {feedbackData?.available && (
+          <span className="text-[11px] tabular-nums text-muted">
+            {feedbackData.feedback.length}
+          </span>
+        )}
+      </h3>
+      <FeedbackSection data={feedbackData} />
 
       <h3 className="mt-10 border-b border-white/10 pb-1.5 text-xs font-semibold uppercase tracking-wider text-text/80">
         Public content
