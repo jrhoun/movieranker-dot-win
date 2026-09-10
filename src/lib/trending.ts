@@ -279,3 +279,5 @@ export async function getTrendingLists(
     return [];
   }
 }
+
+export { spotlightSlots, type SpotlightSlot } from "@/lib/spotlight";

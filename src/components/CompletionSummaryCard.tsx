@@ -21,9 +21,11 @@ import type { CompletionSummary } from "@/lib/completion";
 export default function CompletionSummaryCard({
   summary,
   className = "",
+  title = "Ranking settled",
 }: {
   summary: CompletionSummary;
   className?: string;
+  title?: string;
 }) {
   const pct = Math.round(summary.progress01 * 100);
   const toNext =
@@ -36,7 +38,7 @@ export default function CompletionSummaryCard({
       className={`animate-fade-in w-full rounded-2xl border border-gold/30 bg-surface p-5 sm:p-6 ${className}`}
     >
       <h2 className="font-display text-2xl uppercase leading-none tracking-wide text-gold sm:text-3xl">
-        Ranking settled
+        {title}
       </h2>
 
       {/* One sentence carries level, rank and the XP this ranking paid. A

@@ -4,6 +4,7 @@ import {
   formatTrendingLists,
   getTrendingLists,
   HOT_CANDIDATE_POOL,
+  spotlightSlots,
   type RawDbListRow,
 } from "./trending";
 
@@ -600,3 +601,98 @@ describe("calculateHotScore & Reddit Hot Algorithm", () => {
     expect(hotSorted[0].id).toBe("fresh-rising"); // fresh list with momentum wins in 'hot'
   });
 });
+
+describe("spotlightSlots", () => {
+  const dummyList1 = {
+    id: "list-1",
+    title: "Cyberpunk Essentials",
+    description: "Best neon movies",
+    ownerHandle: "curator1",
+    ownerId: "u-1",
+    upvotesCount: 15,
+    movieCount: 5,
+    createdAt: "2026-09-08T12:00:00Z",
+    movies: [],
+    topPosters: [],
+  };
+
+  const dummyList2 = {
+    id: "list-2",
+    title: "Noir Classics",
+    description: "Dark alleys and trench coats",
+    ownerHandle: "curator2",
+    ownerId: "u-2",
+    upvotesCount: 8,
+    movieCount: 6,
+    createdAt: "2026-09-07T12:00:00Z",
+    movies: [],
+    topPosters: [],
+  };
+
+  const dummyList3 = {
+    id: "list-3",
+    title: "Space Operas",
+    description: "Intergalactic journeys",
+    ownerHandle: "curator3",
+    ownerId: "u-3",
+    upvotesCount: 22,
+    movieCount: 4,
+    createdAt: "2026-09-06T12:00:00Z",
+    movies: [],
+    topPosters: [],
+  };
+
+  const dummyList4 = {
+    id: "list-4",
+    title: "Silent Comedies",
+    description: "Slapstick pioneers",
+    ownerHandle: "curator4",
+    ownerId: "u-4",
+    upvotesCount: 12,
+    movieCount: 5,
+    createdAt: "2026-09-05T12:00:00Z",
+    movies: [],
+    topPosters: [],
+  };
+
+  it("returns an empty array for the true-zero case (0 lists, null, undefined)", () => {
+    expect(spotlightSlots([])).toEqual([]);
+    expect(spotlightSlots(null)).toEqual([]);
+    expect(spotlightSlots(undefined)).toEqual([]);
+  });
+
+  it("returns real card slot plus a single CTA card when only 1 list exists (fills up to 3 slots)", () => {
+    const slots = spotlightSlots([dummyList1]);
+    expect(slots).toHaveLength(2);
+    expect(slots[0]).toEqual({ type: "list", list: dummyList1 });
+    expect(slots[1]).toEqual({ type: "cta" });
+  });
+
+  it("returns 2 real card slots plus a single CTA card when 2 lists exist", () => {
+    const slots = spotlightSlots([dummyList1, dummyList2]);
+    expect(slots).toHaveLength(3);
+    expect(slots[0]).toEqual({ type: "list", list: dummyList1 });
+    expect(slots[1]).toEqual({ type: "list", list: dummyList2 });
+    expect(slots[2]).toEqual({ type: "cta" });
+  });
+
+  it("returns exactly 3 real card slots and no CTA card when 3 lists exist", () => {
+    const slots = spotlightSlots([dummyList1, dummyList2, dummyList3]);
+    expect(slots).toHaveLength(3);
+    expect(slots.every((s) => s.type === "list")).toBe(true);
+    expect(slots.some((s) => s.type === "cta")).toBe(false);
+  });
+
+  it("returns all real card slots and no CTA card when more than 3 lists exist", () => {
+    const slots = spotlightSlots([dummyList1, dummyList2, dummyList3, dummyList4]);
+    expect(slots).toHaveLength(4);
+    expect(slots.every((s) => s.type === "list")).toBe(true);
+    expect(slots.map((s) => (s.type === "list" ? s.list.id : null))).toEqual([
+      "list-1",
+      "list-2",
+      "list-3",
+      "list-4",
+    ]);
+  });
+});
+

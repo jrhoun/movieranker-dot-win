@@ -1745,5 +1745,40 @@ describe("TIER 5: Milestone M1 Theatrical & Responsive Polish Guardrails", () =>
       expect(code).toMatch(/self-center lg:self-center/);
     });
   });
+
+  describe("F6: Two-Door Hero & Community Spotlight Cold Start (Beta Launch Package C)", () => {
+    it("verifies hero h1 copy and subhead conform to package C specs", () => {
+      const code = readFileSync(join(rootDir, "src/app/(site)/home-client.tsx"), "utf8");
+      expect(code).toContain("Rank movies");
+      expect(code).toContain("head-to-head.");
+      expect(code).toMatch(
+        /Play this week(?:'|&apos;)s curated list, or build a custom one from any films you like\. Then share the result\./,
+      );
+      // Confirms old fold marquee text was removed from above the fan
+      expect(code).not.toMatch(/This week's marquee, no\.\s*\{marqueeNumber\(\)\}/);
+    });
+
+    it("verifies two-door buttons are 48px tall in a 10px-gap wrapping row under the fan", () => {
+      const code = readFileSync(join(rootDir, "src/app/(site)/home-client.tsx"), "utf8");
+      expect(code).toMatch(/Play this week(?:'|&apos;)s list/);
+      expect(code).toContain("Build your own");
+      expect(code).toMatch(/gap-\[10px\]/);
+      expect(code).toMatch(/h-12\s+min-h-12/);
+    });
+
+    it("verifies countdown pill sits below buttons and serves as info modal trigger", () => {
+      const code = readFileSync(join(rootDir, "src/app/(site)/home-client.tsx"), "utf8");
+      expect(code).toContain("<MarqueeCountdown />");
+      expect(code).toContain('openInfoModal');
+      expect(code).toContain('aria-labelledby="marquee-modal-title"');
+    });
+
+    it("verifies community spotlight uses spotlightSlots and 15px blurb", () => {
+      const code = readFileSync(join(rootDir, "src/app/(site)/home-client.tsx"), "utf8");
+      expect(code).toContain("spotlightSlots(trendingLists)");
+      expect(code).toContain("text-[15px]");
+      expect(code).toContain("Be the first — start a ranking");
+    });
+  });
 });
 
