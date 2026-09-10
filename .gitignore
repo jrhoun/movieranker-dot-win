@@ -56,3 +56,4 @@ worktrees/
 
 # Multi-agent orchestration scratch (briefings, handoffs, progress logs)
 .agents/
+.agy-reports/

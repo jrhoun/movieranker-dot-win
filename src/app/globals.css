@@ -90,6 +90,7 @@ body {
       #1a0005 90px
     );
   box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.65);
+  transition: background-color 500ms ease-out, box-shadow 500ms ease-out;
 }
 
 /* Spotlight glow (DESIGN.md): reusable radial warm glow behind hero/focal content.
@@ -322,6 +323,19 @@ body {
 .cf-vhs { background: #111; box-shadow: -3px 0 0 0 #ff2e63, 3px 0 0 0 #21d4fd, 0 0 0 1px #333; }
 .cf-prism { background: conic-gradient(from 0deg,#ff3ba7,#f5c518,#7cff4d,#22e0ff,#9b5cff,#ff3ba7);
   animation: cf-spin 6s linear infinite; box-shadow: 0 0 16px 2px rgba(155,92,255,.45); }
+.cf-beta { background: #12131a; box-shadow: 0 0 0 2px #f5c518, 0 0 16px 3px rgba(245,197,24,.45); position: relative; overflow: hidden; }
+.cf-beta::after {
+  content: "";
+  position: absolute;
+  inset: -100%;
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 235, 120, 0.7) 48%, rgba(255, 255, 255, 0.9) 50%, rgba(255, 235, 120, 0.7) 52%, transparent 60%);
+  animation: cf-beta-glint 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+@keyframes cf-beta-glint {
+  0% { transform: translate(-100%, -100%) rotate(25deg); }
+  25%, 100% { transform: translate(100%, 100%) rotate(25deg); }
+}
 @keyframes cf-spin { to { filter: hue-rotate(360deg); } }
 
 /* Illustrated frames (src/components/profile/FrameArt.tsx) draw themselves as
@@ -341,7 +355,7 @@ body {
 @keyframes cf-glint { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .cf-marquee-bulb, .cf-premiere-glint { animation: none; }
+  .cf-marquee-bulb, .cf-premiere-glint, .cf-beta, .cf-beta::after { animation: none; }
 }
 
 /* ---- Gradient avatars -------------------------------------------------
@@ -999,13 +1013,13 @@ body {
   transition: background-color 400ms ease-out;
 }
 
-/* Dim peripheral chrome down to 20% opacity */
+/* Dim peripheral chrome down to 15% opacity */
 .cinema-lights-down .cinema-peripheral,
 .cinema-lights-down header,
 .cinema-lights-down .mini-marquee-board,
 .cinema-lights-down .parked-strip-container {
-  opacity: 0.2;
-  filter: brightness(0.75);
+  opacity: 0.15;
+  filter: brightness(0.5);
   transition: opacity 300ms ease-out, filter 300ms ease-out;
 }
 
@@ -1022,14 +1036,22 @@ body {
   filter: brightness(1);
 }
 
+/* Deep theater blackout on velvet curtains */
+.cinema-lights-down .bg-curtain-soft {
+  background-color: #030305 !important;
+  background-blend-mode: multiply;
+  box-shadow: inset 0 0 160px rgba(0, 0, 0, 0.85);
+  transition: background-color 500ms ease-out, box-shadow 500ms ease-out;
+}
+
 /* Deep theatrical spotlight on active matchup stage */
 .cinema-lights-down .stage-spotlight {
   background-image:
-    radial-gradient(ellipse 65% 55% at 50% 45%, rgba(245, 197, 24, 0.14), transparent 75%),
-    radial-gradient(ellipse 110% 95% at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.95) 100%);
+    radial-gradient(ellipse 55% 45% at 50% 50%, rgba(245, 197, 24, 0.22), transparent 70%),
+    radial-gradient(ellipse 100% 90% at 50% 50%, transparent 35%, rgba(0, 0, 0, 0.98) 95%);
 }
 
 /* Enhanced poster card shadow depth under lights down */
 .cinema-lights-down .matchup-stage-container button div {
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9), 0 0 50px rgba(245, 197, 24, 0.2);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.95), 0 0 60px rgba(245, 197, 24, 0.25);
 }

@@ -1,80 +1,102 @@
-# Project: movieranker.win — Theatrical & Community Enhancements
+# Project: MovieRanker Public Beta Improvements & Bug Fixes
 
-## Architecture & Technology Stack
-- **Framework**: Next.js 16.3.2 (App Router, Turbopack, React 19 Server & Client Components)
-- **Styling**: Tailwind CSS v4, custom vintage cinema typography (Bebas Neue, Playfair Display, Outfit)
-- **Database & Auth**: Supabase PostgreSQL with RLS, `@supabase/ssr`
-- **State & Storage**: Client `localStorage` for `PlaySession` persistence and audio/theme preferences
-- **Audio**: Web Audio API native synthesizer (OscillatorNode, GainNode, BiquadFilterNode)
-- **Graphics**: Pure HTML5 2D Canvas rendering for high-DPI "Premiere Pass" golden ticket rasterization
-- **Testing**: Vitest v4.1.11 (`node` environment) with comprehensive unit/integration test suites
+## Architecture
+- **Framework**: Next.js 16.3.2 App Router (Turbopack), React 19, Tailwind CSS, Vitest.
+- **Client/Server Structure**:
+  - `src/app/(site)/*`: Site pages and client components.
+  - `src/app/r/play/*`: Film ranking and duel room arena.
+  - `src/app/api/*`: Route handlers for lists, feedback, profile, cosmetics equip.
+  - `src/lib/*`: Core business logic, trending algorithms, gamification, cosmetics catalogue.
+  - `src/components/*`: Reusable UI components (header, footer, modals, roulette, list controls).
+  - `public/avatars/*`: Pre-generated CC0 SVG avatar library.
+- **Database**: Supabase PostgreSQL. Existing schemas for `lists` (`visibility`, `theme_slug`, `curated`), `profiles`, etc.
 
 ## Feature Inventory
+Every requirement and task from `ORIGINAL_REQUEST.md` and reference plan:
 | # | Feature | Description | Milestone | Source |
 |---|---------|-------------|-----------|--------|
-| 1 | Keyboard Blitz Controls | Instant voting with `ArrowLeft`/`A`, `ArrowRight`/`D`, `Space` for haven't seen, `Z` for undo, guarded against input/form fields | M1 | R1 |
-| 2 | TMDB Movie Taglines | Expose `tagline` in TMDB pipelines and render below posters in italic Premiere styling | M1 | R1 |
-| 3 | Web Audio Vintage Sound Effects | Synthesize mechanical shutter clicks and harmonic golden chimes via Web Audio API, muted by default with UI toggle | M1 | R1 |
-| 4 | Win Streak Laurel Badges | Calculate 3+ consecutive duel wins from session history and display understated gold laurel indicator | M1 | R1 |
-| 5 | "Lights Down" Cinema Focus Mode | Theater blackout toggle on duel stage with dimmed peripheral chrome and spotlighting | M1 | R4 |
-| 6 | "Curtain Call" Finale Celebration | Theatrical confetti particle burst and spotlight reveal upon reaching stability consensus | M2 | R2 |
-| 7 | Shareable Premiere Pass Graphic | High-DPI retro perforated cinema ticket generator with 1-click PNG clipboard copy and download | M2 | R2 |
-| 8 | Compare Compatibility & Disagreements | Enhanced `/compare/[a]/[b]` with compatibility score and sharpest disagreement / common ground callouts | M2 | R2 |
-| 9 | Community Upvoting System | Supabase migration for `list_upvotes`, `/api/lists/[id]/upvote` toggle endpoint, client toggle with sign-in prompt | M3 | R3 |
-| 10 | Trending & Popular Showcases | Query and display top community lists by upvotes/recency on the homepage | M3 | R3 |
-| 11 | "Rank these yourself" Button | 1-click clone and re-rank action on public lists, creating a clean session and launching the duel room | M3 | R3 |
-| 12 | Curator Roulette ("Roll the Reel") | Thematic micro-packs (90s Cyberpunk, A24 Gems, Noir Classics, Oscar Snubs, etc.) with spinning reel launcher | M3 | R4 |
-| 13 | E2E Testing & Quality Guardrails | Comprehensive Vitest suites covering Tiers 1-4 + Tier 5 adversarial checks, 0 build errors, local isolation | M4 | R5 |
+| 1 | Hero Poster Fan Clearance | Expand `pb-8` to `pb-14` (>= 48px) in `home-client.tsx` to eliminate card clipping on mobile (360-414px) and hover | M1 | R1 |
+| 2 | Theater Mode Cinema Blackout | Darken velvet drapes (`.bg-curtain-soft`) by ~85% with multiply blend and deep blackout in `globals.css` / `play-room.tsx` with sharp duel card projector spotlight | M1 | R1 |
+| 3 | Curator Roulette Layout Hierarchy | Eliminate dead vertical space between blurb and filmstrip, balance columns with `lg:items-start lg:gap-8` | M1 | R1 |
+| 4 | Smooth Anchor Scroll | Add smooth scroll to "or spin a reel while you wait" anchor link (`#reel`) in `home-client.tsx` | M1 | R1 |
+| 5 | Marquee Settled Count Suppression | Hide "X rankings settled this week" marquee text when fewer than 25 settled in `home-client.tsx`, keeping theme credit | M1 | R5 |
+| 6 | Community Spotlight Marquee Exclusion | Filter out weekly Marquee lists (`!l.theme_slug && !l.curated`) from `formatTrendingLists` in `src/lib/trending.ts` | M2 | R2 |
+| 7 | Custom List Opt-In Checkbox | Add "Submit to Community Spotlight" opt-in checkbox during ranking wrap-up (`play-room.tsx`, `SaveGateSheet.tsx`) defaulting to unlisted | M2 | R2 |
+| 8 | Owner Visibility Toggle | Add in-place visibility toggle for list owners on list page (`l/[id]/page.tsx`, `OwnerControls.tsx`) | M2 | R2 |
+| 9 | Public Beta Branding Badge | Vintage cinema-styled BETA badge next to logo in `SiteHeader.tsx` (`BetaBadge.tsx`) | M3 | R3 |
+| 10 | 3-Step Pioneer Challenge | Onboarding walkthrough on user dashboard tracking sign in, handle claim, public list contribution (`BetaWalkthroughCard.tsx`) | M3 | R3 |
+| 11 | Beta Canister Cosmetics Unlock | Unlock `avatar.gen.beta-reel`, `frame.beta`, and `tagline.betamax` upon Pioneer Challenge completion with twin definitions in `og-card.tsx`, `classes.ts`, `globals.css`, and server equip validation | M3 | R3 |
+| 12 | In-App Feedback Dialog & API | Native `<dialog>` modal (`FeedbackModal.tsx`) with category, message, email, triggered via nav/footer; `POST /api/feedback` route with rate limit | M4 | R4 |
+| 13 | Release Announcements Update | Prepend September 2026 Public Beta announcement in `src/data/updates.ts` | M4 | R4 |
+| 14 | Edit Profile Copy Cleanup | Rename "Dressing room" to "Edit Profile", remove cumbersome intro, rewrite featured ranking instruction | M5 | R5 |
+| 15 | Collapsible Accordion Panes | Make `#tagline` and `#avatar` long categories collapsible with accessible accordions and expand/collapse controls | M5 | R5 |
+| 16 | CC0 Avatar Expansion to 12 Seeds | Expand CC0 styles to 12 seeds each (72 total SVGs in `public/avatars/`), pacing levels across 2..100 without collision | M5 | R5 |
+| 17 | Comprehensive Test Suite & E2E Validation | Pass 100% Vitest suites, clean Turbopack build, zero TypeScript errors, zero lint violations | M6 | Acceptance |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | Tactile Matchup Dueling & Stage Focus | Features 1, 2, 3, 4, 5 (Keyboard blitz, Taglines, Audio Synth, Streaks, Focus mode) | none | DONE |
-| M2 | Shareable Premiere Pass & Compare | Features 6, 7, 8 (Curtain Call confetti, Ticket canvas, Compare callouts) | none | DONE |
-| M3 | Community Social & Discovery | Features 9, 10, 11, 12 (Upvoting, Trending showcase, "Rank these yourself", Curator Roulette) | none | DONE |
-| M4 | E2E Testing Suite & Quality Verification | Feature 13 (Tiers 1-5 test suites, full regression verification, zero build errors) | M1, M2, M3 | DONE |
+| M1 | UI Theatrics & Responsive Polish | Features 1, 2, 3, 4, 5 (hero fan, theater mode, roulette layout, smooth scroll, marquee count suppression) | none | DONE |
+| M2 | Community Spotlight & Custom List Opt-In | Features 6, 7, 8 (spotlight filter, opt-in checkbox, owner visibility toggle) | none | DONE |
+| M3 | Beta Branding, Pioneer Challenge & Cosmetics | Features 9, 10, 11 (BetaBadge, BetaWalkthroughCard, beta_pioneer achievement, frame/tagline/avatar cosmetics) | none | DONE |
+| M4 | Feedback Dialog & Release Announcements | Features 12, 13 (FeedbackModal, POST /api/feedback, updates.ts) | none | DONE |
+| M5 | Copy Cleanup, Collapsible Panes & Avatars | Features 14, 15, 16 (Edit Profile copy, collapsible accordions, 72 CC0 SVGs + pacing) | none | DONE |
+| M6 | Final E2E Verification & Hardening | Feature 17 (100% test pass, clean build, acceptance criteria check, adversarial review, audit) | M1..M5 | DONE |
 
 ## Interface Contracts
-### Matchup Dueling & Audio (`M1`)
-- `src/lib/audio.ts`:
-  - `playShutterClick(): void` — generates subtle mechanical click
-  - `playGoldenChime(): void` — generates dual harmonic sine chime
-  - `isSoundEnabled(): boolean` — reads `mr-sound-enabled` from localStorage (default `false`)
-  - `setSoundEnabled(enabled: boolean): void` — persists preference
-- `src/lib/ranking.ts` & `src/lib/session.ts`:
-  - `RankedMovie.tagline?: string | null`
-  - `getMovieWinStreak(history: Array<[number, number]>, tmdbId: number): number` — calculates current consecutive wins
+### Trending Filtering Contract (`src/lib/trending.ts`)
+- `formatTrendingLists(lists: RawDbListRow[], profileHandles?: Map<string, string>, sortMode?: TrendingSortMode): TrendingListSummary[]`
+- Must strictly filter: `l.status === "done" && l.visibility === "public" && !l.theme_slug && !l.curated`
 
-### Premiere Pass & Compare (`M2`)
-- `src/lib/ticket-canvas.ts`:
-  - `generatePremierePassCanvas(options: TicketRenderOptions): Promise<HTMLCanvasElement>`
-  - `exportPremierePassBlob(options: TicketRenderOptions): Promise<Blob>`
-  - `copyPremierePassToClipboard(options: TicketRenderOptions): Promise<boolean>`
-- `src/lib/versus.ts`:
-  - `computeVersus(listA, listB)` returning enhanced payload with `biggestDisagreement` and `commonFavorites`
+### List Visibility Contract (`POST /api/lists`, `PATCH /api/lists/[id]`)
+- Payload schema: `{ ..., visibility?: "public" | "unlisted" | "private" }`
+- Wrap-up opt-in checkbox unchecked -> `visibility: "unlisted"`; checked -> `visibility: "public"`.
 
-### Community Upvoting & Forking (`M3`)
-- `src/app/api/lists/[id]/upvote/route.ts`:
-  - `GET`: returns `{ upvotesCount: number, hasUpvoted: boolean }`
-  - `POST`: toggles upvote for authenticated user, returns updated `{ upvotesCount: number, hasUpvoted: boolean }`, returns 401 for guests
-- `src/lib/curator-roulette.ts`:
-  - `CURATOR_MICRO_PACKS`: Array of `{ id, title, blurb, genre, movieIds, accentColor }`
-  - `getRandomMicroPack(): CuratorMicroPack`
-- `src/lib/fork.ts`:
-  - `createForkSession(list: ListWithMovies): PlaySession`
+### Pioneer Challenge & Cosmetic Unlock Contract
+- Achievement ID: `beta_pioneer` in `src/lib/gamification.ts`. Description must not end with a period (`.`).
+- Unlocked items:
+  - `avatar.gen.beta-reel` -> requires `public/avatars/beta-reel.svg`.
+  - `frame.beta` -> requires entry in `FRAMES`, `FRAME_CLASS` (`.cf-beta` in `globals.css`), and `FRAME_STYLE` in `og-card.tsx`.
+  - `tagline.betamax` -> "Betamax was better".
+- Stats schema in `AchievementStats`: `{ publicDoneLists?: number; hasHandle?: boolean; isSignedIn?: boolean; ... }`.
+- Must be passed in both `profile-data.ts` (client) and `api/profile/route.ts` (server equip validation).
+
+### Feedback API Contract (`src/app/api/feedback/route.ts`)
+- Endpoint: `POST /api/feedback`
+- Body JSON: `{ category: "bug" | "idea" | "other", message: string, email?: string }`
+- Validation: category must be valid, message trimmed length 1..2000, email optional string.
+- Response: `{ ok: true }` (HTTP 200) or `{ error: string }` (HTTP 400/429/500).
+
+### Avatar Asset & Progression Contract
+- 6 CC0 styles: `adventurer-neutral`, `bottts-neutral`, `initials`, `lorelei-neutral`, `micah`, `shapes`.
+- 12 seeds per style = 72 SVGs in `public/avatars/` + `manifest.json`.
+- Each `avatar.gen.<filename>` must exist as `public/avatars/<filename>.svg`.
+- Level-gated avatars must have unique unlocked levels <= 100 with zero collision.
 
 ## Code Layout
-- `src/lib/audio.ts` — Web Audio API cinema synthesizer
-- `src/lib/streak.ts` — Win streak calculation pure helpers
-- `src/lib/ticket-canvas.ts` — HTML5 2D Canvas vintage cinema ticket generator
-- `src/lib/curator-roulette.ts` — Thematic micro-packs & roulette selection engine
-- `src/lib/fork.ts` — Fork & re-rank session initializer
-- `src/components/audio/SoundToggle.tsx` — Sound toggle button
-- `src/components/duel/LightsDownToggle.tsx` — Cinema focus mode toggle
-- `src/components/share/PremierePassCard.tsx` — Premiere pass visual preview card
-- `src/components/celebration/CurtainCallCelebration.tsx` — Golden confetti & spotlight drop
-- `src/components/community/UpvoteButton.tsx` — Upvote button with persistent state
-- `src/components/community/ForkButton.tsx` — Fork & re-rank button
-- `src/components/roulette/CuratorRoulette.tsx` — Spinning reel micro-pack selector
-- `src/app/api/lists/[id]/upvote/route.ts` — Upvote API endpoint
-- `supabase/migrations/20260902_list_upvotes.sql` — SQL migration for upvotes
+- `src/app/(site)/home-client.tsx` (M1 - DONE)
+- `src/app/globals.css` (M1 - DONE; M3)
+- `src/components/roulette/CuratorRoulette.tsx` (M1 - DONE)
+- `src/app/r/play/play-room.tsx` (M1 - DONE; M2 - DONE)
+- `src/lib/trending.ts` (M2 - DONE)
+- `src/components/SaveGateSheet.tsx` (M2 - DONE)
+- `src/app/(site)/l/[id]/page.tsx` (M2 - DONE)
+- `src/components/list/OwnerControls.tsx` (M2 - DONE)
+- `src/components/BetaBadge.tsx` (M3)
+- `src/components/BetaWalkthroughCard.tsx` (M3)
+- `src/components/SiteHeader.tsx` (M3, M4)
+- `src/components/SiteFooter.tsx` (M4)
+- `src/lib/gamification.ts` (M3)
+- `src/lib/cosmetics/*` (M3, M5)
+- `src/lib/og-card.tsx` (M3)
+- `public/avatars/*` (M3, M5)
+- `src/components/feedback/FeedbackModal.tsx` (M4)
+- `src/app/api/feedback/route.ts` (M4)
+- `src/data/updates.ts` (M4)
+- `src/app/(site)/u/profile/customise/*` (M5)
+
+## Acceptance Criteria & Quality Guardrails
+- [x] Vitest test suites pass 100% with zero failures.
+- [x] TypeScript type checks pass (`tsc --noEmit`) with zero errors.
+- [x] ESLint checks pass with zero errors; unused imports and `any` types resolved (Package E).
+

@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import MoviePoster from "./MoviePoster";
 import { podiumDisplayOrder, splitPodium, type RankedRow } from "@/lib/list-view";
 import { tmdbMovieUrl } from "@/lib/tmdb";
@@ -44,6 +47,7 @@ function MedalBadge({ rank }: { rank: number }) {
 }
 
 export default function StackedView({ movies }: { movies: RankedRow[] }) {
+  const [isHaventSeenOpen, setIsHaventSeenOpen] = useState(false);
   const ranked = movies.filter((m): m is RankedRow & { rank: number } => m.rank !== null);
   const unranked = movies.filter((m) => m.rank === null);
   const { podium, rest } = splitPodium(ranked);
@@ -97,10 +101,10 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
                   </div>
 
                   <p
-                    className={`mt-2 w-full truncate text-center font-medium ${
+                    className={`mt-2 w-full text-center font-medium ${
                       isWinner
-                        ? "text-xs font-bold text-gold sm:text-sm"
-                        : "text-[11px] text-text sm:text-xs"
+                        ? "line-clamp-2 text-[15px] font-bold text-gold sm:text-base"
+                        : "truncate text-sm text-text sm:text-sm"
                     }`}
                   >
                     <a
@@ -114,7 +118,7 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
                     </a>
                     <span className="sr-only"> — ranked #{m.rank}</span>
                   </p>
-                  <p className="text-center font-mono text-[10px] text-muted">
+                  <p className="text-center font-mono text-xs text-muted">
                     {m.releaseYear ?? "—"}
                   </p>
 
@@ -122,10 +126,10 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
                   <div
                     className={`mt-2 flex w-full items-center justify-center rounded-t-lg border-t font-display uppercase tracking-widest text-center ${
                       isWinner
-                        ? "h-9 border-gold/60 bg-gradient-to-b from-gold/25 to-gold/5 text-xs font-bold text-gold shadow-inner"
+                        ? "h-9 border-gold/60 bg-gradient-to-b from-gold/25 to-gold/5 text-[13px] font-bold text-gold shadow-inner"
                         : isSecond
-                          ? "h-7 border-white/30 bg-gradient-to-b from-white/15 to-white/5 text-[10px] text-[#d0d4dc]"
-                          : "h-5 border-amber-700/40 bg-gradient-to-b from-amber-900/25 to-amber-900/5 text-[9px] text-[#cd7f32]"
+                          ? "h-7 border-white/30 bg-gradient-to-b from-white/15 to-white/5 text-xs text-[#d0d4dc]"
+                          : "h-5 border-amber-700/40 bg-gradient-to-b from-amber-900/25 to-amber-900/5 text-xs text-[#cd7f32]"
                     }`}
                   >
                     {isWinner ? "✦ 1st Place ✦" : isSecond ? "2nd" : "3rd"}
@@ -153,7 +157,7 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
                 <div className="relative w-full overflow-hidden rounded-lg shadow-md ring-1 ring-white/10">
                   <span
                     aria-hidden="true"
-                    className="absolute top-1 left-1 z-10 flex size-5 items-center justify-center rounded-md bg-bg/85 font-mono text-[10px] font-bold text-gold ring-1 ring-white/15 backdrop-blur-xs"
+                    className="absolute top-1 left-1 z-10 flex size-5 items-center justify-center rounded-md bg-bg/85 font-mono text-xs font-bold text-gold ring-1 ring-white/15 backdrop-blur-xs"
                   >
                     #{m.rank}
                   </span>
@@ -171,7 +175,7 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
                     />
                   </a>
                 </div>
-                <p className="mt-1.5 line-clamp-2 w-full text-xs font-medium leading-tight text-text">
+                <p className="mt-1.5 line-clamp-2 w-full text-sm font-medium leading-tight text-text">
                   <a
                     href={tmdbMovieUrl(m.tmdbId)}
                     target="_blank"
@@ -183,7 +187,7 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
                   </a>
                   <span className="sr-only"> — ranked #{m.rank}</span>
                 </p>
-                <p className="mt-0.5 font-mono text-[10px] text-muted">{m.releaseYear ?? "—"}</p>
+                <p className="mt-0.5 font-mono text-xs text-muted">{m.releaseYear ?? "—"}</p>
               </li>
             ))}
           </ol>
@@ -191,50 +195,70 @@ export default function StackedView({ movies }: { movies: RankedRow[] }) {
       )}
       {unranked.length > 0 && (
         <div className="mt-12 rounded-2xl border border-white/5 bg-surface/30 p-5 ring-1 ring-white/5">
-          <div className="mb-4 flex items-center justify-between">
-            <h4 className="font-display text-sm uppercase tracking-wider text-muted">
-              Haven&apos;t seen ({unranked.length})
-            </h4>
-            <span className="rounded-full bg-white/5 px-2.5 py-0.5 text-[11px] font-medium text-muted ring-1 ring-white/10">
-              Unranked
-            </span>
-          </div>
-          <ol className="flex flex-wrap justify-center gap-x-3.5 gap-y-6 sm:gap-x-5 sm:gap-y-7 opacity-80">
-            {unranked.map((m) => (
-              <li
-                key={m.tmdbId}
-                className="relative flex w-[105px] sm:w-[125px] md:w-[135px] flex-col items-center text-center"
+          <button
+            type="button"
+            onClick={() => setIsHaventSeenOpen(!isHaventSeenOpen)}
+            aria-expanded={isHaventSeenOpen}
+            className="flex w-full items-center justify-between text-left transition-colors hover:text-gold focus-visible:outline-2 focus-visible:outline-gold cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <span
+                aria-hidden="true"
+                className={`text-gold text-xs transition-transform duration-200 ${isHaventSeenOpen ? "rotate-90" : ""}`}
               >
-                <div className="relative w-full overflow-hidden rounded-lg shadow-md ring-1 ring-white/10 grayscale-[25%]">
-                  <a
-                    href={tmdbMovieUrl(m.tmdbId)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={`View ${m.title} on TMDB (opens in new tab)`}
-                    className="block focus-visible:outline-2 focus-visible:outline-gold"
-                  >
-                    <MoviePoster
-                      title={m.title}
-                      posterPath={m.posterPath}
-                      tmdbId={m.tmdbId}
-                    />
-                  </a>
-                </div>
-                <p className="mt-1.5 line-clamp-2 w-full text-xs font-medium leading-tight text-text/90">
-                  <a
-                    href={tmdbMovieUrl(m.tmdbId)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={`View ${m.title} on TMDB (opens in new tab)`}
-                    className="transition-colors hover:text-gold hover:underline focus-visible:outline-1 focus-visible:outline-gold"
-                  >
-                    {m.title}
-                  </a>
-                </p>
-                <p className="mt-0.5 font-mono text-[10px] text-muted">{m.releaseYear ?? "—"}</p>
-              </li>
-            ))}
-          </ol>
+                ▶
+              </span>
+              <h4 className="font-display text-sm uppercase tracking-wider text-muted">
+                Haven&apos;t seen ({unranked.length})
+              </h4>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted/70">
+                {isHaventSeenOpen ? "Hide" : "Show movies"}
+              </span>
+              <span className="rounded-full bg-white/5 px-2.5 py-0.5 text-xs font-medium text-muted ring-1 ring-white/10">
+                Unranked
+              </span>
+            </div>
+          </button>
+          {isHaventSeenOpen && (
+            <ol className="mt-5 flex flex-wrap justify-center gap-x-3.5 gap-y-6 sm:gap-x-5 sm:gap-y-7 opacity-80 animate-fade-in">
+              {unranked.map((m) => (
+                <li
+                  key={m.tmdbId}
+                  className="relative flex w-[105px] sm:w-[125px] md:w-[135px] flex-col items-center text-center"
+                >
+                  <div className="relative w-full overflow-hidden rounded-lg shadow-md ring-1 ring-white/10 grayscale-[25%]">
+                    <a
+                      href={tmdbMovieUrl(m.tmdbId)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`View ${m.title} on TMDB (opens in new tab)`}
+                      className="block focus-visible:outline-2 focus-visible:outline-gold"
+                    >
+                      <MoviePoster
+                        title={m.title}
+                        posterPath={m.posterPath}
+                        tmdbId={m.tmdbId}
+                      />
+                    </a>
+                  </div>
+                  <p className="mt-1.5 line-clamp-2 w-full text-sm font-medium leading-tight text-text/90">
+                    <a
+                      href={tmdbMovieUrl(m.tmdbId)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`View ${m.title} on TMDB (opens in new tab)`}
+                      className="transition-colors hover:text-gold hover:underline focus-visible:outline-1 focus-visible:outline-gold"
+                    >
+                      {m.title}
+                    </a>
+                  </p>
+                  <p className="mt-0.5 font-mono text-xs text-muted">{m.releaseYear ?? "—"}</p>
+                </li>
+              ))}
+            </ol>
+          )}
         </div>
       )}
     </div>

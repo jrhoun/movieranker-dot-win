@@ -125,7 +125,7 @@ export default function LoginPage() {
     }
   }
 
-  async function handleOAuth(provider: "google" | "azure") {
+  async function handleOAuth(provider: "google") {
     setBusy(true);
     setNote(null);
     try {
@@ -144,9 +144,7 @@ export default function LoginPage() {
       setBusy(false);
       setNote({
         type: "error",
-        text: /not enabled|unsupported provider|invalid provider|provider is not/i.test(msg)
-          ? "Google sign-in isn't set up yet — ask the site admin to enable it."
-          : `Sign-in error: ${msg}`,
+        text: `Sign-in error: ${msg}`,
       });
     }
   }

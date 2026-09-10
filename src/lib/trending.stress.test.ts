@@ -210,6 +210,104 @@ describe("trending.ts Empirical Stress Testing", () => {
       expect(results).toHaveLength(1);
       expect(results[0].id).toBe("l-legit");
     });
+
+    it("strictly excludes weekly marquees and curated lists regardless of high upvotes", () => {
+      const mixedPool: RawDbListRow[] = [
+        {
+          id: "m-high-upvotes-curated",
+          title: "Marquee Mega Hit",
+          description: null,
+          owner_id: "u-1",
+          status: "done",
+          visibility: "public",
+          upvotes_count: 999999,
+          theme_slug: "blockbusters",
+          curated: true,
+          created_at: "2026-09-08T00:00:00Z",
+        },
+        {
+          id: "m-high-upvotes-uncurated",
+          title: "Marquee Unlocked",
+          description: null,
+          owner_id: "u-2",
+          status: "done",
+          visibility: "public",
+          upvotes_count: 888888,
+          theme_slug: "indie-darlings",
+          curated: false,
+          created_at: "2026-09-08T00:00:00Z",
+        },
+        {
+          id: "c-high-upvotes-curated-null-slug",
+          title: "Curated Pack Special",
+          description: null,
+          owner_id: "u-3",
+          status: "done",
+          visibility: "public",
+          upvotes_count: 777777,
+          theme_slug: null,
+          curated: true,
+          created_at: "2026-09-08T00:00:00Z",
+        },
+        {
+          id: "legit-custom-1",
+          title: "Real Custom List 1",
+          description: "Spotlight worthy",
+          owner_id: "u-4",
+          status: "done",
+          visibility: "public",
+          upvotes_count: 5,
+          theme_slug: null,
+          curated: false,
+          created_at: "2026-09-07T00:00:00Z",
+        },
+        {
+          id: "legit-custom-2",
+          title: "Real Custom List 2",
+          description: "Another community gem",
+          owner_id: "u-5",
+          status: "done",
+          visibility: "public",
+          upvotes_count: 1,
+          theme_slug: null,
+          curated: false,
+          created_at: "2026-09-06T00:00:00Z",
+        },
+      ];
+
+      const results = formatTrendingLists(mixedPool);
+      expect(results.map((r) => r.id)).toEqual(["legit-custom-1", "legit-custom-2"]);
+    });
+
+    it("maintains zero marquee/curated leakage across 1,000 mixed lists under high throughput", () => {
+      const count = 1000;
+      const rawLists: RawDbListRow[] = Array.from({ length: count }, (_, i) => {
+        const isMarquee = i % 2 === 0;
+        const isCurated = i % 3 === 0;
+
+        return {
+          id: `stress-list-${i}`,
+          title: `List #${i}`,
+          description: null,
+          owner_id: `user-${i % 20}`,
+          status: "done",
+          visibility: "public",
+          upvotes_count: Math.floor(Math.random() * 1000),
+          theme_slug: isMarquee ? `theme-${i % 10}` : null,
+          curated: isCurated,
+          created_at: new Date(Date.now() - i * 60_000).toISOString(),
+          list_movies: [],
+        };
+      });
+
+      const results = formatTrendingLists(rawLists);
+      expect(results.length).toBeGreaterThan(0);
+      for (const item of results) {
+        const raw = rawLists.find((r) => r.id === item.id)!;
+        expect(raw.theme_slug).toBeFalsy();
+        expect(raw.curated).toBeFalsy();
+      }
+    });
   });
 
   // ---------------------------------------------------------------------------

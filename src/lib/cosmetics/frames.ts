@@ -39,4 +39,5 @@ export const FRAMES: CosmeticItem[] = [
   { id: "frame.laurel", slot: "frame", name: "Laurel", unlock: { kind: "challenge", key: "master_curator" }, rarity: "rare" },
   { id: "frame.velvet-rope", slot: "frame", name: "Velvet Rope", unlock: { kind: "challenge", key: "season_ticket" }, rarity: "legendary" },
   { id: "frame.nitrate", slot: "frame", name: "Nitrate", unlock: { kind: "challenge", key: "the_long_take" }, rarity: "legendary" },
+  { id: "frame.beta", slot: "frame", name: "Beta Cassette", unlock: { kind: "challenge", key: "beta_pioneer" }, rarity: "legendary", animated: true },
 ];

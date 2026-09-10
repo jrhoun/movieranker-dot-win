@@ -81,8 +81,8 @@ export default function UpvoteButton({
   let variantStyles = "";
   if (variant === "compact" || variant === "card") {
     variantStyles = hasUpvoted
-      ? "bg-gold/20 text-gold ring-1 ring-gold shadow-[0_0_12px_rgba(245,197,24,0.3)] px-2.5 py-1 text-xs"
-      : "bg-surface-raised/80 text-muted ring-1 ring-white/10 hover:ring-gold/40 hover:text-text px-2.5 py-1 text-xs";
+      ? "bg-gold/20 text-gold ring-1 ring-gold shadow-[0_0_12px_rgba(245,197,24,0.3)] min-h-10 px-3 py-1.5 text-sm"
+      : "bg-surface-raised/80 text-muted ring-1 ring-white/10 hover:ring-gold/40 hover:text-text min-h-10 px-3 py-1.5 text-sm";
   } else if (variant === "pill") {
     variantStyles = hasUpvoted
       ? "bg-gold/25 text-gold ring-1 ring-gold shadow-[0_0_16px_rgba(245,197,24,0.35)] px-4 py-2 text-sm font-semibold"
@@ -111,7 +111,7 @@ export default function UpvoteButton({
       >
         <span
           aria-hidden="true"
-          className={`text-sm transition-transform duration-200 ${
+          className={`block shrink-0 text-sm transition-transform duration-200 ${
             hasUpvoted ? "scale-110 text-gold" : "group-hover:scale-110"
           }`}
         >
@@ -120,9 +120,9 @@ export default function UpvoteButton({
         {/* Verb first, count second — "Upvoted 1" reads as a pressed control
             whose next click undoes it, where "1 upvotes" read as a statistic. */}
         {showLabel && variant !== "compact" && (
-          <span className="font-semibold">{hasUpvoted ? "Upvoted" : "Upvote"}</span>
+          <span className="font-semibold leading-none">{hasUpvoted ? "Upvoted" : "Upvote"}</span>
         )}
-        <span className="font-mono font-semibold">{count}</span>
+        <span className="font-mono font-semibold leading-none">{count}</span>
       </button>
 
       {/* Guest Sign-In Prompt Modal */}

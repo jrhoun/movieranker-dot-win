@@ -3,6 +3,7 @@ import Script from "next/script";
 import { Analytics } from "@vercel/analytics/react";
 import { Bebas_Neue, Geist, Geist_Mono } from "next/font/google";
 import { SITE_URL } from "@/lib/site";
+import { FeedbackProvider } from "@/components/feedback";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -42,7 +43,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} ${bebas.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        {children}
+        <FeedbackProvider>{children}</FeedbackProvider>
         <Analytics />
         {gaId && (
           <>

@@ -58,10 +58,10 @@ import {
  */
 
 const PRIMARY =
-  "min-h-11 rounded-full bg-gold px-5 font-semibold text-bg transition-opacity duration-200 ease-out hover:opacity-90 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold";
+  "inline-flex min-h-11 items-center justify-center rounded-full bg-gold px-5 font-semibold text-bg transition-opacity duration-200 ease-out hover:opacity-90 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold cursor-pointer";
 
 const TEXT_LINK =
-  "min-h-11 rounded px-1 text-base text-gold underline-offset-4 transition-colors duration-200 ease-out hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold";
+  "inline-flex min-h-11 items-center justify-center rounded px-3 text-base text-gold underline-offset-4 transition-colors duration-200 ease-out hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold cursor-pointer";
 
 const PANE_HEADING = "font-display text-2xl uppercase tracking-[0.12em] text-text";
 const GROUP_HEADING = "font-display text-lg uppercase tracking-[0.12em] text-text";
@@ -205,6 +205,112 @@ function TaglineRows({
 }
 
 /**
+ * A collapsible accordion panel for long category sections (such as Avatars
+ * and Taglines). Provides clear disclosure markup, item count badges, and
+ * highlight for currently equipped selections.
+ */
+function CollapsibleSection({
+  id,
+  title,
+  badge,
+  hasSelected,
+  isOpen,
+  onToggle,
+  children,
+}: {
+  id: string;
+  title: string;
+  badge?: string;
+  hasSelected?: boolean;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
+      <button
+        type="button"
+        id={`header-${id}`}
+        aria-expanded={isOpen}
+        aria-controls={`panel-${id}`}
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left transition-colors duration-150 hover:bg-white/[0.04] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+      >
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="font-display text-base uppercase tracking-[0.1em] text-text">
+            {title}
+          </span>
+          {badge && (
+            <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs text-text/70">
+              {badge}
+            </span>
+          )}
+          {hasSelected && (
+            <span className="rounded-full bg-gold/15 px-2.5 py-0.5 text-xs font-semibold text-gold">
+              Equipped
+            </span>
+          )}
+        </div>
+        <svg
+          aria-hidden="true"
+          className={`h-4 w-4 shrink-0 text-gold transition-transform duration-200 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2.5}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      <div
+        id={`panel-${id}`}
+        role="region"
+        aria-labelledby={`header-${id}`}
+        className={`px-4 pb-5 pt-1 ${isOpen ? "block" : "hidden"}`}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Controls to expand or collapse all categories in a long section at once. */
+function AccordionControls({
+  label,
+  onExpandAll,
+  onCollapseAll,
+}: {
+  label: string;
+  onExpandAll: () => void;
+  onCollapseAll: () => void;
+}) {
+  return (
+    <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-3">
+      <span className="text-xs uppercase tracking-wider text-muted">{label}</span>
+      <div className="flex items-center gap-3 text-xs uppercase tracking-wider">
+        <button
+          type="button"
+          onClick={onExpandAll}
+          className="text-gold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-gold"
+        >
+          Expand all
+        </button>
+        <span className="text-white/20">|</span>
+        <button
+          type="button"
+          onClick={onCollapseAll}
+          className="text-gold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-gold"
+        >
+          Collapse all
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * A pane's rows. `section` on a group prints one heading above a RUN of groups
  * that share it ("Illustrated" over six styles of drawn avatar), so the pane
  * reads as headings and not as a stack of equal-weight labels.
@@ -288,22 +394,31 @@ function ClaimPosters({
   error: string | null;
   onClaim: (tmdbId: number) => void;
 }) {
-  const [pending, setPending] = useState<number | null>(null);
+  const [confirmingFilm, setConfirmingFilm] = useState<{
+    tmdbId: number;
+    title: string;
+    posterPath: string | null;
+  } | null>(null);
+  const [showAllPosters, setShowAllPosters] = useState(false);
   const claimedSet = new Set(claimed);
   const unclaimed = films.filter((f) => !claimedSet.has(f.tmdbId));
   const remaining = Math.max(0, allowance - claimed.length);
+
+  const INITIAL_ROWS_LIMIT = 12;
+  const displayedFilms = showAllPosters ? unclaimed : unclaimed.slice(0, INITIAL_ROWS_LIMIT);
 
   if (films.length === 0) return null;
 
   return (
     <div className="mt-8 border-t border-white/10 pt-6">
-      <h4 className={SUB_HEADING}>Claim a poster</h4>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h4 className={SUB_HEADING}>Movie Poster Avatars</h4>
+        <span className="rounded-full bg-gold/15 px-2.5 py-0.5 font-mono text-xs font-semibold text-gold ring-1 ring-gold/30">
+          {remaining} of {allowance} unlocks available
+        </span>
+      </div>
       <p className="mt-2 max-w-[70ch] text-base leading-relaxed text-text/90">
-        Any film you have ranked can become your avatar. {claimed.length} of {allowance} claim
-        {allowance === 1 ? "" : "s"} used.{" "}
-        {remaining > 0
-          ? "A claim is permanent and saves straight away — Cancel does not undo it. Every level earns you another."
-          : "Every level up earns you another."}
+        Unlock film posters you&apos;ve ranked. Get a new unlock with every level up.
       </p>
 
       {error && (
@@ -314,23 +429,21 @@ function ClaimPosters({
 
       {unclaimed.length === 0 ? (
         <p className="mt-4 text-base text-muted">
-          Every film you have ranked is already claimed.
+          Every film you have ranked is already unlocked.
         </p>
       ) : (
-        <ul className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(88px,1fr))] gap-x-3 gap-y-4">
-          {unclaimed.map((film) => {
-            const isPending = pending === film.tmdbId;
-            return (
+        <>
+          <ul className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(88px,1fr))] gap-x-3 gap-y-4">
+            {displayedFilms.map((film) => (
               <li key={film.tmdbId}>
                 <button
                   type="button"
                   disabled={remaining === 0 || busy}
-                  onClick={() => (isPending ? onClaim(film.tmdbId) : setPending(film.tmdbId))}
-                  onBlur={() => isPending && setPending(null)}
+                  onClick={() => setConfirmingFilm(film)}
                   title={film.title}
                   className={`flex w-full flex-col items-center gap-2 rounded-lg p-1.5 text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${
-                    isPending ? "ring-1 ring-gold" : ""
-                  } ${remaining === 0 ? "cursor-not-allowed opacity-40" : ""}`}
+                    remaining === 0 ? "cursor-not-allowed opacity-40" : "hover:ring-1 hover:ring-gold/50 cursor-pointer"
+                  }`}
                 >
                   <span className="block h-[117px] w-[78px] shrink-0 overflow-hidden rounded-sm bg-surface-raised">
                     {film.posterPath && (
@@ -346,13 +459,71 @@ function ClaimPosters({
                     {film.title}
                   </span>
                   <span className="text-xs leading-tight text-gold">
-                    {isPending ? (busy ? "Claiming…" : "Tap again to claim") : "Claim"}
+                    Unlock
                   </span>
                 </button>
               </li>
-            );
-          })}
-        </ul>
+            ))}
+          </ul>
+
+          {unclaimed.length > INITIAL_ROWS_LIMIT && (
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setShowAllPosters(!showAllPosters)}
+                className="inline-flex min-h-9 items-center justify-center rounded-lg border border-white/10 bg-surface/60 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-gold hover:border-gold/50 hover:bg-gold/10 transition-colors focus-visible:outline-2 focus-visible:outline-gold cursor-pointer"
+              >
+                {showAllPosters
+                  ? "Show less"
+                  : `Show all (${unclaimed.length - INITIAL_ROWS_LIMIT} remaining)`}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmingFilm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-unlock-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+        >
+          <div className="w-full max-w-sm rounded-2xl border border-gold/40 bg-surface p-6 shadow-2xl ring-1 ring-gold/30 text-center">
+            <h5 id="confirm-unlock-title" className="font-display text-lg uppercase tracking-wider text-gold">
+              Are you sure?
+            </h5>
+            <p className="mt-2 text-sm text-text leading-relaxed">
+              Unlock <strong className="text-gold font-semibold">{confirmingFilm.title}</strong> as your avatar?
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              This uses 1 of your {remaining} available unlocks. Unlocks are permanent and save straight away.
+            </p>
+            <div className="mt-5 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmingFilm(null)}
+                disabled={busy}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-white/20 bg-surface-raised px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-text hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  const filmId = confirmingFilm.tmdbId;
+                  setConfirmingFilm(null);
+                  await onClaim(filmId);
+                }}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg bg-gold px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-bg shadow hover:bg-gold/90 transition-transform active:scale-95 cursor-pointer"
+              >
+                {busy ? "Unlocking…" : "Confirm unlock"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -457,8 +628,7 @@ function RankingPane({
   if (level < MIN_PIN_LIST_LEVEL) {
     return (
       <p className="mt-4 max-w-[70ch] text-base leading-relaxed text-text/90">
-        Featuring a ranking unlocks at level {MIN_PIN_LIST_LEVEL}. One ranking then sits at the top
-        of your public profile.
+        Featuring a ranking unlocks at level {MIN_PIN_LIST_LEVEL}. Pin a ranking to feature it at the top of your public profile.
       </p>
     );
   }
@@ -469,9 +639,9 @@ function RankingPane({
   return (
     <>
       <p className="mt-4 max-w-[70ch] text-base leading-relaxed text-text/90">
-        One ranking sits at the top of your public profile, or none.
+        Pin a ranking to feature it at the top of your public profile.
         {withheld > 0 &&
-          ` ${withheld} finished ${withheld === 1 ? "ranking is" : "rankings are"} not public yet, so ${withheld === 1 ? "it is" : "they are"} not here.`}
+          ` (${withheld} finished ${withheld === 1 ? "ranking is" : "rankings are"} unlisted and cannot be featured until made public.)`}
       </p>
 
       {eligible.length === 0 ? (
@@ -537,6 +707,34 @@ export default function CustomiseClient({
   const [favorite, setFavorite] = useState<string | null>(favoriteListId);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
+
+  const toggleGroup = (key: string, defaultOpen: boolean) => {
+    setExpandedKeys((prev) => {
+      const current = prev[key] ?? defaultOpen;
+      return { ...prev, [key]: !current };
+    });
+  };
+
+  const expandAll = (targetGroups: ItemGroup[]) => {
+    setExpandedKeys((prev) => {
+      const next = { ...prev };
+      for (const g of targetGroups) {
+        next[g.key] = true;
+      }
+      return next;
+    });
+  };
+
+  const collapseAll = (targetGroups: ItemGroup[]) => {
+    setExpandedKeys((prev) => {
+      const next = { ...prev };
+      for (const g of targetGroups) {
+        next[g.key] = false;
+      }
+      return next;
+    });
+  };
 
   /**
    * The URL fragment is the pane. That makes every section deep-linkable —
@@ -576,7 +774,7 @@ export default function CustomiseClient({
     if (!ok) {
       // The server re-checks the film is really the user's and that the count
       // fits their allowance, so a refusal here is authoritative.
-      setClaimError("That claim was refused — you may be out of claims.");
+      setClaimError("That unlock was refused — you may be out of unlocks.");
       return;
     }
     setClaimed((c) => [...new Set([...c, tmdbId])]);
@@ -699,38 +897,7 @@ export default function CustomiseClient({
 
   return (
     <div className="mt-8">
-      <div className="lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-x-12">
-        {/*
-          THE MIRROR: the draft, not what is stored, and composed exactly as the
-          real profile composes it — the equipped background painted behind a
-          translucent card rather than inside it. A tap is a fitting, not a
-          guess.
-        */}
-        <div className="relative min-h-[360px] overflow-hidden rounded-2xl lg:col-start-2 lg:row-start-1">
-          <ProfileBackdrop equipped={draft} posters={posters} variant="preview" />
-          <div className="relative z-[1] flex min-h-[360px] items-center px-4 py-6 sm:px-6">
-            {/*
-              `w-full` on this wrapper, not on the panel: ProfileCanvas sizes
-              itself by CONTAINER, and as a bare flex item its `mx-auto
-              max-w-4xl` gave it no width to size against — it shrank to its
-              own 2px of border and the avatar vanished. The panel needs a
-              full-width BLOCK parent to measure, exactly as it has on both
-              profile pages.
-            */}
-            <div className="w-full">
-              <ProfileCanvas
-                handle={handle}
-                level={level}
-                equipped={draft}
-                posters={posters}
-                taglineText={draft.tagline ? taglineTexts[draft.tagline] : null}
-                statsLine={statsLine}
-                pinned={featuredLaurels}
-              />
-            </div>
-          </div>
-        </div>
-
+      <div className="flex flex-col lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-x-12">
         {/*
           The nav. A column beside the panes on a desktop, a scrolling row under
           the mirror on a phone — where a seven-item column would push the pane
@@ -738,7 +905,7 @@ export default function CustomiseClient({
         */}
         <nav
           aria-label="Profile sections"
-          className="mt-6 -mx-4 overflow-x-auto px-4 lg:col-start-1 lg:row-start-1 lg:row-span-2 lg:mx-0 lg:mt-0 lg:self-start lg:overflow-visible lg:px-0 lg:sticky lg:top-6"
+          className="order-2 mt-6 -mx-4 overflow-x-auto px-4 lg:order-none lg:col-start-1 lg:mx-0 lg:mt-0 lg:self-start lg:overflow-visible lg:px-0 lg:sticky lg:top-6"
         >
           <ul className="flex gap-x-6 whitespace-nowrap lg:flex-col lg:gap-x-0 lg:gap-y-1">
             {SECTIONS.map((s) => {
@@ -761,13 +928,36 @@ export default function CustomiseClient({
           </ul>
         </nav>
 
-        {/* The active pane. `id` is the fragment the nav and deep links aim at. */}
-        <section
-          id={section}
-          aria-label={sectionLabel}
-          className="mt-10 scroll-mt-6 lg:col-start-2 lg:row-start-2"
-        >
-          <h2 className={PANE_HEADING}>{sectionLabel}</h2>
+        {/* Right column container on desktop: hosts both the sticky mirror and the active scrolling pane */}
+        <div className="contents lg:block lg:col-start-2">
+          {/*
+            THE MIRROR: sticky on desktop so as the user scrolls through items,
+            they see their choices reflected immediately without scrolling back up.
+          */}
+          <div className="order-1 relative min-h-[360px] overflow-hidden rounded-2xl border border-white/5 bg-bg/95 shadow-2xl backdrop-blur-md lg:sticky lg:top-4 lg:z-20">
+            <ProfileBackdrop equipped={draft} posters={posters} variant="preview" />
+            <div className="relative z-[1] flex min-h-[360px] items-center px-4 py-6 sm:px-6">
+              <div className="w-full">
+                <ProfileCanvas
+                  handle={handle}
+                  level={level}
+                  equipped={draft}
+                  posters={posters}
+                  taglineText={draft.tagline ? taglineTexts[draft.tagline] : null}
+                  statsLine={statsLine}
+                  pinned={featuredLaurels}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* The active pane. `id` is the fragment the nav and deep links aim at. */}
+          <section
+            id={section}
+            aria-label={sectionLabel}
+            className="order-3 mt-10 scroll-mt-6"
+          >
+            <h2 className={PANE_HEADING}>{sectionLabel}</h2>
 
           {section === "featured-achievements" && (
             <AchievementsPane
@@ -805,43 +995,118 @@ export default function CustomiseClient({
                 is pinned to the top of this column and never scrolls away, so
                 it is already the close-up; what this pane owes is the choice.
               */}
-              {section === "tagline"
-                ? groups.map((group) => (
-                    <div key={group.key} className="mt-8">
-                      <h3 className={GROUP_HEADING}>{group.title}</h3>
-                      <TaglineRows
-                        items={group.items}
-                        ownedSet={ownedSet}
-                        selectedId={draft.tagline ?? undefined}
-                        taglineTexts={taglineTexts}
-                        onChoose={choose}
-                      />
-                    </div>
-                  ))
-                : (
-                    <GroupedSwatches
-                      groups={groups}
-                      ownedSet={ownedSet}
-                      selectedId={draft[slot] ?? undefined}
-                      taglineTexts={taglineTexts}
-                      posterPathFor={posterPathFor}
-                      onChoose={choose}
-                    />
-                  )}
+              {section === "tagline" ? (
+                <>
+                  <AccordionControls
+                    label="Tagline Themes & Decades"
+                    onExpandAll={() => expandAll(groups)}
+                    onCollapseAll={() => collapseAll(groups)}
+                  />
+                  <div className="mt-4 flex flex-col gap-3">
+                    {groups.map((group, index) => {
+                      const hasSelected = group.items.some((i) => i.id === draft.tagline);
+                      const anyHasSelected = groups.some((g) =>
+                        g.items.some((i) => i.id === draft.tagline),
+                      );
+                      const defaultOpen = hasSelected || (!anyHasSelected && index === 0);
+                      const isOpen = expandedKeys[group.key] ?? defaultOpen;
+                      const ownedInGroup = group.items.filter((i) => ownedSet.has(i.id)).length;
+                      const badge = `${ownedInGroup} of ${group.items.length} unlocked`;
 
-              {section === "avatar" && (
-                <ClaimPosters
-                  films={films}
-                  claimed={claimed}
-                  allowance={claimAllowance(level)}
-                  busy={claiming}
-                  error={claimError}
-                  onClaim={claimPoster}
+                      return (
+                        <CollapsibleSection
+                          key={group.key}
+                          id={group.key}
+                          title={group.title}
+                          badge={badge}
+                          hasSelected={hasSelected}
+                          isOpen={isOpen}
+                          onToggle={() => toggleGroup(group.key, defaultOpen)}
+                        >
+                          <TaglineRows
+                            items={group.items}
+                            ownedSet={ownedSet}
+                            selectedId={draft.tagline ?? undefined}
+                            taglineTexts={taglineTexts}
+                            onChoose={choose}
+                          />
+                        </CollapsibleSection>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : section === "avatar" ? (
+                <>
+                  <AccordionControls
+                    label="Avatar Styles & Collections"
+                    onExpandAll={() => expandAll(groups)}
+                    onCollapseAll={() => collapseAll(groups)}
+                  />
+                  <div className="mt-4 flex flex-col gap-3">
+                    {groups.map((group, index) => {
+                      const hasSelected = group.items.some((i) => i.id === draft.avatar);
+                      const anyHasSelected = groups.some((g) =>
+                        g.items.some((i) => i.id === draft.avatar),
+                      );
+                      const defaultOpen = hasSelected || (!anyHasSelected && index === 0);
+                      const isOpen = expandedKeys[group.key] ?? defaultOpen;
+                      const ownedInGroup = group.items.filter((i) => ownedSet.has(i.id)).length;
+                      const badge = `${ownedInGroup} of ${group.items.length} unlocked`;
+
+                      return (
+                        <div key={group.key}>
+                          {group.section && group.section !== groups[index - 1]?.section && (
+                            <h3 className={`${GROUP_HEADING} mt-6 mb-2`}>{group.section}</h3>
+                          )}
+                          <CollapsibleSection
+                            id={group.key}
+                            title={group.title}
+                            badge={badge}
+                            hasSelected={hasSelected}
+                            isOpen={isOpen}
+                            onToggle={() => toggleGroup(group.key, defaultOpen)}
+                          >
+                            <ul className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(88px,1fr))] gap-x-3 gap-y-4">
+                              {group.items.map((item) => (
+                                <Swatch
+                                  key={item.id}
+                                  item={item}
+                                  owned={ownedSet.has(item.id)}
+                                  selected={draft.avatar === item.id}
+                                  posterPath={posterPathFor(item.id)}
+                                  label={labelFor(item, taglineTexts)}
+                                  onChoose={choose}
+                                />
+                              ))}
+                            </ul>
+                          </CollapsibleSection>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <ClaimPosters
+                    films={films}
+                    claimed={claimed}
+                    allowance={claimAllowance(level)}
+                    busy={claiming}
+                    error={claimError}
+                    onClaim={claimPoster}
+                  />
+                </>
+              ) : (
+                <GroupedSwatches
+                  groups={groups}
+                  ownedSet={ownedSet}
+                  selectedId={draft[slot] ?? undefined}
+                  taglineTexts={taglineTexts}
+                  posterPathFor={posterPathFor}
+                  onChoose={choose}
                 />
               )}
             </>
           )}
         </section>
+        </div>
       </div>
 
       {/*

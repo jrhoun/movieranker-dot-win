@@ -19,6 +19,7 @@ export const FRAME_CLASS: Record<string, string> = {
   "frame.neon-magenta": "cf-neon-magenta",
   "frame.vhs": "cf-vhs",
   "frame.prism": "cf-prism",
+  "frame.beta": "cf-beta",
 };
 
 export const OVERLAY_CLASS: Record<string, string> = {

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 980" fill="none" shape-rendering="auto" width="256" height="256">
+  <rect width="980" height="980" fill="#0d0e12"/>
+  <!-- Cassette Main Shell - Vertically Oriented (Portrait) -->
+  <rect x="140" y="50" width="700" height="880" rx="40" fill="#181920" stroke="#d4af37" stroke-width="12"/>
+  
+  <!-- Outer Bevel & Corner Screws -->
+  <circle cx="185" cy="95" r="14" fill="#2a2c38" stroke="#8a7322" stroke-width="4"/>
+  <path d="M177 95h16 M185 87v16" stroke="#d4af37" stroke-width="3"/>
+  
+  <circle cx="795" cy="95" r="14" fill="#2a2c38" stroke="#8a7322" stroke-width="4"/>
+  <path d="M787 95h16 M795 87v16" stroke="#d4af37" stroke-width="3"/>
+  
+  <circle cx="185" cy="885" r="14" fill="#2a2c38" stroke="#8a7322" stroke-width="4"/>
+  <path d="M177 885h16 M185 877v16" stroke="#d4af37" stroke-width="3"/>
+  
+  <circle cx="795" cy="885" r="14" fill="#2a2c38" stroke="#8a7322" stroke-width="4"/>
+  <path d="M787 885h16 M795 877v16" stroke="#d4af37" stroke-width="3"/>
+
+  <!-- Top Label Area -->
+  <rect x="180" y="130" width="620" height="180" rx="18" fill="#222430" stroke="#5c4a16" stroke-width="6"/>
+  <rect x="210" y="155" width="420" height="26" rx="6" fill="#d4af37" fill-opacity="0.3"/>
+  <rect x="210" y="195" width="340" height="18" rx="4" fill="#8a7322" fill-opacity="0.45"/>
+  <rect x="210" y="225" width="220" height="14" rx="4" fill="#8a7322" fill-opacity="0.35"/>
+  <rect x="210" y="255" width="160" height="16" rx="4" fill="#d4af37" fill-opacity="0.2"/>
+  
+  <!-- Beta Symbol Badge on Top Label -->
+  <circle cx="720" cy="220" r="42" fill="#0d0e12" stroke="#f5c518" stroke-width="6"/>
+  <path d="M708 195v50 M708 195c10-8 28-5 28 12 0 10-10 13-18 13 12 0 23 4 23 14 0 15-18 14-33 11" stroke="#f5c518" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Center Viewing Window -->
+  <rect x="190" y="340" width="600" height="530" rx="28" fill="#0b0c0f" stroke="#d4af37" stroke-width="8"/>
+  <rect x="215" y="365" width="550" height="480" rx="20" fill="#14151b"/>
+
+  <!-- Vertical Tape Ribbon connecting spools -->
+  <path d="M490 470 L490 730" stroke="#3d3725" stroke-width="80" stroke-linecap="round"/>
+  <path d="M490 470 L490 730" stroke="#1f1b12" stroke-width="60" stroke-linecap="round"/>
+
+  <!-- Top Reel Hub & Spool -->
+  <circle cx="490" cy="470" r="105" fill="#1d1e26" stroke="#d4af37" stroke-width="7"/>
+  <circle cx="490" cy="470" r="85" fill="#252733" stroke="#8a7322" stroke-width="4"/>
+  <circle cx="490" cy="470" r="70" fill="#38301b"/>
+  <circle cx="490" cy="470" r="40" fill="#0b0c0f" stroke="#f5c518" stroke-width="5"/>
+  <circle cx="490" cy="470" r="18" fill="#1d1e26"/>
+  <!-- Top Teeth -->
+  <rect x="483" y="425" width="14" height="20" rx="3" fill="#f5c518"/>
+  <rect x="483" y="495" width="14" height="20" rx="3" fill="#f5c518"/>
+  <rect x="445" y="463" width="20" height="14" rx="3" fill="#f5c518"/>
+  <rect x="515" y="463" width="20" height="14" rx="3" fill="#f5c518"/>
+
+  <!-- Bottom Reel Hub & Spool -->
+  <circle cx="490" cy="730" r="105" fill="#1d1e26" stroke="#d4af37" stroke-width="7"/>
+  <circle cx="490" cy="730" r="85" fill="#252733" stroke="#8a7322" stroke-width="4"/>
+  <circle cx="490" cy="730" r="70" fill="#38301b"/>
+  <circle cx="490" cy="730" r="40" fill="#0b0c0f" stroke="#f5c518" stroke-width="5"/>
+  <circle cx="490" cy="730" r="18" fill="#1d1e26"/>
+  <!-- Bottom Teeth -->
+  <rect x="483" y="685" width="14" height="20" rx="3" fill="#f5c518"/>
+  <rect x="483" y="755" width="14" height="20" rx="3" fill="#f5c518"/>
+  <rect x="445" y="723" width="20" height="14" rx="3" fill="#f5c518"/>
+  <rect x="515" y="723" width="20" height="14" rx="3" fill="#f5c518"/>
+</svg>

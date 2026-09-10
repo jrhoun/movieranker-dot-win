@@ -41,22 +41,22 @@ export default function AboutPage() {
           </div>
 
           <p>
-            Created by JR Houn for people who love making lists and as a fun and shareable way to settle movie arguments with friends. Built with Next.js, Tailwind CSS, and Supabase, powered by TMDB metadata.
+            Created by JR for people who love making lists and as a fun and shareable way to settle movie arguments with friends. Built with Next.js, Tailwind CSS, and Supabase, powered by TMDB metadata.
           </p>
 
-          <div className="space-y-2 rounded-lg border border-white/5 bg-surface-raised/60 p-4">
+          <div className="space-y-3 rounded-lg border border-white/5 bg-surface-raised/60 p-4 sm:p-5">
             <h2 className="font-display text-sm uppercase tracking-wider text-gold">
               How AI is used here
             </h2>
-            <p className="text-xs leading-relaxed text-muted">
-              I build this with AI assistance. A lot of the code, and some of the writing on this
-              site, was drafted with AI tools and then reviewed and edited by me. The weekly Marquee
-              themes, their connection puzzles and the trivia notes are written the same way — I
-              pick the films and check the claims, but I did not type every word.
+            <p className="text-xs leading-relaxed text-text/90">
+              Hi there and welcome to Movieranker.win, a site by JR. I am writing these words
+              with my own human cognition. I built this site while exploring the limits of what
+              I can put together with an LLM. All of the code and much of the interface prose
+              has been generated with AI assistance, and I want to be upfront with you about that.
             </p>
             <p className="text-xs leading-relaxed text-muted">
-              Nothing you rank is invented. Every film, poster, year and credit comes from TMDB, and
-              no AI touches your results: the rankings are decided by your votes and a chess-derived
+              Nothing you rank is invented. Every film, poster, year, and credit comes directly from TMDB,
+              and no AI touches your results: the rankings are decided by your votes and a chess-derived
               Elo calculation, which is arithmetic and nothing cleverer. Your lists are never used
               to train anything.
             </p>

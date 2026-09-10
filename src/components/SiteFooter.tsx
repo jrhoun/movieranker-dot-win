@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { CONTACT_EMAIL } from "@/lib/site";
+import { FeedbackTrigger } from "@/components/feedback";
 
 const linkCls =
-  "text-xs text-muted transition-colors duration-200 ease-out hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold";
+  "text-sm text-muted transition-colors duration-200 ease-out hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold";
 
 export default function SiteFooter() {
   return (
@@ -17,9 +17,9 @@ export default function SiteFooter() {
                 MovieRanker.win
               </span>
             </div>
-            <p className="text-xs leading-relaxed text-muted">
+            <p className="text-sm leading-relaxed text-muted">
               Rank movies head-to-head, solo or with friends, with a new themed Marquee
-              and hidden thread every week — for people who love lists and cinema.
+              and hidden connection every week — for people who love lists and cinema.
             </p>
           </div>
 
@@ -84,20 +84,16 @@ export default function SiteFooter() {
                 </Link>
               </li>
               <li>
-                <a
-                  href={`mailto:${CONTACT_EMAIL}`}
-                  className={linkCls}
-                  title="Contact Support"
-                >
+                <FeedbackTrigger className={linkCls}>
                   Support & Feedback
-                </a>
+                </FeedbackTrigger>
               </li>
             </ul>
           </div>
         </div>
 
         {/* TMDB Notice & Copyright */}
-        <div className="mt-8 border-t border-white/5 pt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs text-muted leading-relaxed">
+        <div className="mt-8 border-t border-white/5 pt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm text-muted leading-relaxed">
           <p>
             Movie metadata and poster art provided by{" "}
             <a
@@ -111,7 +107,7 @@ export default function SiteFooter() {
             . This product uses the TMDB API but is not endorsed or certified by TMDB.
           </p>
           <p className="shrink-0">
-            © 2026 JR Houn · MovieRanker.win
+            © 2026 JR · MovieRanker.win
           </p>
         </div>
       </div>

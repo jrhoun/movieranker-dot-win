@@ -34,15 +34,28 @@ const STYLES = {
 // Fixed seeds: the same seed always yields the same art, so re-running this
 // script reproduces the committed SVGs byte-for-byte instead of quietly
 // reshuffling everyone's avatar library.
-const SEEDS = ["reel", "usher", "matinee", "double-feature"];
+const SEEDS = [
+  "reel",
+  "usher",
+  "matinee",
+  "double-feature",
+  "spotlight",
+  "celluloid",
+  "marquee",
+  "curtain",
+  "premiere",
+  "noir",
+  "technicolor",
+  "director",
+];
 
 const OUT = new URL("../public/avatars/", import.meta.url);
 await mkdir(OUT, { recursive: true });
 
 // Clear stale SVGs so a removed style cannot leave an orphan asset behind that
-// the catalogue no longer lists.
+// the catalogue no longer lists. beta-reel.svg is a special Pioneer challenge reward and must be preserved.
 for (const f of await readdir(OUT).catch(() => [])) {
-  if (f.endsWith(".svg")) await unlink(new URL(f, OUT));
+  if (f.endsWith(".svg") && f !== "beta-reel.svg") await unlink(new URL(f, OUT));
 }
 
 const manifest = [];
@@ -61,6 +74,13 @@ for (const [id, exportName] of Object.entries(STYLES)) {
   for (const seed of SEEDS) {
     const assetId = `${id}-${seed}`;
     const svg = createAvatar(style, { seed, size: 256 }).toString();
+    if (
+      svg.toLowerCase().includes("<lineargradient") ||
+      svg.toLowerCase().includes("<radialgradient") ||
+      svg.toLowerCase().includes("gradient")
+    ) {
+      throw new Error(`Gradient detected in generated SVG for ${assetId}!`);
+    }
     await writeFile(new URL(`${assetId}.svg`, OUT), svg, "utf8");
     manifest.push({ id: assetId, style: id, seed, license: "CC0-1.0" });
   }

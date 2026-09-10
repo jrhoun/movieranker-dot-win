@@ -8,7 +8,6 @@ import MarqueeHeading from "@/components/MarqueeHeading";
 import MarqueeInfoModal from "@/components/MarqueeInfoModal";
 import MoviePoster from "@/components/list/MoviePoster";
 import SearchPanel from "@/components/SearchPanel";
-import CuratorRoulette from "@/components/roulette/CuratorRoulette";
 import UpvoteButton from "@/components/community/UpvoteButton";
 import ForkButton from "@/components/community/ForkButton";
 import { FAN_POSTERS } from "@/lib/hero-posters";
@@ -17,6 +16,7 @@ import { clearSession, loadSession, saveSession, totalComparisons, type PlaySess
 import { marqueeDisplayTitle } from "@/lib/marquee-title";
 import { getNextWeeklyMarqueeRotation, marqueeNumber } from "@/lib/shortlist";
 import type { TrendingListSummary } from "@/lib/trending";
+import { spotlightSlots } from "@/lib/spotlight";
 import {
   clearStagedDraft,
   loadStagedDraft,
@@ -30,14 +30,19 @@ export interface TonightStrip {
   /** The real theme title. Never rendered here (spoiler rule); used only to
       name the saved session when a Marquee run starts. */
   title: string;
-  /** Theme slug (shortlist rotation id); null when the fetch came up empty. */
-  themeSlug: string | null;
+  themeSlug?: string | null;
+  /** ISO date string for this week's rotation window (e.g. "2026-08-25"). */
+  rotationDate?: string | null;
   movies: TmdbMovieCredit[];
-  /** Proposer's public handle when this week's theme is a community proposal. */
-  proposedBy: string | null;
-  /** Done lists sharing >=3 movies with this week's theme (0 = show nothing). */
+  /** Upvotes or rankings settled this week, for the social proof line under the fold. */
   settledCount: number;
-  /** The logged in user's finished list ID for this theme, if already ranked. */
+  /** Community member whose proposal was chosen for this week's theme, if any. */
+  proposedBy?: string | null;
+  /**
+   * If the current user has already ranked and saved this week's marquee, the ID
+   * of that finished list. Swaps "Start ranking" for "See how you compared",
+   * linking straight to their saved list's consensus section.
+   */
   userThemeListId?: string | null;
 }
 
@@ -70,13 +75,31 @@ function MarqueeCountdown() {
 
   if (!timeLeft) return null;
 
+  function openInfoModal() {
+    const dialog = document.querySelector<HTMLDialogElement>(
+      'dialog[aria-labelledby="marquee-modal-title"]',
+    );
+    dialog?.showModal();
+  }
+
   return (
-    <div className="inline-flex items-center gap-2 rounded-full bg-surface-raised px-4 py-1.5 text-sm font-medium text-text ring-1 ring-white/15 shadow-sm">
+    <button
+      type="button"
+      onClick={openInfoModal}
+      aria-haspopup="dialog"
+      title="What is this? Click to learn about weekly marquees"
+      className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-surface-raised px-4 py-1.5 text-sm font-medium text-text ring-1 ring-white/15 shadow-sm transition-colors hover:bg-surface-raised/80 hover:ring-gold/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+    >
       {/* The site's one glyph, not an hourglass emoji — the only emoji in the
           hero, and emoji render differently on every platform. */}
       <span aria-hidden="true" className="text-xs text-gold">✦</span>
-      <span>New set Monday · <strong className="font-mono font-bold text-gold">{timeLeft}</strong></span>
-    </div>
+      <span>
+        New set Monday · <strong className="font-mono font-bold text-gold">{timeLeft}</strong>
+      </span>
+      <span className="text-xs text-gold/90 underline decoration-gold/40 underline-offset-2 hover:decoration-gold">
+        What is this?
+      </span>
+    </button>
   );
 }
 
@@ -201,6 +224,19 @@ export default function HomeClient({
     begin(curated);
   }
 
+  function scrollToBuilderAndFocus() {
+    const startEl = document.getElementById("start");
+    if (startEl) {
+      startEl.scrollIntoView({ behavior: "smooth" });
+    }
+    setTimeout(() => {
+      const searchInput = document.querySelector<HTMLInputElement>(
+        '#start input[type="search"], #start input',
+      );
+      searchInput?.focus();
+    }, 300);
+  }
+
   function begin(curated = false) {
     if (!curated) {
       clearStagedDraft();
@@ -274,43 +310,21 @@ export default function HomeClient({
               up without ever breaking inside a phrase. */}
           <h1 className="mx-auto mt-3 max-w-4xl font-display text-[clamp(2.2rem,7vw,5rem)] uppercase leading-[0.95] tracking-[0.03em] text-text drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)]">
             <span className="rise block" style={{ "--rise-delay": "120ms" } as React.CSSProperties}>
-              Rank them head-to-head.
+              Rank movies
             </span>
             {/* Wrapped, not combined: .marquee-gold carries its own animation
                 (the shimmer) and a second `animation` declaration on the same
                 element would replace it. */}
             <span className="rise block" style={{ "--rise-delay": "260ms" } as React.CSSProperties}>
-              <span className="marquee-gold">Find the connection.</span>
+              <span className="marquee-gold">head-to-head.</span>
             </span>
           </h1>
-          {/* Fanned marquee of real posters: overlapping, tilted -8°..8°,
-              straighten+lift on hover (200ms ease-out; killed by reduced-motion).
-              Slightly dimmed at rest so the Bebas headline above stays dominant. */}
-          {/* justify-start on mobile so overflow scrolls forward (centered
-              overflow would clip the leading posters out of reach); centered
-              once the row fits (~sm+). Negative mx gives gentle edge overlap
-              while keeping >=82% of each poster face visible. */}
-          {/* THE SPOILER RULE, on the front door. This used to print the theme
-              title and blurb in 48px gold — and the theme title IS the answer to
-              the connection puzzle waiting at the end of the ranking. Anyone who
-              arrived through the homepage had the quiz spoiled before they
-              started. The week is named by its number; the films do the
-              inviting. */}
-          {liveFan && (
-            <div
-              className="rise mt-7 flex flex-wrap items-center justify-center gap-2.5"
-              style={{ "--rise-delay": "400ms" } as React.CSSProperties}
-            >
-              {/* A div, not a p: MarqueeInfoModal renders a <dialog>, which is
-                  flow content and cannot legally sit inside a paragraph. The
-                  display styling stays on the label so the dialog does not
-                  inherit uppercase, letter-spacing and a display face from it. */}
-              <span className="text-sm text-gold/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">
-                This week&apos;s marquee, no. {marqueeNumber()}
-              </span>
-              <MarqueeInfoModal />
-            </div>
-          )}
+          <p
+            className="rise mx-auto mt-4 max-w-[560px] text-base leading-relaxed text-zinc-300 text-pretty drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] sm:text-xl"
+            style={{ "--rise-delay": "360ms" } as React.CSSProperties}
+          >
+            Play this week&apos;s curated list, or build a custom one from any films you like. Then share the result.
+          </p>
           {/* THE FAN. Poster width scales with the viewport (13vw, floored for
               phones and capped for very wide screens) so the cards are the
               largest thing under the headline on any desktop, instead of a
@@ -335,7 +349,7 @@ export default function HomeClient({
             full-bleed anyway; only the words need the column. */}
         <div className="relative mt-4 text-center">
             <div aria-hidden="true" className="stage-pool pointer-events-none absolute inset-x-0 bottom-0 h-2/3" />
-            <ul className="no-scrollbar fan-scroll relative flex overflow-x-auto px-6 pt-6 pb-8 sm:px-4">
+            <ul className="no-scrollbar fan-scroll relative flex overflow-x-auto px-6 pt-8 pb-14 sm:px-6">
             {fanItems.map(({ m, tilt, arcY }, i) => {
               const inTray = candidates.some((c) => c.tmdbId === m.tmdbId);
               return (
@@ -394,40 +408,46 @@ export default function HomeClient({
               className="rise mt-6 flex flex-col items-center gap-3"
               style={{ "--rise-delay": "1000ms" } as React.CSSProperties}
             >
-              {tonight.userThemeListId ? (
-                <div className="flex flex-col items-center gap-2.5">
-                  <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-4 py-1.5 text-sm font-semibold text-emerald-400 ring-1 ring-emerald-500/40">
-                    <span aria-hidden="true" className="text-base font-bold">✓</span>
-                    <span>You ranked it</span>
-                  </span>
+              {alreadyRankedThisWeek && (
+                <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-4 py-1.5 text-sm font-semibold text-emerald-400 ring-1 ring-emerald-500/40">
+                  <span aria-hidden="true" className="text-base font-bold">✓</span>
+                  <span>You ranked it</span>
+                </span>
+              )}
+
+              {/* TWO buttons in one wrapping row, gap 10px, both 48px tall */}
+              <div className="flex flex-wrap items-center justify-center gap-[10px]">
+                {tonight.userThemeListId ? (
                   <Link
                     href={`/l/${tonight.userThemeListId}#community-consensus`}
-                    className="inline-block min-h-11 rounded-full bg-gold px-6 text-sm font-semibold leading-[44px] text-bg shadow-lg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                    className="inline-flex h-12 min-h-12 items-center justify-center rounded-full bg-gold px-6 text-sm font-semibold text-bg shadow-lg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
                   >
                     See how you compared
                   </Link>
-                  {/* The one visitor for whom a random pack is the right offer:
-                      this week is done and Monday is hours away. */}
-                  <a
-                    href="#reel"
-                    className="text-xs text-muted underline decoration-white/25 underline-offset-4 transition-colors hover:text-gold hover:decoration-gold focus-visible:outline-2 focus-visible:outline-gold"
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => start(true)}
+                    className="inline-flex h-12 min-h-12 cursor-pointer items-center justify-center rounded-full bg-gold px-6 text-sm font-semibold text-bg shadow-lg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
                   >
-                    or spin a reel while you wait
-                  </a>
-                </div>
-              ) : (
+                    Play this week&apos;s list
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => start(true)}
-                  className="inline-block min-h-11 cursor-pointer rounded-full bg-gold px-6 text-sm font-semibold leading-[44px] text-bg shadow-lg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
+                  onClick={scrollToBuilderAndFocus}
+                  className="inline-flex h-12 min-h-12 cursor-pointer items-center justify-center rounded-full border border-gold/40 bg-surface/80 px-6 text-sm font-semibold text-text ring-1 ring-white/10 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-gold hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
                 >
-                  Start ranking
+                  Build your own
                 </button>
-              )}
-              {/* The clock is the appointment mechanic; it was buried in the
-                  second of two columns, which is the one place a weekly deadline
-                  cannot do its job. */}
+              </div>
+
+              {/* The clock is the appointment mechanic; triggers the "What is this?" info modal */}
               <MarqueeCountdown />
+              <div className="[&>button]:hidden">
+                <MarqueeInfoModal />
+              </div>
+
               {/* Social proof belongs where the decision is made. This sat in a
                   panel a thousand pixels further down, which is nowhere. */}
               {/* Social proof and provenance, on ONE line. These were two
@@ -436,34 +456,43 @@ export default function HomeClient({
                   link that used to close the stack is gone as redundant — the
                   full "Build your own list" section is the very next thing on
                   the page, with its own marquee heading. */}
-              {(tonight.settledCount > 0 || tonight.proposedBy) && (
+              {(tonight.settledCount >= 25 || tonight.proposedBy) && (
                 <p className="text-xs text-muted" data-testid="settled-count">
-                  {tonight.settledCount > 0 && tonight.proposedBy ? (
+                  {tonight.settledCount >= 25 && tonight.proposedBy ? (
                     <>
-                      {tonight.settledCount} ranking{tonight.settledCount === 1 ? "" : "s"} settled
-                      this week, theme by{" "}
+                      {tonight.settledCount} rankings settled this week, theme by{" "}
                       <span className="font-medium text-gold">@{tonight.proposedBy}</span>.
                     </>
-                  ) : tonight.settledCount > 0 ? (
+                  ) : tonight.settledCount >= 25 ? (
                     <>
-                      {tonight.settledCount} ranking{tonight.settledCount === 1 ? "" : "s"} settled
-                      this week.
+                      {tonight.settledCount} rankings settled this week.
                     </>
                   ) : (
                     <>
-                      Theme by <span className="font-medium text-gold">@{tonight.proposedBy}</span>.
+                      Theme proposed by{" "}
+                      <span className="font-medium text-gold">@{tonight.proposedBy}</span>.
                     </>
                   )}
                 </p>
               )}
             </div>
           ) : (
-            <a
-              href="#start"
-              className="mt-6 inline-block min-h-11 rounded-full bg-gold px-6 text-sm font-semibold leading-[44px] text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-            >
-              Start ranking
-            </a>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-[10px]">
+              <button
+                type="button"
+                onClick={() => scrollToBuilderAndFocus()}
+                className="inline-flex h-12 min-h-12 cursor-pointer items-center justify-center rounded-full bg-gold px-6 text-sm font-semibold text-bg shadow-lg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
+              >
+                Play this week&apos;s list
+              </button>
+              <button
+                type="button"
+                onClick={scrollToBuilderAndFocus}
+                className="inline-flex h-12 min-h-12 cursor-pointer items-center justify-center rounded-full border border-gold/40 bg-surface/80 px-6 text-sm font-semibold text-text ring-1 ring-white/10 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-gold hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
+              >
+                Build your own
+              </button>
+            </div>
           )}
         </div>
       </header>
@@ -604,140 +633,204 @@ export default function HomeClient({
       >
         <div className="text-center">
           <MarqueeHeading as="h2">Community Spotlight</MarqueeHeading>
-          <p className="mt-2 text-xs text-muted sm:text-sm">
+          <p className="mt-2 text-[15px] leading-relaxed text-muted">
             Trending rankings and head-to-head verdicts from fellow film lovers.
           </p>
         </div>
 
         {(() => {
-          /* The gate used to be `upvotesCount > 0`, which meant real public
-             rankings stayed invisible until somebody had upvoted three of them
-             — so on a young site the "Coming Soon" placeholder below was the
-             DEFAULT state of a section that already had content to show.
-             Ordering (hot score, upvotes, recency) is decided upstream in
-             getTrendingLists; this only decides whether there is enough to
-             fill a row. */
-          const qualified = trendingLists;
-          if (qualified.length >= 3) {
+          /* Render real cards whenever trendingLists.length >= 1, filling
+             remaining slots up to 3 with a single "Be the first — start a ranking"
+             card. The blurred skeleton is preserved only for the true-zero case. */
+          const slots = spotlightSlots(trendingLists);
+          if (slots.length > 0) {
             return (
               <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {qualified.map((list) => (
-                  <article
-                    key={list.id}
-                    className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-white/5 bg-surface/75 p-5 shadow-xl backdrop-blur-sm ring-1 ring-white/5 transition-all duration-300 hover:border-gold/40 hover:bg-surface hover:shadow-2xl hover:ring-gold/20"
-                  >
-                    <div>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <Link
-                            href={`/l/${list.id}`}
-                            className="font-display text-xl uppercase leading-tight tracking-wide text-text transition-colors hover:text-gold sm:text-2xl"
-                          >
-                            {list.title}
-                          </Link>
-                          <p className="mt-1 text-xs text-muted">
-                            {list.ownerHandle ? (
-                              <>
-                                By{" "}
-                                <Link
-                                  href={`/u/${list.ownerHandle}`}
-                                  className="font-semibold text-gold transition-colors hover:underline"
-                                >
-                                  @{list.ownerHandle}
-                                </Link>
-                                , {list.movieCount} films
-                              </>
-                            ) : (
-                              <span>By a community member, {list.movieCount} films</span>
-                            )}
+                {slots.map((slot) => {
+                  if (slot.type === "cta") {
+                    const fillsTwoCols = trendingLists.length === 1;
+                    return (
+                      <article
+                        key="spotlight-cta"
+                        className={`group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-dashed border-gold/40 bg-surface/60 p-6 text-center shadow-xl backdrop-blur-sm ring-1 ring-gold/20 transition-all duration-300 hover:border-gold hover:bg-surface/80 hover:shadow-2xl hover:ring-gold/40 ${
+                          fillsTwoCols ? "sm:col-span-2 lg:col-span-2" : ""
+                        }`}
+                      >
+                        <div className="flex flex-1 flex-col items-center justify-center py-4">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/10 px-3 py-1 font-display text-xs uppercase tracking-widest text-gold ring-1 ring-gold/40">
+                            ✦ Community Spotlight ✦
+                          </span>
+                          <h3 className="mt-4 font-display text-2xl uppercase tracking-wider text-text sm:text-3xl">
+                            Be the first — start a ranking
+                          </h3>
+                          <p className="mt-2 max-w-md text-sm leading-relaxed text-muted">
+                            Build your own custom ranking, share it with the community, and earn your place on the marquee.
                           </p>
                         </div>
-                        <UpvoteButton
-                          listId={list.id}
-                          initialCount={list.upvotesCount}
-                          variant="card"
-                          showLabel
-                        />
+                        <div className="mt-6 flex justify-center border-t border-white/5 pt-4">
+                          <button
+                            type="button"
+                            onClick={scrollToBuilderAndFocus}
+                            className="inline-flex items-center gap-2 rounded-full bg-gold px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-bg shadow-lg transition-transform duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+                          >
+                            <span>Start a ranking</span>
+                            <span aria-hidden="true">→</span>
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  }
+
+                  const list = slot.list;
+                  return (
+                    <article
+                      key={list.id}
+                      className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-white/5 bg-surface/75 p-5 shadow-xl backdrop-blur-sm ring-1 ring-white/5 transition-all duration-300 hover:border-gold/40 hover:bg-surface hover:shadow-2xl hover:ring-gold/20"
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <Link
+                              href={`/l/${list.id}`}
+                              className="font-display text-xl uppercase leading-tight tracking-wide text-text transition-colors hover:text-gold sm:text-2xl"
+                            >
+                              {list.title}
+                            </Link>
+                            <p className="mt-1 text-xs text-muted">
+                              {list.ownerHandle ? (
+                                <>
+                                  By{" "}
+                                  <Link
+                                    href={`/u/${list.ownerHandle}`}
+                                    className="font-semibold text-gold transition-colors hover:underline"
+                                  >
+                                    @{list.ownerHandle}
+                                  </Link>
+                                  , {list.movieCount} films
+                                </>
+                              ) : (
+                                <span>By a community member, {list.movieCount} films</span>
+                              )}
+                            </p>
+                          </div>
+                          <UpvoteButton
+                            listId={list.id}
+                            initialCount={list.upvotesCount}
+                            variant="card"
+                            showLabel
+                          />
+                        </div>
+
+                        {list.description && (
+                          <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-muted">
+                            {list.description}
+                          </p>
+                        )}
+
+                        {/* Top 3 Triptych Posters */}
+                        {list.topPosters.length > 0 && (
+                          <div className="mt-4 flex items-center justify-center gap-2 py-2">
+                            {list.topPosters.map((poster, rankIdx) => (
+                              <div
+                                key={poster.tmdbId}
+                                className="relative w-20 shrink-0 transform-gpu transition-transform duration-200 group-hover:scale-[1.02] sm:w-24"
+                              >
+                                <MoviePoster
+                                  title={poster.title}
+                                  posterPath={poster.posterPath}
+                                  className={`rounded shadow-md ${rankIdx === 0 ? "ring-2 ring-gold" : "ring-1 ring-white/10"}`}
+                                />
+                                <span
+                                  aria-label={`Rank #${rankIdx + 1}`}
+                                  className="absolute top-1 left-1 flex size-5 items-center justify-center rounded-full bg-bg/80 font-mono text-[10px] font-bold text-text shadow"
+                                >
+                                  #{rankIdx + 1}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
-                      {list.description && (
-                        <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-muted">
-                          {list.description}
-                        </p>
-                      )}
-
-                      {/* Top 3 Triptych Posters */}
-                      {list.topPosters.length > 0 && (
-                        <div className="mt-4 flex items-center justify-center gap-2 py-2">
-                          {list.topPosters.map((poster, rankIdx) => (
-                            <div
-                              key={poster.tmdbId}
-                              className="relative w-20 shrink-0 transform-gpu transition-transform duration-200 group-hover:scale-[1.02] sm:w-24"
-                            >
-                              <MoviePoster
-                                title={poster.title}
-                                posterPath={poster.posterPath}
-                                className={`rounded shadow-md ${rankIdx === 0 ? "ring-2 ring-gold" : "ring-1 ring-white/10"}`}
-                              />
-                              <span
-                                aria-label={`Rank #${rankIdx + 1}`}
-                                className="absolute top-1 left-1 flex size-5 items-center justify-center rounded-full bg-bg/80 font-mono text-[10px] font-bold text-text shadow"
-                              >
-                                #{rankIdx + 1}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mt-5 flex items-center justify-between border-t border-white/5 pt-3.5">
-                      <Link
-                        href={`/l/${list.id}`}
-                        className="text-xs font-medium text-gold transition-colors hover:underline"
-                      >
-                        See ranking
-                      </Link>
-                      <ForkButton
-                        list={{
-                          id: list.id,
-                          title: list.title,
-                          movies: list.movies,
-                          themeSlug: list.themeSlug,
-                        }}
-                        ownerHandle={list.ownerHandle}
-                        variant="card"
-                      />
-                    </div>
-                  </article>
-                ))}
+                      <div className="mt-5 flex items-center justify-between border-t border-white/5 pt-3.5">
+                        <Link
+                          href={`/l/${list.id}`}
+                          className="text-xs font-medium text-gold transition-colors hover:underline"
+                        >
+                          See ranking
+                        </Link>
+                        <ForkButton
+                          list={{
+                            id: list.id,
+                            title: list.title,
+                            movies: list.movies,
+                            themeSlug: list.themeSlug,
+                          }}
+                          ownerHandle={list.ownerHandle}
+                          variant="card"
+                        />
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             );
           }
 
-          /* Empty Spotlight. This was a blurred placeholder grid under a gold
-             "Coming Soon" card — a decorated absence. An empty section should
-             offer the thing that fills it: a ready-made reel to rank right now,
-             which is the one context where the roulette is the right door. */
           return (
-            <div id="reel" className="mt-8 scroll-mt-6">
-              <p className="mb-4 text-center text-xs text-muted sm:text-sm">
-                Nothing settled here yet. Rank a reel and be the first on the board.
-              </p>
-              <CuratorRoulette />
+            <div className="relative mt-8 min-h-[300px] overflow-hidden rounded-2xl border border-white/10 bg-surface/40 p-6">
+              {/* Blurred Silhouette Preview Grid */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none select-none filter blur-md opacity-20 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+              >
+                {[1, 2, 3].map((placeholderIdx) => (
+                  <div
+                    key={placeholderIdx}
+                    className="flex flex-col justify-between rounded-2xl border border-white/10 bg-surface/80 p-5"
+                  >
+                    <div>
+                      <div className="h-6 w-3/4 rounded bg-white/20 mb-2" />
+                      <div className="h-3 w-1/2 rounded bg-white/10 mb-4" />
+                      <div className="flex justify-center gap-2 py-4">
+                        <div className="aspect-[2/3] w-20 rounded bg-white/10" />
+                        <div className="aspect-[2/3] w-20 rounded bg-white/15" />
+                        <div className="aspect-[2/3] w-20 rounded bg-white/10" />
+                      </div>
+                    </div>
+                    <div className="h-4 w-1/3 rounded bg-white/10" />
+                  </div>
+                ))}
+              </div>
+
+              {/* Centered Coming Soon Marquee Card */}
+              <div className="absolute inset-0 flex items-center justify-center p-4">
+                <div className="max-w-md rounded-2xl border border-gold/30 bg-surface/95 p-6 sm:p-8 text-center shadow-2xl backdrop-blur-md ring-1 ring-gold/20">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/10 px-3 py-1 font-display text-xs uppercase tracking-widest text-gold ring-1 ring-gold/40">
+                    ✦ Coming Soon ✦
+                  </span>
+                  <h3 className="mt-3 font-display text-2xl uppercase tracking-wider text-text sm:text-3xl">
+                    Community Spotlight
+                  </h3>
+                  <p className="mt-2 text-xs leading-relaxed text-muted sm:text-sm">
+                    Featured community rankings will appear here as custom lists are created and shared by the community.
+                  </p>
+                  <div className="mt-5">
+                    <button
+                      type="button"
+                      onClick={scrollToBuilderAndFocus}
+                      className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-bg shadow-lg transition-transform hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+                    >
+                      <span>Start a Ranking</span>
+                      <span aria-hidden="true">→</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           );
         })()}
       </section>
-
-      {/* Returning player, populated Spotlight: the reel is the only thing
-          left to offer, so it gets the last slot rather than a hero slot. When
-          the Spotlight is empty it has already rendered the reel itself. */}
-      {alreadyRankedThisWeek && trendingLists.length >= 3 && (
-        <section id="reel" aria-label="Spin a reel" className="mt-14 scroll-mt-6">
-          <CuratorRoulette />
-        </section>
-      )}
 
       <CandidateTray
         candidates={candidates}

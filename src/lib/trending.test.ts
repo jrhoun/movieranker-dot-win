@@ -4,6 +4,7 @@ import {
   formatTrendingLists,
   getTrendingLists,
   HOT_CANDIDATE_POOL,
+  spotlightSlots,
   type RawDbListRow,
 } from "./trending";
 
@@ -181,6 +182,142 @@ describe("formatTrendingLists", () => {
     expect(result[0].topPosters).toEqual([]);
     expect(result[0].movieCount).toBe(0);
   });
+
+  it("strictly excludes weekly marquee lists from community spotlight even when status='done' and visibility='public'", () => {
+    const mixedLists: RawDbListRow[] = [
+      {
+        id: "marquee-locked",
+        title: "Weekly Marquee #42",
+        description: "Official weekly theme puzzle",
+        owner_id: "u-marquee-1",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 500,
+        theme_slug: "psychological-thrillers",
+        curated: true,
+        created_at: "2026-09-08T12:00:00Z",
+      },
+      {
+        id: "marquee-unlocked-roster",
+        title: "Weekly Marquee #41",
+        description: null,
+        owner_id: "u-marquee-2",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 250,
+        theme_slug: "film-noir-classics",
+        curated: false,
+        created_at: "2026-09-01T12:00:00Z",
+      },
+      {
+        id: "custom-community-list",
+        title: "Hidden Gems of Italian Neorealism",
+        description: "Curated by a community cinephile",
+        owner_id: "u-custom-1",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 10,
+        theme_slug: null,
+        curated: false,
+        created_at: "2026-09-07T12:00:00Z",
+      },
+    ];
+
+    const result = formatTrendingLists(mixedLists);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("custom-community-list");
+    expect(result[0].title).toBe("Hidden Gems of Italian Neorealism");
+  });
+
+  it("strictly excludes curated lists (curated: true) even when theme_slug is null or undefined", () => {
+    const curatedLists: RawDbListRow[] = [
+      {
+        id: "curated-pack-null-slug",
+        title: "A24 Gems Pack",
+        description: "Staff curated pack",
+        owner_id: "u-staff-1",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 1000,
+        theme_slug: null,
+        curated: true,
+        created_at: "2026-09-05T12:00:00Z",
+      },
+      {
+        id: "curated-pack-undefined-slug",
+        title: "Curator Reel",
+        description: null,
+        owner_id: "u-staff-2",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 800,
+        curated: true,
+        created_at: "2026-09-06T12:00:00Z",
+      },
+      {
+        id: "legit-custom-list",
+        title: "My Personal Top 10",
+        description: "Authentic custom ranking",
+        owner_id: "u-user",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 2,
+        theme_slug: null,
+        curated: false,
+        created_at: "2026-09-08T00:00:00Z",
+      },
+    ];
+
+    const result = formatTrendingLists(curatedLists);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("legit-custom-list");
+  });
+
+  it("permits custom community lists across all falsy representations of theme_slug and curated", () => {
+    const variants: RawDbListRow[] = [
+      {
+        id: "variant-null-false",
+        title: "Custom List A",
+        description: null,
+        owner_id: "u-1",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 30,
+        theme_slug: null,
+        curated: false,
+        created_at: "2026-09-08T03:00:00Z",
+      },
+      {
+        id: "variant-undefined-undefined",
+        title: "Custom List B",
+        description: null,
+        owner_id: "u-2",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 20,
+        created_at: "2026-09-08T02:00:00Z",
+      },
+      {
+        id: "variant-null-null",
+        title: "Custom List C",
+        description: null,
+        owner_id: "u-3",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 10,
+        theme_slug: null,
+        curated: null,
+        created_at: "2026-09-08T01:00:00Z",
+      },
+    ];
+
+    const result = formatTrendingLists(variants);
+    expect(result.map((l) => l.id)).toEqual([
+      "variant-null-false",
+      "variant-undefined-undefined",
+      "variant-null-null",
+    ]);
+  });
 });
 
 describe("getTrendingLists", () => {
@@ -319,6 +456,57 @@ describe("getTrendingLists", () => {
     expect(listsBuilder.order).toHaveBeenCalledWith("upvotes_count", { ascending: false });
     expect(listsBuilder.limit).toHaveBeenCalledWith(6);
   });
+
+  it("queries the curated column from supabase and excludes marquee/curated lists from trending output", async () => {
+    let capturedSelect = "";
+    const mockLists = [
+      {
+        id: "marquee-list",
+        title: "Weekly Marquee #10",
+        description: null,
+        owner_id: "u-1",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 999,
+        theme_slug: "heist-thrillers",
+        curated: true,
+        created_at: "2026-09-08T00:00:00Z",
+        list_movies: [],
+      },
+      {
+        id: "custom-community-list",
+        title: "Indie Sci-Fi Favorites",
+        description: "Community showcase",
+        owner_id: "u-2",
+        status: "done",
+        visibility: "public",
+        upvotes_count: 15,
+        theme_slug: null,
+        curated: false,
+        created_at: "2026-09-07T00:00:00Z",
+        list_movies: [],
+      },
+    ];
+
+    const mockSupabase = {
+      from: vi.fn((table: string) => {
+        const builder = createMockQueryBuilder({
+          data: table === "lists" ? mockLists : [],
+          error: null,
+        });
+        builder.select = vi.fn((cols: string) => {
+          if (table === "lists") capturedSelect = cols;
+          return builder;
+        });
+        return builder;
+      }),
+    };
+
+    const trending = await getTrendingLists(mockSupabase, 6);
+    expect(capturedSelect).toContain("curated");
+    expect(trending).toHaveLength(1);
+    expect(trending[0].id).toBe("custom-community-list");
+  });
 });
 
 describe("calculateHotScore & Reddit Hot Algorithm", () => {
@@ -413,3 +601,98 @@ describe("calculateHotScore & Reddit Hot Algorithm", () => {
     expect(hotSorted[0].id).toBe("fresh-rising"); // fresh list with momentum wins in 'hot'
   });
 });
+
+describe("spotlightSlots", () => {
+  const dummyList1 = {
+    id: "list-1",
+    title: "Cyberpunk Essentials",
+    description: "Best neon movies",
+    ownerHandle: "curator1",
+    ownerId: "u-1",
+    upvotesCount: 15,
+    movieCount: 5,
+    createdAt: "2026-09-08T12:00:00Z",
+    movies: [],
+    topPosters: [],
+  };
+
+  const dummyList2 = {
+    id: "list-2",
+    title: "Noir Classics",
+    description: "Dark alleys and trench coats",
+    ownerHandle: "curator2",
+    ownerId: "u-2",
+    upvotesCount: 8,
+    movieCount: 6,
+    createdAt: "2026-09-07T12:00:00Z",
+    movies: [],
+    topPosters: [],
+  };
+
+  const dummyList3 = {
+    id: "list-3",
+    title: "Space Operas",
+    description: "Intergalactic journeys",
+    ownerHandle: "curator3",
+    ownerId: "u-3",
+    upvotesCount: 22,
+    movieCount: 4,
+    createdAt: "2026-09-06T12:00:00Z",
+    movies: [],
+    topPosters: [],
+  };
+
+  const dummyList4 = {
+    id: "list-4",
+    title: "Silent Comedies",
+    description: "Slapstick pioneers",
+    ownerHandle: "curator4",
+    ownerId: "u-4",
+    upvotesCount: 12,
+    movieCount: 5,
+    createdAt: "2026-09-05T12:00:00Z",
+    movies: [],
+    topPosters: [],
+  };
+
+  it("returns an empty array for the true-zero case (0 lists, null, undefined)", () => {
+    expect(spotlightSlots([])).toEqual([]);
+    expect(spotlightSlots(null)).toEqual([]);
+    expect(spotlightSlots(undefined)).toEqual([]);
+  });
+
+  it("returns real card slot plus a single CTA card when only 1 list exists (fills up to 3 slots)", () => {
+    const slots = spotlightSlots([dummyList1]);
+    expect(slots).toHaveLength(2);
+    expect(slots[0]).toEqual({ type: "list", list: dummyList1 });
+    expect(slots[1]).toEqual({ type: "cta" });
+  });
+
+  it("returns 2 real card slots plus a single CTA card when 2 lists exist", () => {
+    const slots = spotlightSlots([dummyList1, dummyList2]);
+    expect(slots).toHaveLength(3);
+    expect(slots[0]).toEqual({ type: "list", list: dummyList1 });
+    expect(slots[1]).toEqual({ type: "list", list: dummyList2 });
+    expect(slots[2]).toEqual({ type: "cta" });
+  });
+
+  it("returns exactly 3 real card slots and no CTA card when 3 lists exist", () => {
+    const slots = spotlightSlots([dummyList1, dummyList2, dummyList3]);
+    expect(slots).toHaveLength(3);
+    expect(slots.every((s) => s.type === "list")).toBe(true);
+    expect(slots.some((s) => s.type === "cta")).toBe(false);
+  });
+
+  it("returns all real card slots and no CTA card when more than 3 lists exist", () => {
+    const slots = spotlightSlots([dummyList1, dummyList2, dummyList3, dummyList4]);
+    expect(slots).toHaveLength(4);
+    expect(slots.every((s) => s.type === "list")).toBe(true);
+    expect(slots.map((s) => (s.type === "list" ? s.list.id : null))).toEqual([
+      "list-1",
+      "list-2",
+      "list-3",
+      "list-4",
+    ]);
+  });
+});
+

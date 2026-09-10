@@ -40,6 +40,7 @@ export interface RawDbListRow {
   visibility: string;
   upvotes_count: number | null;
   theme_slug?: string | null;
+  curated?: boolean | null;
   created_at: string;
   list_movies?: Array<{
     tmdb_id: number;
@@ -129,7 +130,13 @@ export function formatTrendingLists(
   sortMode: TrendingSortMode = "top",
 ): TrendingListSummary[] {
   return lists
-    .filter((l) => l.status === "done" && l.visibility === "public")
+    .filter(
+      (l) =>
+        l.status === "done" &&
+        l.visibility === "public" &&
+        !l.theme_slug &&
+        !l.curated,
+    )
     .sort((a, b) => {
       if (sortMode === "hot") {
         const scoreA = calculateHotScore(a.upvotes_count ?? 0, a.created_at);
@@ -216,7 +223,7 @@ export async function getTrendingLists(
     let query = supabase
       .from("lists")
       .select(
-        "id,title,description,owner_id,status,visibility,upvotes_count,theme_slug,created_at,list_movies(tmdb_id,title,poster_path,release_year,final_rank)",
+        "id,title,description,owner_id,status,visibility,upvotes_count,theme_slug,curated,created_at,list_movies(tmdb_id,title,poster_path,release_year,final_rank)",
       )
       .eq("status", "done")
       .eq("visibility", "public");
@@ -272,3 +279,5 @@ export async function getTrendingLists(
     return [];
   }
 }
+
+export { spotlightSlots, type SpotlightSlot } from "@/lib/spotlight";

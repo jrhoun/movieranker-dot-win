@@ -63,7 +63,8 @@ export default async function Page({
     }
 
     trendingLists = await getTrendingLists(supabase, 6);
-  } catch {
+  } catch (error) {
+    console.error("Failed to load homepage data:", error);
     // fall through to hardcoded hero fan
   }
 

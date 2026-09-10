@@ -13,6 +13,8 @@ import ParkedStrip from "@/components/ParkedStrip";
 import SaveGateSheet from "@/components/SaveGateSheet";
 import PremierePassCard from "@/components/share/PremierePassCard";
 import { PersonIcon } from "@/components/ParticipantChips";
+import { trackEvent } from "@/lib/analytics";
+import { CONNECTION_REVEALED_EVENT, connectionStorageKey } from "@/lib/connection-state";
 import { marqueeDisplayTitle } from "@/lib/marquee-title";
 import { MATCHUP_SETTLE_MS } from "@/lib/matchup-timing";
 import { marqueeNumber } from "@/lib/shortlist";
@@ -188,6 +190,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   const [sharpening, setSharpening] = useState(false);
   const [finished, setFinished] = useState(false);
   const [sheetStatus, setSheetStatus] = useState<"done" | "draft" | null>(null);
+  const [submitToSpotlight, setSubmitToSpotlight] = useState(false);
   const [authNotice, setAuthNotice] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
   const exitTriggerRef = useRef<HTMLButtonElement>(null);
@@ -247,6 +250,8 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   const pendingIntent = useRef<PendingIntent | null>(null);
   // last movie state known to be synced to the server (resume mode only)
   const syncedRef = useRef<RankedMovie[] | null>(initial ? initial.movies : null);
+  const hasTrackedStart = useRef(false);
+  const hasTrackedFinish = useRef(false);
 
   // async hop so pre-hydration server markup matches first client render
   useEffect(() => {
@@ -265,6 +270,12 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
       setSession(s);
       setPair(s ? selectNextPair(s, false) : null);
       setReady(true);
+      if (s && !hasTrackedStart.current) {
+        hasTrackedStart.current = true;
+        trackEvent("ranking_started", {
+          source: s.themeSlug ? "marquee" : "custom",
+        });
+      }
     }, 0);
     return () => {
       clearTimeout(t);
@@ -287,10 +298,17 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         }
         // OAuth conversion: only auto-save if returning from an explicit OAuth sign-in redirect
         let pendingSave: "done" | "draft" | null = null;
+        let pendingSpotlight = false;
         try {
           pendingSave = sessionStorage.getItem("mr_pending_auth_save") as "done" | "draft" | null;
           if (pendingSave) sessionStorage.removeItem("mr_pending_auth_save");
+          pendingSpotlight = sessionStorage.getItem("mr_pending_auth_spotlight") === "1";
+          if (pendingSpotlight) sessionStorage.removeItem("mr_pending_auth_spotlight");
         } catch {}
+
+        if (pendingSpotlight) {
+          setSubmitToSpotlight(true);
+        }
 
         if (signed && !initial && pendingSave) {
           const s = loadSession();
@@ -519,9 +537,23 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
 
     setSavingDirectly(true);
     setSavingStatus(status);
+    if (status === "done" && !hasTrackedFinish.current) {
+      hasTrackedFinish.current = true;
+      const votes = Math.round(totalComparisons(session) / 2);
+      trackEvent("ranking_finished", {
+        votes,
+        movies: active.length,
+      });
+    }
     const ranks = new Map(finalizeRanks(session.movies).map((r) => [r.tmdbId, r.rank]));
+    const visibility: "public" | "unlisted" = session.themeSlug
+      ? "public"
+      : status === "done" && submitToSpotlight
+        ? "public"
+        : "unlisted";
     const payload = {
       status,
+      visibility,
       movies: session.movies.map((m) => ({
         ...m,
         finalRank: status === "done" ? (ranks.get(m.tmdbId) ?? null) : null,
@@ -543,7 +575,6 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
                   ? {
                       themeSlug: session.themeSlug,
                       curated: !!session.curated,
-                      visibility: "public",
                     }
                   : {}),
               },
@@ -557,6 +588,10 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
       }
 
       const id = initial?.id ?? ((await res.json()) as { id: string }).id;
+      try {
+        sessionStorage.removeItem("mr_pending_auth_save");
+        sessionStorage.removeItem("mr_pending_auth_spotlight");
+      } catch {}
       clearSession();
       // ?finished=1 tells the list page this viewer just completed the ranking,
       // which is what triggers the marquee bonus-round modal. A plain visit to
@@ -790,6 +825,41 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     };
   }, [exitOpen]);
 
+  useEffect(() => {
+    if (finished && session && !hasTrackedFinish.current) {
+      hasTrackedFinish.current = true;
+      const votes = Math.round(totalComparisons(session) / 2);
+      trackEvent("ranking_finished", {
+        votes,
+        movies: active.length,
+      });
+    }
+  }, [finished, session, active.length]);
+
+  useEffect(() => {
+    function handleConnectionRevealed(e: Event) {
+      const customEvent = e as CustomEvent<{ themeSlug?: string }>;
+      const slug = customEvent.detail?.themeSlug ?? session?.themeSlug;
+      if (!slug) return;
+      try {
+        const raw = localStorage.getItem(connectionStorageKey(slug));
+        if (raw) {
+          const parsed = JSON.parse(raw) as { selected?: number | null; correct?: boolean };
+          if (parsed.selected !== null && typeof parsed.correct === "boolean") {
+            trackEvent("connection_guessed", { correct: parsed.correct });
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    window.addEventListener(CONNECTION_REVEALED_EVENT, handleConnectionRevealed);
+    return () => {
+      window.removeEventListener(CONNECTION_REVEALED_EVENT, handleConnectionRevealed);
+    };
+  }, [session?.themeSlug]);
+
   if (!ready) return <main className="flex-1" />;
 
   if (!session) {
@@ -846,6 +916,13 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
    * on a fresh session by construction.
    */
   const closeCallsAreInformative = closePairs > 0 && closePairs < active.length - 1;
+  /**
+   * "Consensus reached" above "5 of 5 matchups still too close to call" read as a
+   * contradiction (beta review, 2026-09-09). When nearly every neighbouring pair
+   * is still close, the board is an early result: say so, and make Sharpen the
+   * primary action instead of Finish.
+   */
+  const earlyResult = closePairs > 0 && closePairs >= active.length - 1;
 
   /*
    * ONE QUIET LINE INSTEAD OF TWO PILL BADGES. "6 too close to call" and
@@ -1265,6 +1342,22 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           </div>
 
           <div className="relative flex flex-col items-center gap-2">
+            {!session.themeSlug && (
+              <label
+                htmlFor="play-room-spotlight-opt-in"
+                className="mb-1 flex items-center gap-2.5 cursor-pointer select-none rounded-lg px-2 py-1.5 text-xs sm:text-sm text-text transition-colors hover:bg-white/5"
+              >
+                <input
+                  type="checkbox"
+                  id="play-room-spotlight-opt-in"
+                  name="submitToSpotlight"
+                  checked={submitToSpotlight}
+                  onChange={(e) => setSubmitToSpotlight(e.target.checked)}
+                  className="size-4 rounded border-white/20 bg-surface-raised accent-gold cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                />
+                <span>Submit to Community Spotlight</span>
+              </label>
+            )}
             <button
               type="button"
               onClick={() => void handleDirectSave("done")}
@@ -1284,14 +1377,19 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
             <p className="mt-1 max-w-xs text-center text-xs text-muted">
               {session.themeSlug
                 ? "✦ Weekly Marquee rankings are public by default to power community stats."
-                : signedIn
-                  ? "Saves directly to your profile & lists."
-                  : "Your ranking lives in this browser until you save it."}
+                : submitToSpotlight
+                  ? "✦ Will appear in Community Spotlight on the home page."
+                  : signedIn
+                    ? "Saves unlisted to your profile & lists."
+                    : "Your ranking lives in this browser until you save it."}
             </p>
           </div>
           <button
             type="button"
-            onClick={() => setFinished(false)}
+            onClick={() => {
+              hasTrackedFinish.current = false;
+              setFinished(false);
+            }}
             className="relative min-h-11 rounded bg-surface px-5 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised"
           >
             Keep voting
@@ -1314,10 +1412,12 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         </section>
       ) : stable && !sharpening ? (
         <section className="relative overflow-hidden bg-curtain flex flex-1 flex-col items-center justify-center gap-6 px-4 py-8 text-center">
-          <CurtainCallCelebration title="Curtain Call · Consensus Reached" />
+          <CurtainCallCelebration title={earlyResult ? "Curtain Call · Early Result" : "Curtain Call · Consensus Reached"} />
           <div aria-hidden="true" className="spotlight-glow pointer-events-none absolute inset-0" />
           <div className="animate-celebrate relative w-full max-w-md rounded bg-surface p-5 ring-1 ring-white/10">
-            <p className="text-sm uppercase tracking-widest text-accent">Consensus reached</p>
+            <p className="text-sm uppercase tracking-widest text-accent">
+              {earlyResult ? "Early result" : "Consensus reached"}
+            </p>
             <div className="mt-4">
               <Podium movies={active} />
             </div>
@@ -1351,7 +1451,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               <button
                 type="button"
                 onClick={startSharpen}
-                className="inline-flex items-center gap-2 min-h-11 rounded-full bg-surface-raised px-5 font-semibold text-text ring-1 ring-white/10 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:ring-gold/50 hover:text-gold active:scale-[0.98]"
+                className={`inline-flex items-center gap-2 min-h-11 rounded-full px-5 font-semibold ring-1 ring-white/10 ${earlyResult ? "bg-accent text-bg" : "bg-surface-raised text-text"} transition-all duration-200 ease-out hover:-translate-y-0.5 hover:ring-gold/50 hover:text-gold active:scale-[0.98]`}
               >
                 <span>Sharpen close calls</span>
                 <span className="rounded bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-gold">+XP</span>
@@ -1378,7 +1478,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
       ) : pair ? (
         /* Low-intensity curtain wash (user feedback): burgundy drape vocabulary
            behind the vote stage, dimmer than the home hero so posters pop. */
-        <section className="bg-curtain-soft relative flex flex-1 flex-col px-3 pb-2 pt-1 sm:px-6">
+        <section className="bg-curtain-soft transition-all duration-500 relative flex flex-1 flex-col px-3 pb-2 pt-1 sm:px-6">
           {/* Mini marquee board: one trusted "X of ~Y votes" number in Bebas
               gold between thin gold rules; close calls demoted to a chip. */}
           <div className={`mini-marquee-board mt-3 mb-6 sm:mb-8 w-full max-w-5xl mx-auto rounded-xl bg-surface/85 px-4 py-3.5 ring-1 ring-white/10 shadow-lg backdrop-blur-sm transition-opacity duration-300 ${lightsDown ? "cinema-peripheral" : ""}`}>
@@ -1474,6 +1574,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           session={session}
           status={sheetStatus}
           existingId={initial?.id}
+          initialSubmitToSpotlight={submitToSpotlight}
           // Reset the redirect latch too: if OAuth failed in place (auth_error
           // + sheet closed, no navigation) the latch would stay set forever,
           // permanently disarming the leave-warning.

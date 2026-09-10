@@ -45,6 +45,19 @@ describe("ownedItemIds", () => {
     ).toBe(true);
   });
 
+  it("unlocks the complete Beta Canister bundle (avatar, frame, tagline) when beta_pioneer challenge is met", () => {
+    const owned = ownedItemIds({
+      userId: "test-user",
+      level: 1,
+      unlockedAchievementKeys: ["beta_pioneer"],
+      finishedThemeSlugs: [],
+    });
+
+    expect(owned.has("frame.beta")).toBe(true);
+    expect(owned.has("tagline.betamax")).toBe(true);
+    expect(owned.has("avatar.gen.beta-reel")).toBe(true);
+  });
+
   it("is monotonic — more level never removes an item", () => {
     let previous = ownedItemIds(stats({ level: 1 }));
     for (let level = 2; level <= 100; level += 1) {

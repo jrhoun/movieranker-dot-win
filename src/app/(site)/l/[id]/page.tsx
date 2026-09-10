@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import BetaPathBanner from "@/components/beta/BetaPathBanner";
 import CompareModal from "@/components/list/CompareModal";
 import CompletionSummaryCard from "@/components/CompletionSummaryCard";
 import ListViews from "@/components/list/ListViews";
@@ -15,7 +17,12 @@ import ForkButton from "@/components/community/ForkButton";
 import { withRanks, type ListMovieRow } from "@/lib/list-view";
 import { marqueeListNumber, maskListTitle } from "@/lib/marquee-title";
 import { summariseCompletion, isWorthCelebrating, type CompletionSummary } from "@/lib/completion";
-import { calculateXpBreakdown, countMoviesRanked } from "@/lib/gamification";
+import {
+  calculateXpBreakdown,
+  countMoviesRanked,
+  evaluateAchievements,
+  type AchievementStats,
+} from "@/lib/gamification";
 import { reconcileCareerXp, toXpLists, type CareerListRow } from "@/lib/career-xp";
 import { getReferralStats } from "@/lib/referrals";
 import { marqueeStanding, type ThemeCompletion } from "@/lib/marquee-standing";
@@ -34,6 +41,8 @@ interface DbList {
   status: string;
   owner_id: string;
   theme_slug: string | null;
+  curated?: boolean | null;
+  visibility?: "public" | "unlisted" | "private" | null;
   created_at: string;
   upvotes_count: number | null;
 }
@@ -127,7 +136,7 @@ export default async function PublicListPage({
   // Query base fields first so missing migrations never cause 404
   const { data: list } = await supabase
     .from("lists")
-    .select("id,title,description,participants,status,owner_id,theme_slug,created_at")
+    .select("id,title,description,participants,status,owner_id,theme_slug,curated,visibility,created_at")
     .eq("id", id)
     .maybeSingle<DbList>();
 
@@ -256,10 +265,16 @@ export default async function PublicListPage({
    * the redirect after a save.
    */
   let completion: CompletionSummary | null = null;
+  // How many onboarding steps are still open for the Beta Test Screener
+  // achievement, or null when the banner has nothing to say (not a
+  // just-finished visit by the owner, or the achievement is already
+  // unlocked). Computed alongside `completion` below since it needs the
+  // same owned-lists and profile reads.
+  let betaBannerRemainingSteps: number | null = null;
   if (justFinished && isOwner && user && list.status === "done") {
     const { data: ownedRows } = await supabase
       .from("lists")
-      .select("id,participants,theme_slug,created_at,list_movies(tmdb_id)")
+      .select("id,participants,theme_slug,created_at,visibility,list_movies(tmdb_id)")
       .eq("owner_id", user.id)
       .eq("status", "done");
 
@@ -286,12 +301,38 @@ export default async function PublicListPage({
         .select("theme_slug", { count: "exact", head: true })
         .eq("user_id", user.id)
         .eq("correct", true),
-      supabase.from("profiles").select("showcase").eq("id", user.id).maybeSingle(),
+      supabase.from("profiles").select("handle,showcase").eq("id", user.id).maybeSingle(),
     ]);
     const bankedXp = (profileRow as { showcase?: { lifetimeXp?: number } } | null)?.showcase
       ?.lifetimeXp;
     const bankedCurve = (profileRow as { showcase?: { lifetimeXpCurve?: number } } | null)?.showcase
       ?.lifetimeXpCurve;
+
+    // Same derivation the profile page and its API route use: `hasHandle`
+    // from profiles.handle, `publicDoneLists` from the owner's own done
+    // rows filtered to visibility='public'. Passed through the real
+    // `evaluateAchievements` (not a re-typed threshold here) so this stays
+    // in lockstep with the achievement's actual definition.
+    const hasHandle = Boolean(
+      (profileRow as { handle?: string | null } | null)?.handle,
+    );
+    const publicDoneLists = ((ownedRows ?? []) as Record<string, unknown>[]).filter(
+      (r) => r.visibility === "public",
+    ).length;
+    const betaStats: AchievementStats = {
+      doneLists: (ownedRows ?? []).length,
+      moviesRanked: 0,
+      publicDoneLists,
+      hasHandle,
+      isSignedIn: true,
+    };
+    const betaUnlocked =
+      evaluateAchievements(betaStats).find((a) => a.key === "beta_pioneer")?.unlocked ?? false;
+    if (!betaUnlocked) {
+      // isSignedIn is always true on this branch (isOwner requires a signed-in
+      // user), so at most the handle and the public list are still open.
+      betaBannerRemainingSteps = (hasHandle ? 0 : 1) + (publicDoneLists >= 1 ? 0 : 1);
+    }
 
     // Marquee ordering (first to finish a theme, front row, century) is global,
     // so it needs every themed done list — the same read the profile page does.
@@ -434,7 +475,7 @@ export default async function PublicListPage({
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">
-            <h1 className="flex items-center gap-2 font-display text-2xl uppercase tracking-wide text-text leading-tight break-words sm:text-3xl">
+            <h1 className="flex items-center gap-2 font-display text-[28px] uppercase tracking-wide text-text leading-tight break-words sm:text-3xl">
               <span aria-hidden="true" className="shrink-0 text-gold">✦</span>
               {list.theme_slug ? (
                 <MarqueeListTitle themeSlug={list.theme_slug} themeTitle={list.title} />
@@ -443,54 +484,81 @@ export default async function PublicListPage({
               )}
             </h1>
           </div>
-          {/* ONE PRIMARY ACTION (DESIGN.md). Share is the whole point of this
-              page, so it is the only gold thing up here and the only action
-              that sits beside the title. Upvote, Rank-these-yourself and Compare used to sit
-              at equal weight in the same cluster — four buttons that wrapped
-              onto a second row at 390px and made the title look like the
-              caption on a toolbar. They are still one tap away, one row down
-              and quiet. */}
-          <div className="shrink-0">
-            <ShareButton
-              title={displayTitle}
-              url={url}
-              themeSlug={list.theme_slug}
-              marqueeNumber={listMarqueeNumber}
-              topMovies={sharePodium}
-              totalMovies={rows.length}
-              curatorHandle={ownerProfile?.handle ?? null}
-              passOptions={list.status === "done" && rows.length > 0 ? passOptions : undefined}
-            />
+          {/* Primary action(s). For a finished list, "Rank these yourself" is
+              the one thing worth a gold pill here — it is how this page turns
+              a reader into a player — with Share beside it as a quieter
+              secondary so both fit one row at 390px. A list still in progress
+              has nothing to fork yet, so Share stays the lone primary action,
+              as it always has. */}
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {list.status === "done" && rows.length > 0 ? (
+              <>
+                <ForkButton
+                  list={{
+                    // The withheld title, not list.title: this string is the
+                    // forked session's name AND this button's accessible
+                    // label, and the person forking a Marquee is by
+                    // definition about to play it. `themeSlug` below is what
+                    // carries the theme's identity into the fork — every
+                    // system that matters (the quiz, marquee standing,
+                    // community stats) keys on the slug, not the words.
+                    id,
+                    title: displayTitle,
+                    movies: rows,
+                    themeSlug: list.theme_slug,
+                  }}
+                  ownerHandle={ownerProfile?.handle}
+                  variant="primary"
+                />
+                <ShareButton
+                  title={displayTitle}
+                  url={url}
+                  themeSlug={list.theme_slug}
+                  marqueeNumber={listMarqueeNumber}
+                  topMovies={sharePodium}
+                  totalMovies={rows.length}
+                  curatorHandle={ownerProfile?.handle ?? null}
+                  passOptions={passOptions}
+                  variant="secondary"
+                />
+              </>
+            ) : (
+              <ShareButton
+                title={displayTitle}
+                url={url}
+                themeSlug={list.theme_slug}
+                marqueeNumber={listMarqueeNumber}
+                topMovies={sharePodium}
+                totalMovies={rows.length}
+                curatorHandle={ownerProfile?.handle ?? null}
+                passOptions={undefined}
+              />
+            )}
           </div>
         </div>
 
-        {/* The quiet row. Every control here is a `compact`-scale pill, which is
-            what lets all three fit on one line at 390px instead of wrapping. */}
+        {/* The quiet row. Upvote and Compare are still one tap away, one row
+            down, at `compact` scale — the by-line sits at the far end of the
+            same row instead of taking a line of its own. */}
         {list.status === "done" && (
-          <div className="flex items-center gap-1.5 border-t border-white/5 pt-3 sm:gap-2">
-            <UpvoteButton
-              listId={id}
-              initialCount={upvotesCount}
-              initialHasUpvoted={hasUpvoted}
-              variant="compact"
-            />
-            <ForkButton
-              list={{
-                // The withheld title, not list.title: this string is the forked
-                // session's name AND this button's accessible label, and the
-                // person forking a Marquee is by definition about to play it.
-                // `themeSlug` below is what carries the theme's identity into
-                // the fork — every system that matters (the quiz, marquee
-                // standing, community stats) keys on the slug, not the words.
-                id,
-                title: displayTitle,
-                movies: rows,
-                themeSlug: list.theme_slug,
-              }}
-              ownerHandle={ownerProfile?.handle}
-              variant="compact"
-            />
-            <CompareModal listId={id} listTitle={displayTitle} />
+          <div className="flex items-center justify-between gap-2 border-t border-white/5 pt-3">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <UpvoteButton
+                listId={id}
+                initialCount={upvotesCount}
+                initialHasUpvoted={hasUpvoted}
+                variant="compact"
+              />
+              <CompareModal listId={id} listTitle={displayTitle} />
+            </div>
+            {ownerProfile?.handle && (
+              <Link
+                href={`/u/${ownerProfile.handle}`}
+                className="shrink-0 truncate text-sm text-muted transition-colors hover:text-gold"
+              >
+                by @{ownerProfile.handle}
+              </Link>
+            )}
           </div>
         )}
 
@@ -503,8 +571,9 @@ export default async function PublicListPage({
             title={displayTitle}
             description={list.description}
             participants={list.participants}
-            isCurated={Boolean(list.theme_slug)}
+            isCurated={Boolean(list.curated || list.theme_slug)}
             chips={chips}
+            visibility={(list.visibility as "public" | "unlisted" | "private") ?? "unlisted"}
           />
         ) : (
           <div>
@@ -523,6 +592,9 @@ export default async function PublicListPage({
       </header>
 
       <div className="mt-8">
+        {betaBannerRemainingSteps !== null && (
+          <BetaPathBanner remainingSteps={betaBannerRemainingSteps} />
+        )}
         {rows.length === 0 ? (
           <p className="text-center text-sm text-muted">No movies ranked yet.</p>
         ) : (

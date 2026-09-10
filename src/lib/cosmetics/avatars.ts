@@ -1,5 +1,5 @@
 import manifest from "../../../public/avatars/manifest.json";
-import type { CosmeticItem } from "./types";
+import type { CosmeticItem, Unlock } from "./types";
 
 /**
  * Avatars come in three kinds. Generated and gradient avatars are a FIXED
@@ -150,27 +150,43 @@ const titleCase = (s: string) =>
  *
  * NONE ARE DROPPABLE, for the reason spelled out above `GRADIENTS`.
  */
-const FREE_SEEDS_PER_STYLE = 3;
-const GATED_LEVEL_STEP = 10;
+const FREE_SEEDS_PER_STYLE = 6;
+
+const STYLE_ORDER = ["lorelei", "notionists", "open-peeps", "pixel-art", "shapes", "thumbs"];
+
+const GATED_LEVELS = [
+  2, 4, 6, 8, 12, 14,
+  16, 18, 22, 24, 26, 28,
+  32, 34, 36, 38, 42, 44,
+  48, 50, 52, 56, 58, 62,
+  66, 68, 70, 74, 76, 80,
+  84, 86, 92, 94, 96, 100,
+];
 
 function generatedAvatars(): CosmeticItem[] {
   const out: CosmeticItem[] = [];
   const seenInStyle = new Map<string, number>();
-  let gated = 0;
 
   for (const entry of manifest) {
     const nth = seenInStyle.get(entry.style) ?? 0;
     seenInStyle.set(entry.style, nth + 1);
     const isStarter = nth < FREE_SEEDS_PER_STYLE;
-    if (!isStarter) gated += 1;
+
+    let unlock: Unlock;
+    if (isStarter) {
+      unlock = { kind: "starter" };
+    } else {
+      const tier = nth - FREE_SEEDS_PER_STYLE;
+      const styleIdx = Math.max(0, STYLE_ORDER.indexOf(entry.style));
+      const level = GATED_LEVELS[tier * 6 + styleIdx];
+      unlock = { kind: "level", level };
+    }
 
     out.push({
       id: `avatar.gen.${entry.id}`,
       slot: "avatar",
       name: `${titleCase(entry.style)} ${titleCase(entry.seed)}`,
-      unlock: isStarter
-        ? { kind: "starter" }
-        : { kind: "level", level: gated * GATED_LEVEL_STEP },
+      unlock,
       // Keyed off the unlock, not the index. Calling an avatar that every
       // profile starts with "rare" contradicted the word on its own tile.
       rarity: isStarter ? "common" : "rare",
@@ -181,8 +197,16 @@ function generatedAvatars(): CosmeticItem[] {
 
 const GENERATED: CosmeticItem[] = generatedAvatars();
 
+export const BETA_REEL_AVATAR: CosmeticItem = {
+  id: "avatar.gen.beta-reel",
+  slot: "avatar",
+  name: "Beta Reel",
+  unlock: { kind: "challenge", key: "beta_pioneer" },
+  rarity: "legendary",
+};
+
 /**
  * Fixed-catalogue avatars: generated art plus the gradients. Poster avatars are
  * NOT here — they are per-user and synthesised on demand by `itemById`.
  */
-export const AVATARS: CosmeticItem[] = [...GENERATED, ...GRADIENTS];
+export const AVATARS: CosmeticItem[] = [...GENERATED, BETA_REEL_AVATAR, ...GRADIENTS];

@@ -1,8 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { rateLimit } from "./rate-limit";
+import { LIMITS, rateLimit, tooManyRequests } from "./rate-limit";
 
 describe("rateLimit", () => {
   const cfg = { limit: 3, windowMs: 60_000 };
+
+  it("defines feedback rate limit configuration", () => {
+    expect(LIMITS.feedback).toEqual({ limit: 5, windowMs: 600_000 });
+  });
+
+  it("supports tooManyRequests with default and custom message", async () => {
+    const def = tooManyRequests(30);
+    expect(def.status).toBe(429);
+    expect(def.headers.get("Retry-After")).toBe("30");
+    const defBody = await def.json();
+    expect(defBody).toEqual({ error: "too many requests" });
+
+    const custom = tooManyRequests(60, "Too many feedback submissions. Please try again later.");
+    expect(custom.status).toBe(429);
+    expect(custom.headers.get("Retry-After")).toBe("60");
+    const customBody = await custom.json();
+    expect(customBody).toEqual({ error: "Too many feedback submissions. Please try again later." });
+  });
 
   it("allows up to limit, then blocks", () => {
     expect(rateLimit("a", { ...cfg, now: 1000 }).ok).toBe(true);

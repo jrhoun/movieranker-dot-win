@@ -24,6 +24,8 @@
  * ============================================================================
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Modules under test
@@ -1639,3 +1641,144 @@ describe("Tier 4: Real-World Movie Tournaments", () => {
     expect(versus.agreementPct).toBe(60);
   });
 });
+
+/* ============================================================================
+ * TIER 5: Milestone M1 Theatrical & Responsive Polish Guardrails
+ * ============================================================================
+ * F1: Hero Poster Fan Clearance (pb-14, >= 48px clearance, no clipping)
+ * F2: Theater Mode Cinema Blackout (curtain drape blend, focused spotlight, card shadow)
+ * F3: Curator Roulette Spacing Hierarchy (items-start, mt-3.5 filmstrip, self-centered actions)
+ * F4: Smooth Anchor Scroll (scrollIntoView smooth behavior on #reel link)
+ * F5: Marquee Settled Count Suppression (< 25 settled count hidden, proposer preserved)
+ * ============================================================================ */
+
+describe("TIER 5: Milestone M1 Theatrical & Responsive Polish Guardrails", () => {
+  const rootDir = process.cwd();
+
+  describe("F1: Hero Poster Fan Clearance (Mobile & Desktop)", () => {
+    it("ensures hero poster fan has pb-14 providing at least 48px clearance", () => {
+      const code = readFileSync(join(rootDir, "src/app/(site)/home-client.tsx"), "utf8");
+      expect(code).toMatch(/fan-scroll[^"]*pb-14/);
+      // Ensure clearance conforms to >= 48px requirement (pb-12 or pb-14)
+      expect(code).toMatch(/fan-scroll[^"]*(?:pb-12|pb-14)/);
+      // Verify sm:px-6 alignment
+      expect(code).toMatch(/fan-scroll[^"]*sm:px-6/);
+    });
+
+    it("verifies hero poster cards retain dynamic tilt and arc styling", () => {
+      const code = readFileSync(join(rootDir, "src/app/(site)/home-client.tsx"), "utf8");
+      expect(code).toContain('"--tilt": `${tilt}deg`');
+      expect(code).toContain('"--arc-y": `${arcY}px`');
+      expect(code).toContain("translate-y-[var(--arc-y)] rotate-[var(--tilt)]");
+    });
+  });
+
+  describe("F4: Curator Roulette Removed From Home Page (Beta Feedback 2.b)", () => {
+    it("confirms roulette and #reel anchor are cut from home-client.tsx to reduce distractions", () => {
+      const code = readFileSync(join(rootDir, "src/app/(site)/home-client.tsx"), "utf8");
+      expect(code).not.toContain('id="reel"');
+      expect(code).not.toContain('href="#reel"');
+    });
+  });
+
+  describe("F5: Marquee Settled Count Suppression (< 25 Rankings)", () => {
+    it("suppresses settled count when under 25, while preserving proposedBy credit", () => {
+      const code = readFileSync(join(rootDir, "src/app/(site)/home-client.tsx"), "utf8");
+      expect(code).toMatch(/settledCount >= 25/);
+      expect(code).not.toMatch(/tonight\.settledCount > 0/);
+      expect(code).toContain("Theme proposed by");
+      expect(code).toContain("rankings settled this week");
+    });
+  });
+
+  describe("F2: Theater Mode Cinema Blackout ('Dim the Lights')", () => {
+    it("configures .bg-curtain-soft with transition properties", () => {
+      const css = readFileSync(join(rootDir, "src/app/globals.css"), "utf8");
+      expect(css).toMatch(/\.bg-curtain-soft\s*\{[^}]*transition:\s*background-color 500ms ease-out,\s*box-shadow 500ms ease-out;/);
+    });
+
+    it("applies theatrical blackout styles to curtains and stage under lights down", () => {
+      const css = readFileSync(join(rootDir, "src/app/globals.css"), "utf8");
+      expect(css).toMatch(/\.cinema-lights-down \.bg-curtain-soft/);
+      expect(css).toContain("background-color: #030305 !important;");
+      expect(css).toContain("background-blend-mode: multiply;");
+      expect(css).toMatch(/box-shadow:\s*inset 0 0 160px rgba\(0,\s*0,\s*0,\s*0\.85\);/);
+    });
+
+    it("concentrates high-contrast spotlight on duel matchup stage", () => {
+      const css = readFileSync(join(rootDir, "src/app/globals.css"), "utf8");
+      expect(css).toMatch(/rgba\(245,\s*197,\s*24,\s*0\.22\)/);
+      expect(css).toMatch(/rgba\(0,\s*0,\s*0,\s*0\.98\)/);
+    });
+
+    it("enhances duel card shadow depth under cinema lights down", () => {
+      const css = readFileSync(join(rootDir, "src/app/globals.css"), "utf8");
+      expect(css).toMatch(/box-shadow:\s*0 30px 70px rgba\(0,\s*0,\s*0,\s*0\.95\),\s*0 0 60px rgba\(245,\s*197,\s*24,\s*0\.25\);/);
+    });
+
+    it("dims peripheral chrome to 15% opacity and 0.5 brightness", () => {
+      const css = readFileSync(join(rootDir, "src/app/globals.css"), "utf8");
+      expect(css).toMatch(/opacity:\s*0\.15;\s*filter:\s*brightness\(0\.5\);/);
+    });
+
+    it("applies transition duration to curtain wash section in play room", () => {
+      const playRoom = readFileSync(join(rootDir, "src/app/r/play/play-room.tsx"), "utf8");
+      expect(playRoom).toMatch(/bg-curtain-soft[^"]*transition-all duration-500/);
+    });
+  });
+
+  describe("F3: Curator Roulette Layout Hierarchy & Spacing", () => {
+    it("anchors card columns to top with controlled gap on desktop", () => {
+      const code = readFileSync(join(rootDir, "src/components/roulette/CuratorRoulette.tsx"), "utf8");
+      expect(code).toMatch(/lg:items-start lg:gap-8/);
+      expect(code).not.toMatch(/lg:items-center lg:justify-between/);
+    });
+
+    it("positions filmstrip directly under blurb with mt-3.5 and no redundant pt-1 wrapper", () => {
+      const code = readFileSync(join(rootDir, "src/components/roulette/CuratorRoulette.tsx"), "utf8");
+      expect(code).toMatch(/relative mt-3\.5 w-fit max-w-full overflow-x-auto/);
+      expect(code).not.toMatch(/<div className="pt-1">/);
+    });
+
+    it("aligns action buttons column with self-centering across breakpoints", () => {
+      const code = readFileSync(join(rootDir, "src/components/roulette/CuratorRoulette.tsx"), "utf8");
+      expect(code).toMatch(/self-center lg:self-center/);
+    });
+  });
+
+  describe("F6: Two-Door Hero & Community Spotlight Cold Start (Beta Launch Package C)", () => {
+    it("verifies hero h1 copy and subhead conform to package C specs", () => {
+      const code = readFileSync(join(rootDir, "src/app/(site)/home-client.tsx"), "utf8");
+      expect(code).toContain("Rank movies");
+      expect(code).toContain("head-to-head.");
+      expect(code).toMatch(
+        /Play this week(?:'|&apos;)s curated list, or build a custom one from any films you like\. Then share the result\./,
+      );
+      // Confirms old fold marquee text was removed from above the fan
+      expect(code).not.toMatch(/This week's marquee, no\.\s*\{marqueeNumber\(\)\}/);
+    });
+
+    it("verifies two-door buttons are 48px tall in a 10px-gap wrapping row under the fan", () => {
+      const code = readFileSync(join(rootDir, "src/app/(site)/home-client.tsx"), "utf8");
+      expect(code).toMatch(/Play this week(?:'|&apos;)s list/);
+      expect(code).toContain("Build your own");
+      expect(code).toMatch(/gap-\[10px\]/);
+      expect(code).toMatch(/h-12\s+min-h-12/);
+    });
+
+    it("verifies countdown pill sits below buttons and serves as info modal trigger", () => {
+      const code = readFileSync(join(rootDir, "src/app/(site)/home-client.tsx"), "utf8");
+      expect(code).toContain("<MarqueeCountdown />");
+      expect(code).toContain('openInfoModal');
+      expect(code).toContain('aria-labelledby="marquee-modal-title"');
+    });
+
+    it("verifies community spotlight uses spotlightSlots and 15px blurb", () => {
+      const code = readFileSync(join(rootDir, "src/app/(site)/home-client.tsx"), "utf8");
+      expect(code).toContain("spotlightSlots(trendingLists)");
+      expect(code).toContain("text-[15px]");
+      expect(code).toContain("Be the first — start a ranking");
+    });
+  });
+});
+
