@@ -23,7 +23,7 @@ describe("BetaWalkthroughCard", () => {
     );
     expect(html).toContain("1 / 3");
     expect(html).toContain("Claim your handle");
-    expect(html).toContain("Contribute publicly");
+    expect(html).toContain("Finish one ranking and publish it");
     expect(html).not.toContain("Claim Beta Canister");
   });
 
@@ -37,7 +37,8 @@ describe("BetaWalkthroughCard", () => {
     );
     expect(html).toContain("2 / 3");
     expect(html).toContain("Curator handle claimed");
-    expect(html).toContain("Rank 1 list &amp; share to Spotlight");
+    expect(html).toContain("Finish one ranking and publish it");
+    expect(html).toContain("The weekly Marquee counts");
     expect(html).not.toContain("Claim Beta Canister");
   });
 

@@ -154,14 +154,19 @@ export default function BetaWalkthroughCard({
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      if (localStorage.getItem("mr_beta_canister_claimed") === "1") {
-        setClaimedCanister(true);
-      }
-      if (localStorage.getItem("mr_beta_card_collapsed") === "1") {
-        setIsCollapsed(true);
-      }
-      if (localStorage.getItem("mr_beta_card_dismissed") === "1") {
-        setIsDismissed(true);
+      try {
+        if (localStorage.getItem("mr_beta_canister_claimed") === "1") {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setClaimedCanister(true);
+        }
+        if (localStorage.getItem("mr_beta_card_collapsed") === "1") {
+          setIsCollapsed(true);
+        }
+        if (localStorage.getItem("mr_beta_card_dismissed") === "1") {
+          setIsDismissed(true);
+        }
+      } catch {
+        // ignore
       }
     }
   }, []);
@@ -452,12 +457,12 @@ export default function BetaWalkthroughCard({
             </span>
             <div>
               <h3 className="font-display text-sm uppercase tracking-wide text-text">
-                Contribute publicly
+                Finish one ranking and publish it
               </h3>
               <p className="mt-1 text-xs text-muted">
                 {step3Done
                   ? `${publicDoneLists} public ranking${publicDoneLists > 1 ? "s" : ""} settled`
-                  : "Rank 1 list & share to Spotlight"}
+                  : "The weekly Marquee counts"}
               </p>
             </div>
           </div>

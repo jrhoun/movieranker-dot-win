@@ -11,7 +11,11 @@ describe("SITE_UPDATES", () => {
     expect(latest.tag).toBe("Announcement");
     expect(latest.title).toBe("Welcome to the MovieRanker Public Beta!");
     expect(latest.summary).toContain("JR");
-    expect(latest.content?.length).toBeGreaterThan(0);
+    expect(latest.content?.length).toBe(4);
+    const contentText = (latest.content ?? []).join(" ");
+    expect(contentText).not.toContain("list-a-holic");
+    expect(contentText).not.toContain("LLM");
+    expect(contentText).toContain("three beta-only profile cosmetics");
   });
 
   it("contains all required public beta release highlights", () => {
@@ -24,6 +28,7 @@ describe("SITE_UPDATES", () => {
     expect(highlights.some((h) => h.includes("Curated Weekly Themes"))).toBe(true);
     expect(highlights.some((h) => h.includes("Community Stats"))).toBe(true);
     expect(highlights.some((h) => h.includes("In-App Feedback") || h.includes("Feedback"))).toBe(true);
+    expect(highlights.every((h) => !h.includes("list-a-holic"))).toBe(true);
   });
 
   it("preserves initial-launch entry with preview versioning", () => {

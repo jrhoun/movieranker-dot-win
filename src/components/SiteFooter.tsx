@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { FeedbackTrigger } from "@/components/feedback";
-import { CONTACT_EMAIL } from "@/lib/site";
 
 const linkCls =
   "text-xs text-muted transition-colors duration-200 ease-out hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold";
@@ -20,7 +19,7 @@ export default function SiteFooter() {
             </div>
             <p className="text-xs leading-relaxed text-muted">
               Rank movies head-to-head, solo or with friends, with a new themed Marquee
-              and hidden thread every week — for people who love lists and cinema.
+              and hidden connection every week — for people who love lists and cinema.
             </p>
           </div>
 
