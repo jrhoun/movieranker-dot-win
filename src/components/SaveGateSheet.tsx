@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { finalizeRanks } from "@/lib/ranking";
 import { clearSession, type PlaySession } from "@/lib/session";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { trackEvent } from "@/lib/analytics";
 
 const inputCls =
   "h-11 w-full rounded bg-surface-raised px-3 text-sm text-text placeholder:text-muted ring-1 ring-white/10 transition-shadow duration-150 ease-out hover:ring-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
@@ -142,6 +143,10 @@ export default function SaveGateSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
+  useEffect(() => {
+    trackEvent("save_gate_shown");
+  }, []);
+
   // focus trap + Escape to close
   useEffect(() => {
     const panel = panelRef.current!;
@@ -194,6 +199,7 @@ export default function SaveGateSheet({
     const { data } = await supabase.auth.getUser();
     setBusy(false);
     if (data.user) {
+      trackEvent("signup_completed", { provider: "password" });
       setSignedInUser(true);
       void performSave();
     } else {
@@ -220,7 +226,7 @@ export default function SaveGateSheet({
     setNote(error ? error.message : `Magic link sent to ${email}.`);
   }
 
-  async function handleOAuth(provider: "google" | "azure") {
+  async function handleOAuth(provider: "google") {
     setBusy(true);
     setNote(null);
     try {

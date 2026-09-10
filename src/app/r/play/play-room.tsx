@@ -13,6 +13,8 @@ import ParkedStrip from "@/components/ParkedStrip";
 import SaveGateSheet from "@/components/SaveGateSheet";
 import PremierePassCard from "@/components/share/PremierePassCard";
 import { PersonIcon } from "@/components/ParticipantChips";
+import { trackEvent } from "@/lib/analytics";
+import { CONNECTION_REVEALED_EVENT, connectionStorageKey } from "@/lib/connection-state";
 import { marqueeDisplayTitle } from "@/lib/marquee-title";
 import { MATCHUP_SETTLE_MS } from "@/lib/matchup-timing";
 import { marqueeNumber } from "@/lib/shortlist";
@@ -248,6 +250,8 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   const pendingIntent = useRef<PendingIntent | null>(null);
   // last movie state known to be synced to the server (resume mode only)
   const syncedRef = useRef<RankedMovie[] | null>(initial ? initial.movies : null);
+  const hasTrackedStart = useRef(false);
+  const hasTrackedFinish = useRef(false);
 
   // async hop so pre-hydration server markup matches first client render
   useEffect(() => {
@@ -266,6 +270,12 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
       setSession(s);
       setPair(s ? selectNextPair(s, false) : null);
       setReady(true);
+      if (s && !hasTrackedStart.current) {
+        hasTrackedStart.current = true;
+        trackEvent("ranking_started", {
+          source: s.themeSlug ? "marquee" : "custom",
+        });
+      }
     }, 0);
     return () => {
       clearTimeout(t);
@@ -527,6 +537,14 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
 
     setSavingDirectly(true);
     setSavingStatus(status);
+    if (status === "done" && !hasTrackedFinish.current) {
+      hasTrackedFinish.current = true;
+      const votes = Math.round(totalComparisons(session) / 2);
+      trackEvent("ranking_finished", {
+        votes,
+        movies: active.length,
+      });
+    }
     const ranks = new Map(finalizeRanks(session.movies).map((r) => [r.tmdbId, r.rank]));
     const visibility: "public" | "unlisted" = session.themeSlug
       ? "public"
@@ -807,6 +825,41 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     };
   }, [exitOpen]);
 
+  useEffect(() => {
+    if (finished && session && !hasTrackedFinish.current) {
+      hasTrackedFinish.current = true;
+      const votes = Math.round(totalComparisons(session) / 2);
+      trackEvent("ranking_finished", {
+        votes,
+        movies: active.length,
+      });
+    }
+  }, [finished, session, active.length]);
+
+  useEffect(() => {
+    function handleConnectionRevealed(e: Event) {
+      const customEvent = e as CustomEvent<{ themeSlug?: string }>;
+      const slug = customEvent.detail?.themeSlug ?? session?.themeSlug;
+      if (!slug) return;
+      try {
+        const raw = localStorage.getItem(connectionStorageKey(slug));
+        if (raw) {
+          const parsed = JSON.parse(raw) as { selected?: number | null; correct?: boolean };
+          if (parsed.selected !== null && typeof parsed.correct === "boolean") {
+            trackEvent("connection_guessed", { correct: parsed.correct });
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    window.addEventListener(CONNECTION_REVEALED_EVENT, handleConnectionRevealed);
+    return () => {
+      window.removeEventListener(CONNECTION_REVEALED_EVENT, handleConnectionRevealed);
+    };
+  }, [session?.themeSlug]);
+
   if (!ready) return <main className="flex-1" />;
 
   if (!session) {
@@ -863,6 +916,13 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
    * on a fresh session by construction.
    */
   const closeCallsAreInformative = closePairs > 0 && closePairs < active.length - 1;
+  /**
+   * "Consensus reached" above "5 of 5 matchups still too close to call" read as a
+   * contradiction (beta review, 2026-09-09). When nearly every neighbouring pair
+   * is still close, the board is an early result: say so, and make Sharpen the
+   * primary action instead of Finish.
+   */
+  const earlyResult = closePairs > 0 && closePairs >= active.length - 1;
 
   /*
    * ONE QUIET LINE INSTEAD OF TWO PILL BADGES. "6 too close to call" and
@@ -1326,7 +1386,10 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           </div>
           <button
             type="button"
-            onClick={() => setFinished(false)}
+            onClick={() => {
+              hasTrackedFinish.current = false;
+              setFinished(false);
+            }}
             className="relative min-h-11 rounded bg-surface px-5 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised"
           >
             Keep voting
@@ -1349,10 +1412,12 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         </section>
       ) : stable && !sharpening ? (
         <section className="relative overflow-hidden bg-curtain flex flex-1 flex-col items-center justify-center gap-6 px-4 py-8 text-center">
-          <CurtainCallCelebration title="Curtain Call · Consensus Reached" />
+          <CurtainCallCelebration title={earlyResult ? "Curtain Call · Early Result" : "Curtain Call · Consensus Reached"} />
           <div aria-hidden="true" className="spotlight-glow pointer-events-none absolute inset-0" />
           <div className="animate-celebrate relative w-full max-w-md rounded bg-surface p-5 ring-1 ring-white/10">
-            <p className="text-sm uppercase tracking-widest text-accent">Consensus reached</p>
+            <p className="text-sm uppercase tracking-widest text-accent">
+              {earlyResult ? "Early result" : "Consensus reached"}
+            </p>
             <div className="mt-4">
               <Podium movies={active} />
             </div>
@@ -1386,7 +1451,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               <button
                 type="button"
                 onClick={startSharpen}
-                className="inline-flex items-center gap-2 min-h-11 rounded-full bg-surface-raised px-5 font-semibold text-text ring-1 ring-white/10 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:ring-gold/50 hover:text-gold active:scale-[0.98]"
+                className={`inline-flex items-center gap-2 min-h-11 rounded-full px-5 font-semibold ring-1 ring-white/10 ${earlyResult ? "bg-accent text-bg" : "bg-surface-raised text-text"} transition-all duration-200 ease-out hover:-translate-y-0.5 hover:ring-gold/50 hover:text-gold active:scale-[0.98]`}
               >
                 <span>Sharpen close calls</span>
                 <span className="rounded bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-gold">+XP</span>

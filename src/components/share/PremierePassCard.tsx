@@ -11,6 +11,7 @@ import {
   type TicketMovieItem,
   type TicketRenderOptions,
 } from "@/lib/ticket-canvas";
+import { trackEvent } from "@/lib/analytics";
 
 export interface PremierePassCardProps {
   title: string;
@@ -67,6 +68,7 @@ export default function PremierePassCard({
   };
 
   const handleShare = async () => {
+    trackEvent("share_clicked", { surface: "pass" });
     setSharing(true);
     setFeedback(null);
     try {
@@ -122,6 +124,7 @@ export default function PremierePassCard({
   };
 
   const handleCopy = async () => {
+    trackEvent("share_clicked", { surface: "pass" });
     setCopying(true);
     setFeedback(null);
     try {
@@ -143,6 +146,7 @@ export default function PremierePassCard({
   };
 
   const handleDownload = async () => {
+    trackEvent("share_clicked", { surface: "pass" });
     setDownloading(true);
     try {
       await downloadPremierePass(renderOptions);

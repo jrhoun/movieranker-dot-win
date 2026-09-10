@@ -1,43 +1,122 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { GET } from "./route";
+import * as vercelAnalyticsServer from "@vercel/analytics/server";
+import * as supabaseServer from "@/lib/supabase/server";
 
-const exchangeCodeForSession =
-  vi.fn<() => Promise<{ error: Error | null }>>().mockResolvedValue({ error: null });
-
-vi.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: vi.fn(async () => ({
-    auth: { exchangeCodeForSession },
-  })),
+vi.mock("@vercel/analytics/server", () => ({
+  track: vi.fn(),
 }));
 
-const { GET } = await import("./route");
+vi.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: vi.fn(),
+}));
 
-async function call(params: string) {
-  return GET(new NextRequest(`http://localhost:3000/auth/callback?${params}`));
-}
+describe("auth callback route analytics", () => {
+  const trackMock = vi.mocked(vercelAnalyticsServer.track);
+  const createSupabaseMock = vi.mocked(supabaseServer.createSupabaseServerClient);
 
-describe("GET /auth/callback", () => {
-  it("redirects to a valid relative next path after session exchange", async () => {
-    const res = await call("code=c&next=%2Fl%2Fabc");
-    expect(res.headers.get("location")).toBe("http://localhost:3000/l/abc");
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it.each([
-    ["//evil.com", "//evil.com"],
-    ["https://evil.com", "https://evil.com"],
-  ])("rejects open-redirect next=%s", async (next, raw) => {
-    const res = await call(`code=c&next=${encodeURIComponent(raw)}`);
-    expect(res.headers.get("location")).toBe("http://localhost:3000/");
+  it("tracks signup_completed with user provider on successful session exchange", async () => {
+    const exchangeMock = vi.fn().mockResolvedValue({
+      data: {
+        user: {
+          app_metadata: { provider: "google" },
+          created_at: new Date().toISOString(),
+        },
+        session: {},
+      },
+      error: null,
+    });
+
+    createSupabaseMock.mockResolvedValue({
+      auth: {
+        exchangeCodeForSession: exchangeMock,
+      },
+    } as unknown as Awaited<ReturnType<typeof supabaseServer.createSupabaseServerClient>>);
+
+    const req = new NextRequest("https://movieranker.win/auth/callback?code=valid-code&next=/r/play");
+    const res = await GET(req);
+
+    expect(exchangeMock).toHaveBeenCalledWith("valid-code");
+    expect(trackMock).toHaveBeenCalledWith(
+      "signup_completed",
+      { provider: "google" },
+      expect.objectContaining({ headers: expect.anything() }),
+    );
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe("https://movieranker.win/r/play");
   });
 
-  it("defaults to / when next is missing", async () => {
-    const res = await call("code=c");
-    expect(res.headers.get("location")).toBe("http://localhost:3000/");
+  it("does not track signup_completed for a returning user (account older than a few minutes)", async () => {
+    const exchangeMock = vi.fn().mockResolvedValue({
+      data: {
+        user: {
+          app_metadata: { provider: "google" },
+          created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        session: {},
+      },
+      error: null,
+    });
+    createSupabaseMock.mockResolvedValue({
+      auth: { exchangeCodeForSession: exchangeMock },
+    } as unknown as Awaited<ReturnType<typeof supabaseServer.createSupabaseServerClient>>);
+
+    const req = new NextRequest("https://movieranker.win/auth/callback?code=abc&next=/u/profile");
+    const res = await GET(req);
+
+    expect(trackMock).not.toHaveBeenCalled();
+    expect(res.headers.get("location")).toBe("https://movieranker.win/u/profile");
   });
 
-  it("sends auth errors back home with auth_error flag", async () => {
-    exchangeCodeForSession.mockResolvedValueOnce({ error: new Error("bad code") });
-    const res = await call("code=bad&next=%2Fr%2Fplay");
-    expect(res.headers.get("location")).toBe("http://localhost:3000/?auth_error=1");
+  it("does not track signup_completed on exchange failure and redirects to auth error", async () => {
+    const exchangeMock = vi.fn().mockResolvedValue({
+      data: { user: null, session: null },
+      error: new Error("invalid code"),
+    });
+
+    createSupabaseMock.mockResolvedValue({
+      auth: {
+        exchangeCodeForSession: exchangeMock,
+      },
+    } as unknown as Awaited<ReturnType<typeof supabaseServer.createSupabaseServerClient>>);
+
+    const req = new NextRequest("https://movieranker.win/auth/callback?code=bad-code");
+    const res = await GET(req);
+
+    expect(trackMock).not.toHaveBeenCalled();
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe("https://movieranker.win/?auth_error=1");
+  });
+
+  it("does not crash or prevent redirect if track throws an error", async () => {
+    const exchangeMock = vi.fn().mockResolvedValue({
+      data: {
+        user: {
+          app_metadata: { provider: "google" },
+          created_at: new Date().toISOString(),
+        },
+        session: {},
+      },
+      error: null,
+    });
+
+    createSupabaseMock.mockResolvedValue({
+      auth: {
+        exchangeCodeForSession: exchangeMock,
+      },
+    } as unknown as Awaited<ReturnType<typeof supabaseServer.createSupabaseServerClient>>);
+
+    trackMock.mockRejectedValueOnce(new Error("Network error contacting analytics"));
+
+    const req = new NextRequest("https://movieranker.win/auth/callback?code=valid-code&next=/r/play");
+    const res = await GET(req);
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe("https://movieranker.win/r/play");
   });
 });

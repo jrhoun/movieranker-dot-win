@@ -12,6 +12,7 @@ import {
   downloadPremierePass,
   type TicketRenderOptions,
 } from "@/lib/ticket-canvas";
+import { trackEvent } from "@/lib/analytics";
 
 const menuItem =
   "flex min-h-10 w-full items-center gap-2.5 rounded-lg px-3.5 text-left text-xs font-medium text-text transition-colors duration-150 ease-out hover:bg-white/10 hover:text-gold focus-visible:outline-2 focus-visible:outline-gold";
@@ -104,6 +105,7 @@ export default function ShareButton({
   const encodedText = encodeURIComponent(shareText);
 
   async function copyResult() {
+    trackEvent("share_clicked", { surface: "list" });
     setOpen(false);
     try {
       await navigator.clipboard.writeText(shareText);
@@ -114,6 +116,7 @@ export default function ShareButton({
   }
 
   async function copyPass() {
+    trackEvent("share_clicked", { surface: "pass" });
     setOpen(false);
     if (!passOptions) return;
     try {
@@ -131,6 +134,7 @@ export default function ShareButton({
   }
 
   async function copyLink() {
+    trackEvent("share_clicked", { surface: "list" });
     setOpen(false);
     try {
       await navigator.clipboard.writeText(url);
@@ -141,6 +145,7 @@ export default function ShareButton({
   }
 
   async function nativeShare() {
+    trackEvent("share_clicked", { surface: "list" });
     setOpen(false);
     try {
       await navigator.share({ title, text: shareText, url });
@@ -239,7 +244,10 @@ export default function ShareButton({
                   href={threadsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={() => setOpen(false)}
+                  onClick={() => {
+                    trackEvent("share_clicked", { surface: "list" });
+                    setOpen(false);
+                  }}
                   className={menuItem}
                 >
                   <svg className="size-4 shrink-0 fill-current text-text" viewBox="0 0 24 24" aria-hidden="true">
@@ -252,7 +260,10 @@ export default function ShareButton({
                   href={blueskyUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={() => setOpen(false)}
+                  onClick={() => {
+                    trackEvent("share_clicked", { surface: "list" });
+                    setOpen(false);
+                  }}
                   className={menuItem}
                 >
                   <svg className="size-4 shrink-0 fill-[#1185fe]" viewBox="0 0 568 501" aria-hidden="true">
@@ -260,7 +271,15 @@ export default function ShareButton({
                   </svg>
                   <span>Post to Bluesky</span>
                 </a>
-                <a role="menuitem" href={mailto} onClick={() => setOpen(false)} className={menuItem}>
+                <a
+                  role="menuitem"
+                  href={mailto}
+                  onClick={() => {
+                    trackEvent("share_clicked", { surface: "list" });
+                    setOpen(false);
+                  }}
+                  className={menuItem}
+                >
                   <svg className="size-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <rect width="20" height="16" x="2" y="4" rx="2" />
                     <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
