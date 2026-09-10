@@ -15,7 +15,7 @@ MovieRanker is a pairwise ELO movie ranking platform designed with a theatrical 
 ### ✦ Community Proposals System
 * **User Proposals:** Authenticated users who reach **Level 20 (Film Buff / Cinephile)** can propose new shortlist themes from their profile (`/u/profile`), defining a title, atmospheric blurb, and 6–8 TMDB movie selections. Users below Level 20 see a progress lock indicator.
 * **Eligibility Protection:** Lists that were completed as part of the weekly marquee cannot be re-proposed to prevent duplicate cycles.
-* **Admin Review Panel (`/admin`):** Authorized staff (configured via `ADMIN_EMAILS`) can review, approve, or reject pending proposals.
+* **Admin Review Panel (`/admin`):** Authorized owner (configured via `OWNER_EMAIL`) can review, approve, or reject pending proposals.
 * **Automatic Attribution:** Approved proposals are seamlessly merged into the rotation pool and headline the site with credit: **"Proposed by @handle"**.
 
 ### ✦ Pairwise Ranking Engine (`src/lib/ranking.ts`)
@@ -52,9 +52,10 @@ MovieRanker is a pairwise ELO movie ranking platform designed with a theatrical 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+SUPABASE_SECRET_KEY=your_service_role_key
 TMDB_READ_TOKEN=your_tmdb_bearer_token
-ADMIN_EMAILS=admin@example.com
+OWNER_EMAIL=admin@example.com
+NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
 ```
 
 ### Development

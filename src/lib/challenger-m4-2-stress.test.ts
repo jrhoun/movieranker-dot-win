@@ -3,10 +3,8 @@ import { join } from "node:path";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import FeedbackModal, { FeedbackCategory } from "@/components/feedback/FeedbackModal";
-import FeedbackTrigger from "@/components/feedback/FeedbackTrigger";
-import { FeedbackProvider, useFeedback } from "@/components/feedback/FeedbackContext";
-import { SITE_UPDATES, SiteUpdate } from "@/data/updates";
+import FeedbackModal from "@/components/feedback/FeedbackModal";
+import { SITE_UPDATES } from "@/data/updates";
 import UpdatesPage from "@/app/(site)/updates/page";
 
 /* ============================================================================
@@ -357,7 +355,7 @@ describe("Milestone M4 Empirical Challenger Stress Tests", () => {
       expect(betaUpdate.tag).toBe("Announcement");
       expect(betaUpdate.title).toBe("Welcome to the MovieRanker Public Beta!");
       expect(betaUpdate.summary).toContain("JR");
-      expect(betaUpdate.summary).toContain("Beta Test Screening");
+      expect(betaUpdate.summary).toContain("three beta-only profile cosmetics");
     });
 
     it("verifies required M4 launch highlights are present in public-beta", () => {

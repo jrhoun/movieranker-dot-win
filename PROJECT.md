@@ -31,7 +31,7 @@ Every requirement and task from `ORIGINAL_REQUEST.md` and reference plan:
 | 14 | Edit Profile Copy Cleanup | Rename "Dressing room" to "Edit Profile", remove cumbersome intro, rewrite featured ranking instruction | M5 | R5 |
 | 15 | Collapsible Accordion Panes | Make `#tagline` and `#avatar` long categories collapsible with accessible accordions and expand/collapse controls | M5 | R5 |
 | 16 | CC0 Avatar Expansion to 12 Seeds | Expand CC0 styles to 12 seeds each (72 total SVGs in `public/avatars/`), pacing levels across 2..100 without collision | M5 | R5 |
-| 17 | Comprehensive Test Suite & E2E Validation | Pass 100% Vitest suites, clean Turbopack build, and adversarial coverage hardening | M6 | Acceptance |
+| 17 | Comprehensive Test Suite & E2E Validation | Pass 100% Vitest suites, clean Turbopack build, zero TypeScript errors, zero lint violations | M6 | Acceptance |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
@@ -94,3 +94,9 @@ Every requirement and task from `ORIGINAL_REQUEST.md` and reference plan:
 - `src/app/api/feedback/route.ts` (M4)
 - `src/data/updates.ts` (M4)
 - `src/app/(site)/u/profile/customise/*` (M5)
+
+## Acceptance Criteria & Quality Guardrails
+- [x] Vitest test suites pass 100% with zero failures.
+- [x] TypeScript type checks pass (`tsc --noEmit`) with zero errors.
+- [x] ESLint checks pass with zero errors; unused imports and `any` types resolved (Package E).
+

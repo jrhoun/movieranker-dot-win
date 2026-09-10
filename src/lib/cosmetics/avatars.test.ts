@@ -1,4 +1,4 @@
-import { createAvatar } from "@dicebear/core";
+import { createAvatar, type Style } from "@dicebear/core";
 import * as collection from "@dicebear/collection";
 import { readFileSync, readdirSync, writeFileSync, unlinkSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -60,7 +60,7 @@ if (needsGen) {
 
   const manifestEntries: { id: string; style: string; seed: string; license: string }[] = [];
   for (const [id, exportName] of Object.entries(STYLES)) {
-    const style = collection[exportName] as any;
+    const style = collection[exportName] as unknown as Style<Record<string, unknown>>;
     if (!style) throw new Error(`unknown DiceBear style: ${exportName}`);
 
     const licence = style.meta?.license?.name ?? "UNKNOWN";
