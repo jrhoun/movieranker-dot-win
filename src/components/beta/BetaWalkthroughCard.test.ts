@@ -42,6 +42,17 @@ describe("BetaWalkthroughCard", () => {
     expect(html).not.toContain("Claim Beta Canister");
   });
 
+  it("step 3's Start Ranking link goes straight into the weekly ranking builder, not the homepage root", () => {
+    const html = renderToStaticMarkup(
+      h(BetaWalkthroughCard, {
+        isSignedIn: true,
+        hasHandle: true,
+        publicDoneLists: 0,
+      }),
+    );
+    expect(html).toContain('href="/#start"');
+  });
+
   it("renders 3/3 and reveals Claim Beta Canister button when all 3 steps are complete", () => {
     const html = renderToStaticMarkup(
       h(BetaWalkthroughCard, {

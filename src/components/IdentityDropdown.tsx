@@ -13,6 +13,7 @@ export default function IdentityDropdown({
   handle,
   signOut,
   isOwner = false,
+  betaIncomplete = false,
 }: {
   handle: string | null;
   signOut: () => Promise<void>;
@@ -25,6 +26,14 @@ export default function IdentityDropdown({
    * URL still sees nothing.
    */
   isOwner?: boolean;
+  /**
+   * Server-decided, same pattern as `isOwner`: true while the signed-in
+   * viewer has not yet unlocked the Beta Test Screener achievement. Draws a
+   * small gold dot on the trigger so the walkthrough on `/u/profile#beta`
+   * stays visible from anywhere on the site, not just the pages that already
+   * push someone there.
+   */
+  betaIncomplete?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -88,8 +97,14 @@ export default function IdentityDropdown({
           }
         }}
         aria-label={handle ? `@${handle}` : "Account"}
-        className="flex min-h-9 max-w-full min-w-0 items-center gap-1.5 rounded-full border border-gold/30 bg-surface/50 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-text transition-colors duration-200 ease-out hover:border-gold hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+        className="relative flex min-h-9 max-w-full min-w-0 items-center gap-1.5 rounded-full border border-gold/30 bg-surface/50 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-text transition-colors duration-200 ease-out hover:border-gold hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
       >
+        {betaIncomplete && (
+          <span
+            aria-hidden="true"
+            className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-gold ring-2 ring-bg"
+          />
+        )}
         <span aria-hidden="true" className="shrink-0 text-gold">
           ✦
         </span>

@@ -468,8 +468,18 @@ export default function BetaWalkthroughCard({
           </div>
           {!step3Done && (
             <div className="mt-3">
+              {/*
+                Straight to the weekly Marquee, not the homepage. Starting a
+                curated ranking needs client state (home-client.tsx's `begin`
+                saves the session to localStorage before pushing to
+                `/r/play`) that a plain link cannot set up, so this points at
+                the homepage's ranking builder (`id="start"` in
+                home-client.tsx) rather than `/r/play` directly — the closest
+                existing anchor to "go start the ranking" reachable without
+                that client state.
+              */}
               <Link
-                href="/"
+                href="/#start"
                 className="inline-flex min-h-8 items-center text-xs font-semibold uppercase tracking-wider text-gold hover:underline focus-visible:outline-2 focus-visible:outline-gold"
               >
                 Start Ranking →

@@ -152,7 +152,10 @@ export default async function MyListsPage() {
         rather than through every line of type.
       */}
       <main className="relative mx-auto w-full max-w-page flex-1 px-4 pb-10 sm:px-6 lg:px-8">
-        <div className="rounded-2xl border border-white/10 bg-bg/70 px-5 py-8 backdrop-blur-md sm:px-8 sm:py-10">
+        <div
+          id="beta"
+          className="scroll-mt-6 rounded-2xl border border-white/10 bg-bg/70 px-5 py-8 backdrop-blur-md sm:px-8 sm:py-10"
+        >
           <BetaWalkthroughCard
             isSignedIn={achievementStats.isSignedIn}
             hasHandle={achievementStats.hasHandle}

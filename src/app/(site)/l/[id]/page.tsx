@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import BetaPathBanner from "@/components/beta/BetaPathBanner";
 import CompareModal from "@/components/list/CompareModal";
 import CompletionSummaryCard from "@/components/CompletionSummaryCard";
 import ListViews from "@/components/list/ListViews";
@@ -16,7 +17,12 @@ import ForkButton from "@/components/community/ForkButton";
 import { withRanks, type ListMovieRow } from "@/lib/list-view";
 import { marqueeListNumber, maskListTitle } from "@/lib/marquee-title";
 import { summariseCompletion, isWorthCelebrating, type CompletionSummary } from "@/lib/completion";
-import { calculateXpBreakdown, countMoviesRanked } from "@/lib/gamification";
+import {
+  calculateXpBreakdown,
+  countMoviesRanked,
+  evaluateAchievements,
+  type AchievementStats,
+} from "@/lib/gamification";
 import { reconcileCareerXp, toXpLists, type CareerListRow } from "@/lib/career-xp";
 import { getReferralStats } from "@/lib/referrals";
 import { marqueeStanding, type ThemeCompletion } from "@/lib/marquee-standing";
@@ -259,10 +265,16 @@ export default async function PublicListPage({
    * the redirect after a save.
    */
   let completion: CompletionSummary | null = null;
+  // How many onboarding steps are still open for the Beta Test Screener
+  // achievement, or null when the banner has nothing to say (not a
+  // just-finished visit by the owner, or the achievement is already
+  // unlocked). Computed alongside `completion` below since it needs the
+  // same owned-lists and profile reads.
+  let betaBannerRemainingSteps: number | null = null;
   if (justFinished && isOwner && user && list.status === "done") {
     const { data: ownedRows } = await supabase
       .from("lists")
-      .select("id,participants,theme_slug,created_at,list_movies(tmdb_id)")
+      .select("id,participants,theme_slug,created_at,visibility,list_movies(tmdb_id)")
       .eq("owner_id", user.id)
       .eq("status", "done");
 
@@ -289,12 +301,38 @@ export default async function PublicListPage({
         .select("theme_slug", { count: "exact", head: true })
         .eq("user_id", user.id)
         .eq("correct", true),
-      supabase.from("profiles").select("showcase").eq("id", user.id).maybeSingle(),
+      supabase.from("profiles").select("handle,showcase").eq("id", user.id).maybeSingle(),
     ]);
     const bankedXp = (profileRow as { showcase?: { lifetimeXp?: number } } | null)?.showcase
       ?.lifetimeXp;
     const bankedCurve = (profileRow as { showcase?: { lifetimeXpCurve?: number } } | null)?.showcase
       ?.lifetimeXpCurve;
+
+    // Same derivation the profile page and its API route use: `hasHandle`
+    // from profiles.handle, `publicDoneLists` from the owner's own done
+    // rows filtered to visibility='public'. Passed through the real
+    // `evaluateAchievements` (not a re-typed threshold here) so this stays
+    // in lockstep with the achievement's actual definition.
+    const hasHandle = Boolean(
+      (profileRow as { handle?: string | null } | null)?.handle,
+    );
+    const publicDoneLists = ((ownedRows ?? []) as Record<string, unknown>[]).filter(
+      (r) => r.visibility === "public",
+    ).length;
+    const betaStats: AchievementStats = {
+      doneLists: (ownedRows ?? []).length,
+      moviesRanked: 0,
+      publicDoneLists,
+      hasHandle,
+      isSignedIn: true,
+    };
+    const betaUnlocked =
+      evaluateAchievements(betaStats).find((a) => a.key === "beta_pioneer")?.unlocked ?? false;
+    if (!betaUnlocked) {
+      // isSignedIn is always true on this branch (isOwner requires a signed-in
+      // user), so at most the handle and the public list are still open.
+      betaBannerRemainingSteps = (hasHandle ? 0 : 1) + (publicDoneLists >= 1 ? 0 : 1);
+    }
 
     // Marquee ordering (first to finish a theme, front row, century) is global,
     // so it needs every themed done list — the same read the profile page does.
@@ -554,6 +592,9 @@ export default async function PublicListPage({
       </header>
 
       <div className="mt-8">
+        {betaBannerRemainingSteps !== null && (
+          <BetaPathBanner remainingSteps={betaBannerRemainingSteps} />
+        )}
         {rows.length === 0 ? (
           <p className="text-center text-sm text-muted">No movies ranked yet.</p>
         ) : (
