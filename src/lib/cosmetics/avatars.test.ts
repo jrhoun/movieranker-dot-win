@@ -1,104 +1,20 @@
-import { createAvatar, type Style } from "@dicebear/core";
-import * as collection from "@dicebear/collection";
-import { readFileSync, readdirSync, writeFileSync, unlinkSync, mkdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-
-// Ensure 72 CC0 SVGs + manifest.json are generated on disk
-const avatarsDir = join(process.cwd(), "public/avatars");
-mkdirSync(avatarsDir, { recursive: true });
-
-const STYLES: Record<string, keyof typeof collection> = {
-  lorelei: "lorelei",
-  notionists: "notionists",
-  "open-peeps": "openPeeps",
-  "pixel-art": "pixelArt",
-  shapes: "shapes",
-  thumbs: "thumbs",
-};
-
-const SEEDS = [
-  "reel",
-  "usher",
-  "matinee",
-  "double-feature",
-  "spotlight",
-  "celluloid",
-  "marquee",
-  "curtain",
-  "premiere",
-  "noir",
-  "technicolor",
-  "director",
-];
-
-// Check if manifest or SVGs need generating
-let needsGen = false;
-try {
-  const currentManifest = JSON.parse(readFileSync(join(avatarsDir, "manifest.json"), "utf8"));
-  if (!Array.isArray(currentManifest) || currentManifest.length !== 72) {
-    needsGen = true;
-  } else {
-    for (const entry of currentManifest) {
-      if (!readdirSync(avatarsDir).includes(`${entry.id}.svg`)) {
-        needsGen = true;
-        break;
-      }
-    }
-  }
-} catch {
-  needsGen = true;
-}
-
-if (needsGen) {
-  // Clear stale SVGs except beta-reel.svg
-  for (const f of readdirSync(avatarsDir)) {
-    if (f.endsWith(".svg") && f !== "beta-reel.svg") {
-      unlinkSync(join(avatarsDir, f));
-    }
-  }
-
-  const manifestEntries: { id: string; style: string; seed: string; license: string }[] = [];
-  for (const [id, exportName] of Object.entries(STYLES)) {
-    const style = collection[exportName] as unknown as Style<Record<string, unknown>>;
-    if (!style) throw new Error(`unknown DiceBear style: ${exportName}`);
-
-    const licence = style.meta?.license?.name ?? "UNKNOWN";
-    if (!licence.startsWith("CC0")) {
-      throw new Error(`${id} is "${licence}", not CC0`);
-    }
-
-    for (const seed of SEEDS) {
-      const assetId = `${id}-${seed}`;
-      const svg = createAvatar(style, { seed, size: 256 }).toString();
-      if (
-        svg.toLowerCase().includes("<lineargradient") ||
-        svg.toLowerCase().includes("<radialgradient") ||
-        svg.toLowerCase().includes("gradient")
-      ) {
-        throw new Error(`Gradient detected in generated SVG for ${assetId}!`);
-      }
-      writeFileSync(join(avatarsDir, `${assetId}.svg`), svg, "utf8");
-      manifestEntries.push({ id: assetId, style: id, seed, license: "CC0-1.0" });
-    }
-  }
-
-  writeFileSync(
-    join(avatarsDir, "manifest.json"),
-    JSON.stringify(manifestEntries, null, 2) + "\n",
-    "utf8",
-  );
-}
-
-const {
+import {
   AVATARS,
   avatarAssetPath,
   CC0_STYLES,
   posterAvatarId,
   posterAvatarTmdbId,
   syntheticPosterAvatar,
-} = await import("./avatars");
-const { itemById, SLOTS, starterFor, itemsForSlot } = await import("./catalogue");
+} from "./avatars";
+import { itemById, SLOTS, starterFor, itemsForSlot } from "./catalogue";
+
+// The SVGs and manifest under public/avatars are COMMITTED output of the
+// hand-run scripts/generate-avatars.mjs, which needs DiceBear installed with
+// --no-save. This file only verifies what is committed; it must never import
+// DiceBear or write to disk, or a clean install (Vercel) fails type checking.
 
 describe("synthetic poster avatars", () => {
   it("round-trips a tmdb id", () => {
