@@ -368,39 +368,22 @@ describe("Milestone M2 Empirical Challenger: Feature 7 & 8 Stress Suite", () => 
   // SUITE 3: Feature 7 — SaveGateSheet Rendering & Accessibility Verification
   // ==========================================================================
   describe("Suite 3: Feature 7 SaveGateSheet DOM & Accessibility Contracts", () => {
-    it("renders the opt-in checkbox with proper accessible label on custom done rankings", () => {
+    // Finish/save flow redesign (2026-09-19): the Spotlight opt-in checkbox
+    // was removed from the sheet entirely. Custom lists always save unlisted
+    // from here; the owner flips visibility afterward on the list page.
+    it("does not render a spotlight opt-in checkbox for custom done rankings", () => {
       const customSession = createSampleSession({ themeSlug: undefined });
       const html = renderToString(
         React.createElement(SaveGateSheet, {
           session: customSession,
           status: "done",
-          initialSubmitToSpotlight: false,
           onClose: () => {},
         }),
       );
 
-      expect(html).toContain('id="sheet-spotlight-opt-in"');
-      expect(html).toContain('name="submitToSpotlight"');
-      expect(html).toContain('type="checkbox"');
-      expect(html).toContain("Submit to Community Spotlight");
-      expect(html).toContain("Share this ranking on the home page community feed");
-      expect(html).toContain("Leave unchecked to keep it unlisted");
-      expect(html).not.toMatch(/id="sheet-spotlight-opt-in"[^>]*checked/);
-    });
-
-    it("renders the checkbox as checked when initialSubmitToSpotlight is true", () => {
-      const customSession = createSampleSession({ themeSlug: undefined });
-      const html = renderToString(
-        React.createElement(SaveGateSheet, {
-          session: customSession,
-          status: "done",
-          initialSubmitToSpotlight: true,
-          onClose: () => {},
-        }),
-      );
-
-      expect(html).toContain('id="sheet-spotlight-opt-in"');
-      expect(html).toMatch(/id="sheet-spotlight-opt-in"[^>]*checked/);
+      expect(html).not.toContain('id="sheet-spotlight-opt-in"');
+      expect(html).not.toContain('name="submitToSpotlight"');
+      expect(html).not.toContain("Submit to Community Spotlight");
     });
 
     it("STRICTLY SUPPRESSES the spotlight checkbox for weekly marquee themes and shows explanation", () => {
@@ -409,7 +392,6 @@ describe("Milestone M2 Empirical Challenger: Feature 7 & 8 Stress Suite", () => 
         React.createElement(SaveGateSheet, {
           session: themeSession,
           status: "done",
-          initialSubmitToSpotlight: false,
           onClose: () => {},
         }),
       );
@@ -428,7 +410,6 @@ describe("Milestone M2 Empirical Challenger: Feature 7 & 8 Stress Suite", () => 
         React.createElement(SaveGateSheet, {
           session: customSession,
           status: "draft",
-          initialSubmitToSpotlight: false,
           onClose: () => {},
         }),
       );

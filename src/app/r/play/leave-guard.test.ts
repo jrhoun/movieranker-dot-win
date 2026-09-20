@@ -66,9 +66,10 @@ describe("leaving a ranking", () => {
   });
 
   it("only intercepts when there is something to lose", () => {
-    // A confirm on an empty or finished ranking is pure friction: nothing has
-    // been voted on, or the work is already saved.
-    expect(el()).toMatch(/finished/);
+    // A confirm on an empty ranking, or one already on its consensus screen,
+    // is pure friction: nothing has been voted on, or there is nothing left
+    // to leave behind.
+    expect(el()).toMatch(/consensusReached/);
     expect(el()).toMatch(/totalComparisons\(session\) === 0/);
     // preventDefault must sit inside the guard, not above it, or the wordmark
     // stops working entirely on a ranking with no votes yet.
@@ -85,8 +86,9 @@ describe("leaving a ranking", () => {
     // The three-way choice is the point: the safe default, the save, and the
     // one destructive option — which must remain the ONLY thing that clears.
     expect(src).toMatch(/Keep ranking/);
-    expect(src).toMatch(/Resume later/);
-    expect(src).toMatch(/Abandon ranking/);
+    expect(src).toMatch(/Save draft and leave/);
+    expect(src).toMatch(/Leave, keep votes in this browser/);
+    expect(src).toMatch(/Discard/);
     expect(src).toMatch(/function handleAbandon\(\)\s*\{\s*clearSession\(\)/);
   });
 });

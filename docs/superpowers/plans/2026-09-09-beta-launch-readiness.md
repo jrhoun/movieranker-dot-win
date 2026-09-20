@@ -195,3 +195,59 @@ Order: A, B, C, D, E in parallel; then F; then G. Each package otherwise indepen
 
 Conflict note: `manifest.ts` appears in D and E; E owns it. `l/[id]/page.tsx` is shared by F and G: F owns the header/action markup, G adds one `<BetaPathBanner />` slot above the podium and nothing else; run G after F. `home-client.tsx` spotlight blurb size belongs to C, not F. `BetaWalkthroughCard.tsx` is D-owned; G changes only the step-3 href, run G after D. `FeedbackModal.tsx` is A-only; D must
 not touch it (D changes the placeholder via A — hand that one string to A).
+
+---
+
+## 13. Finish/save flow redesign (decided 2026-09-19)
+
+Diagnosis: an anonymous player on the weekly list meets a save toast at vote 10, a permanent
+"Unsaved" pill, two finish buttons in the progress bar ("Wrap up list", "Finish with Top 3"),
+a consensus screen whose "Finish" is not a save, a finish screen with "Save & finish" /
+"Save & quit as draft" / "Keep voting", and a sign-in sheet titled "Save your ranking". Signed-in
+users get the same sequence minus the sheet. A real user (2026-09-15) stopped at the consensus
+screen after solving the connection; their ranking was never saved.
+
+Principle: **the ranking is saved the moment it is done; sign-in is the only thing that can stand
+in the way.** Decisions taken by JR: auto-save at consensus for signed-in users is fine; the
+mid-game draft nudge is dropped entirely.
+
+### Behaviour
+- **Consensus screen is the last screen.** When `stable && !sharpening` first becomes true (and
+  again after a sharpen pass completes), a signed-in user's ranking is saved automatically with
+  `status: "done"` via the existing `handleDirectSave("done")` path, minus its `router.push`.
+  Show a small inline state under the podium: "Saving…" → "Saved to your profile". Save at most
+  once per stable state; a later sharpen that changes ranks PATCHes the same list id (reuse
+  `initial?.id` / the id returned by the first POST — store it in state).
+- Primary button on the consensus screen: **"See your ranking →"** → `/l/<id>?finished=1`.
+  Disabled with "Saving…" until the save resolves. Secondary: "Sharpen close calls" (unchanged,
+  keeps the early-result primary swap from §9). "Finish" and the whole `finished` screen
+  (RankedList + PremierePass + Save & finish + Save & quit as draft + Keep voting) are removed.
+  The list page already shows the ranked list and the Premiere Pass.
+- **Anonymous:** same screen, no auto-save. Primary button: **"Sign in to save your ranking"**
+  → opens `SaveGateSheet` with `status="done"` (existing sheet; retitle it "Save your ranking"
+  → keep, subtitle "Sign in or create a free account. Your votes are kept in this browser until
+  then."). One muted line under the button: "Kept in this browser until you sign in." The
+  connection puzzle plays either way.
+- **Progress bar:** one text link "Finish early →" replacing both "Wrap up list →" and the
+  "Finish with Top 3 →" banner. It sets the stable state directly (force `earlyResult` semantics:
+  title "Early result", Sharpen primary). Remove `podiumLocked` banner markup.
+- **Mid-game nudge:** delete the toast (`NUDGE_COMPARISONS` gate, `dismissNudge`, toast JSX) and
+  the "Unsaved — lives in this browser" pill. Keep `nudgeShown` in the session type for storage
+  compatibility; stop reading it in the room.
+- **Exit dialog:** keep. Copy: signed in → "Keep ranking" / "Save draft and leave" / "Discard";
+  anonymous → "Keep ranking" / "Leave, keep votes in this browser" / "Discard". Body text stays
+  factual as today.
+- **Spotlight checkbox:** remove from the room. Custom lists save `unlisted`; the owner flips
+  visibility on the list page (`OwnerControls`). Marquee lists stay `public`. Drop the
+  `mr_pending_auth_spotlight` plumbing in room + sheet.
+- **Analytics:** `ranking_finished` fires once when the auto-save (or anonymous consensus)
+  happens, not on a button.
+- **Post-OAuth return** (`pendingSave` in the room): unchanged mechanics; the room lands on the
+  consensus screen already signed in, so the same auto-save fires. If `loadSession()` is empty
+  on return (storage lost across the OAuth hop), show `authNotice`-style copy: "You're signed in,
+  but this browser has no ranking to save. Start the week's list again."
+
+### Tests to update
+`src/lib/e2e-theatrical.test.ts` (copy assertions on Finish/Save/nudge), `src/app/r/play/leave-guard.test.ts`
+(exit copy), `src/lib/challenger-m2-2-stress.test.ts` (Spotlight checkbox in room). `nudgeShown`
+assertions in fork/session/roulette tests stay valid (field kept).

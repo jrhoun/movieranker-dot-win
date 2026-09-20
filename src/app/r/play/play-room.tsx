@@ -11,7 +11,6 @@ import MarqueeConnectionGame from "@/components/MarqueeConnectionGame";
 import MoviePoster from "@/components/list/MoviePoster";
 import ParkedStrip from "@/components/ParkedStrip";
 import SaveGateSheet from "@/components/SaveGateSheet";
-import PremierePassCard from "@/components/share/PremierePassCard";
 import { PersonIcon } from "@/components/ParticipantChips";
 import { trackEvent } from "@/lib/analytics";
 import { CONNECTION_REVEALED_EVENT, connectionStorageKey } from "@/lib/connection-state";
@@ -60,8 +59,6 @@ import {
 } from "@/lib/session";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-const NUDGE_COMPARISONS = 10;
-
 /*
  * SOUND AND LIGHTS-DOWN PREFERENCES live in localStorage, which the server
  * cannot see. The room used to render them both `false`, read localStorage in a
@@ -94,49 +91,6 @@ function notifyPreferenceChange(): void {
 
 /** No localStorage on the server; lib/audio defaults both preferences to off. */
 const preferenceServerSnapshot = () => false;
-
-function RankedList({ movies }: { movies: RankedMovie[] }) {
-  const byId = new Map(movies.map((m) => [m.tmdbId, m]));
-  const final = finalizeRanks(movies);
-  const ranked = final.filter((r): r is { tmdbId: number; rank: number } => r.rank !== null);
-  const unranked = final.filter((r) => r.rank === null);
-
-  return (
-    <div className="mt-4 space-y-4 text-left">
-      <ol className="space-y-2">
-        {ranked.map((r) => {
-          const m = byId.get(r.tmdbId)!;
-          return (
-            <li key={r.tmdbId} className="flex items-baseline gap-3">
-              <span className="w-6 shrink-0 text-right font-display text-sm text-gold">
-                {r.rank}.
-              </span>
-              <span className="min-w-0 truncate">{m.title}</span>
-              <span className="shrink-0 text-xs text-muted">{m.releaseYear ?? ""}</span>
-            </li>
-          );
-        })}
-      </ol>
-      {unranked.length > 0 && (
-        <div className="border-t border-white/10 pt-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">
-            Haven&apos;t seen ({unranked.length})
-          </p>
-          <ul className="space-y-1 text-xs text-muted">
-            {unranked.map((r) => {
-              const m = byId.get(r.tmdbId)!;
-              return (
-                <li key={r.tmdbId} className="truncate">
-                  • {m.title} {m.releaseYear ? `(${m.releaseYear})` : ""}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // gold / silver / bronze numerals for the podium (gold per DESIGN.md palette)
 const MEDAL_CLS = ["text-gold", "text-[#c9ced6]", "text-[#cd7f32]"];
@@ -188,10 +142,15 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   const [pair, setPair] = useState<[RankedMovie, RankedMovie] | null>(null);
   const [settlingLoserId, setSettlingLoserId] = useState<number | null>(null);
   const [sharpening, setSharpening] = useState(false);
-  const [finished, setFinished] = useState(false);
+  // "Finish early →" forces the consensus screen before isStable() agrees.
+  // ORs into the render branch and into consensusReached below; never reset,
+  // since Sharpen re-enters voting and a later real stability check takes over.
+  const [forceFinish, setForceFinish] = useState(false);
   const [sheetStatus, setSheetStatus] = useState<"done" | "draft" | null>(null);
-  const [submitToSpotlight, setSubmitToSpotlight] = useState(false);
   const [authNotice, setAuthNotice] = useState(false);
+  // OAuth returned this browser to a session-less /r/play (storage lost across
+  // the redirect hop): nothing left to save, shown on the "no ranking" screen.
+  const [lostSessionNotice, setLostSessionNotice] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
   const exitTriggerRef = useRef<HTMLButtonElement>(null);
   const exitPanelRef = useRef<HTMLDivElement>(null);
@@ -298,21 +257,20 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         }
         // OAuth conversion: only auto-save if returning from an explicit OAuth sign-in redirect
         let pendingSave: "done" | "draft" | null = null;
-        let pendingSpotlight = false;
         try {
           pendingSave = sessionStorage.getItem("mr_pending_auth_save") as "done" | "draft" | null;
           if (pendingSave) sessionStorage.removeItem("mr_pending_auth_save");
-          pendingSpotlight = sessionStorage.getItem("mr_pending_auth_spotlight") === "1";
-          if (pendingSpotlight) sessionStorage.removeItem("mr_pending_auth_spotlight");
         } catch {}
-
-        if (pendingSpotlight) {
-          setSubmitToSpotlight(true);
-        }
 
         if (signed && !initial && pendingSave) {
           const s = loadSession();
-          if (s && s.movies.length > 0) setSheetStatus(pendingSave);
+          if (s && s.movies.length > 0) {
+            setSheetStatus(pendingSave);
+          } else {
+            // Storage didn't survive the redirect hop — there is nothing left
+            // to hand the sheet.
+            setLostSessionNotice(true);
+          }
         }
       });
     return () => {
@@ -381,13 +339,6 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     return () => window.removeEventListener("beforeunload", warn);
   }, [signedIn, initial, session, sheetStatus, authRedirecting]);
 
-  function dismissNudge() {
-    if (!session) return;
-    const next = { ...session, nudgeShown: true };
-    setSession(next);
-    saveSession(next);
-  }
-
   async function joinAsParticipant() {
     if (!initial || !session) return;
     const displayName = joinName.trim();
@@ -438,6 +389,10 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     !!session &&
     active.length >= 2 &&
     isStable(active, session.votesSinceOrderChange, fieldSplit);
+  // The consensus screen is the last screen: natural stability OR an explicit
+  // "Finish early" both land here, as long as a Sharpen pass isn't in flight.
+  // Used by hooks below (auto-save, keyboard blocking) as well as the render.
+  const consensusReached = (stable || forceFinish) && !sharpening;
 
   const [initialClosePairs, setInitialClosePairs] = useState<number | null>(null);
 
@@ -524,33 +479,37 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   }
 
   const [savingDirectly, setSavingDirectly] = useState(false);
-  // Which save is in flight, so only the pressed button says "Saving…". Both
-  // used to flip to a saving label together, which read as two saves running.
-  const [savingStatus, setSavingStatus] = useState<"done" | "draft" | null>(null);
+  // Set once a save (auto-save or direct) has actually landed on the server —
+  // the id backing "See your ranking →" and the PATCH target for any later
+  // save (a Sharpen pass that reorders the podium re-saves the SAME list).
+  const [savedListId, setSavedListId] = useState<string | null>(null);
+  const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved" | "error">(
+    "idle",
+  );
+  const autoSaveInFlight = useRef(false);
+  // Rank signature of the last successful auto-save — lets the effect below
+  // tell "already saved this exact result" from "Sharpen changed the order,
+  // save again" without a separate once-only flag.
+  const lastAutoSavedRanksRef = useRef<string | null>(null);
 
-  async function handleDirectSave(status: "done" | "draft") {
-    if (!session || savingDirectly) return;
-    if (!signedIn) {
-      setSheetStatus(status);
-      return;
-    }
+  function rankSignature(movies: RankedMovie[]): string {
+    return finalizeRanks(movies)
+      .map((r) => `${r.tmdbId}:${r.rank}`)
+      .join(",");
+  }
 
-    setSavingDirectly(true);
-    setSavingStatus(status);
-    if (status === "done" && !hasTrackedFinish.current) {
-      hasTrackedFinish.current = true;
-      const votes = Math.round(totalComparisons(session) / 2);
-      trackEvent("ranking_finished", {
-        votes,
-        movies: active.length,
-      });
-    }
+  /**
+   * Builds the payload from the current session and either POSTs a new list
+   * or PATCHes the one this room already saved (or resumed). No side effects
+   * beyond the network call — callers decide what happens after a success,
+   * which is what lets the same request back both an explicit save (which
+   * then navigates away) and the silent auto-save on consensus (which stays
+   * on this screen until the player asks to leave it).
+   */
+  async function saveList(status: "done" | "draft"): Promise<string | null> {
+    if (!session) return null;
     const ranks = new Map(finalizeRanks(session.movies).map((r) => [r.tmdbId, r.rank]));
-    const visibility: "public" | "unlisted" = session.themeSlug
-      ? "public"
-      : status === "done" && submitToSpotlight
-        ? "public"
-        : "unlisted";
+    const visibility: "public" | "unlisted" = session.themeSlug ? "public" : "unlisted";
     const payload = {
       status,
       visibility,
@@ -559,13 +518,13 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         finalRank: status === "done" ? (ranks.get(m.tmdbId) ?? null) : null,
       })),
     };
-
+    const targetId = savedListId ?? initial?.id;
     try {
-      const res = await fetch(initial?.id ? `/api/lists/${initial.id}` : "/api/lists", {
-        method: initial?.id ? "PATCH" : "POST",
+      const res = await fetch(targetId ? `/api/lists/${targetId}` : "/api/lists", {
+        method: targetId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          initial?.id
+          targetId
             ? payload
             : {
                 ...payload,
@@ -580,27 +539,83 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               },
         ),
       });
-
-      if (!res.ok) {
-        setSavingDirectly(false);
-        setSheetStatus(status);
-        return;
-      }
-
-      const id = initial?.id ?? ((await res.json()) as { id: string }).id;
-      try {
-        sessionStorage.removeItem("mr_pending_auth_save");
-        sessionStorage.removeItem("mr_pending_auth_spotlight");
-      } catch {}
-      clearSession();
-      // ?finished=1 tells the list page this viewer just completed the ranking,
-      // which is what triggers the marquee bonus-round modal. A plain visit to
-      // the same URL must not pop it.
-      router.push(status === "done" ? `/l/${id}?finished=1` : "/u/profile");
+      if (!res.ok) return null;
+      return targetId ?? ((await res.json()) as { id: string }).id;
     } catch {
-      setSavingDirectly(false);
-      setSheetStatus(status);
+      return null;
     }
+  }
+
+  // Signed-in "Resume later": the only remaining caller of a manual save.
+  // "done" auto-saves instead (below); this stays generic in case that ever
+  // changes.
+  async function handleDirectSave(status: "done" | "draft") {
+    if (!session || savingDirectly) return;
+    if (!signedIn) {
+      setSheetStatus(status);
+      return;
+    }
+    setSavingDirectly(true);
+    const id = await saveList(status);
+    setSavingDirectly(false);
+    if (!id) {
+      setSheetStatus(status);
+      return;
+    }
+    try {
+      sessionStorage.removeItem("mr_pending_auth_save");
+    } catch {}
+    clearSession();
+    // ?finished=1 tells the list page this viewer just completed the ranking,
+    // which is what triggers the marquee bonus-round modal. A plain visit to
+    // the same URL must not pop it.
+    router.push(status === "done" ? `/l/${id}?finished=1` : "/u/profile");
+  }
+
+  /**
+   * The ranking is saved the moment it's done — no button required. Fires
+   * when the consensus screen is reached (or a Sharpen pass changes the
+   * order enough to re-save) while signed in. Session storage is left alone
+   * on success: Sharpen still needs it, and it is only cleared once the
+   * player actually leaves via "See your ranking →".
+   */
+  async function runAutoSave() {
+    if (!session || autoSaveInFlight.current) return;
+    autoSaveInFlight.current = true;
+    setAutoSaveState("saving");
+    const signature = rankSignature(session.movies);
+    const id = await saveList("done");
+    autoSaveInFlight.current = false;
+    if (!id) {
+      setAutoSaveState("error");
+      return;
+    }
+    setSavedListId(id);
+    lastAutoSavedRanksRef.current = signature;
+    setAutoSaveState("saved");
+    if (!hasTrackedFinish.current) {
+      hasTrackedFinish.current = true;
+      const votes = Math.round(totalComparisons(session) / 2);
+      trackEvent("ranking_finished", { votes, movies: active.length });
+    }
+  }
+
+  // Fires on the stable/forceFinish/sharpening/signedIn transitions that make
+  // consensusReached change. `session` and `consensusReached` are read fresh
+  // inside via closure and gated by the rank-signature check, not added as
+  // deps — votes can't happen while consensusReached is already true, so the
+  // only way ranks change again is another stable/sharpening flip.
+  useEffect(() => {
+    if (!consensusReached || !signedIn || !session) return;
+    if (rankSignature(session.movies) === lastAutoSavedRanksRef.current) return;
+    void runAutoSave();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stable, forceFinish, sharpening, signedIn]);
+
+  function handleSeeRanking() {
+    if (!savedListId) return;
+    clearSession();
+    router.push(`/l/${savedListId}?finished=1`);
   }
 
   function handleUndo() {
@@ -704,7 +719,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     pendingIntent.current = null;
     // A modal, the finale, or the consensus screen appearing mid-flight all
     // mean the player is no longer looking at the stage: discard, don't fire.
-    if (finished || exitOpen || joinOpen || sheetStatus !== null) return;
+    if (consensusReached || exitOpen || joinOpen || sheetStatus !== null) return;
     const action = resolvePendingIntent(queued, pair);
     if (!action) return;
     if (action.type === "park_candidate") {
@@ -712,20 +727,21 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     } else if (action.type === "vote_left" || action.type === "vote_right") {
       handlersRef.current.handleVote(action.winnerId, action.loserId);
     }
-  }, [settlingLoserId, pair, finished, exitOpen, joinOpen, sheetStatus]);
+  }, [settlingLoserId, pair, consensusReached, exitOpen, joinOpen, sheetStatus]);
 
   // Keyboard Blitz Controls (Milestone 1, Requirement R1)
   useEffect(() => {
     const isModalOpen = exitOpen || joinOpen || sheetStatus !== null;
-    const isConsensus = stable && !sharpening;
     const activeCount = session?.movies.filter((m) => !m.parked).length ?? 0;
 
     const blitzState: BlitzState = {
       pair,
       canUndo: !!session?.undoSnapshot && settlingLoserId === null,
       isSettling: settlingLoserId !== null,
-      isFinished: finished,
-      isConsensus,
+      // There is no longer a separate terminal screen beyond the consensus
+      // one — isConsensus already blocks voting there.
+      isFinished: false,
+      isConsensus: consensusReached,
       isModalOpen,
       activeMoviesCount: activeCount,
     };
@@ -777,9 +793,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     pair,
     session,
     settlingLoserId,
-    finished,
-    stable,
-    sharpening,
+    consensusReached,
     exitOpen,
     joinOpen,
     sheetStatus,
@@ -825,8 +839,11 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     };
   }, [exitOpen]);
 
+  // Anonymous players never run the auto-save effect above, so this is their
+  // only "ranking_finished" — fired the moment the consensus screen first
+  // shows, whether reached naturally or via "Finish early".
   useEffect(() => {
-    if (finished && session && !hasTrackedFinish.current) {
+    if (consensusReached && signedIn === false && session && !hasTrackedFinish.current) {
       hasTrackedFinish.current = true;
       const votes = Math.round(totalComparisons(session) / 2);
       trackEvent("ranking_finished", {
@@ -834,7 +851,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         movies: active.length,
       });
     }
-  }, [finished, session, active.length]);
+  }, [consensusReached, signedIn, session, active.length]);
 
   useEffect(() => {
     function handleConnectionRevealed(e: Event) {
@@ -865,7 +882,15 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   if (!session) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
-        <h1 className="text-xl font-bold">No ranking in progress</h1>
+        <h1 className="text-xl font-bold">
+          {lostSessionNotice ? "Nothing to save" : "No ranking in progress"}
+        </h1>
+        {lostSessionNotice && (
+          <p className="max-w-sm text-sm text-muted">
+            You&apos;re signed in, but this browser has no ranking to save. Start the week&apos;s
+            list again.
+          </p>
+        )}
         <Link
           href="/"
           className="min-h-11 rounded bg-accent px-5 leading-[44px] font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
@@ -920,9 +945,10 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
    * "Consensus reached" above "5 of 5 matchups still too close to call" read as a
    * contradiction (beta review, 2026-09-09). When nearly every neighbouring pair
    * is still close, the board is an early result: say so, and make Sharpen the
-   * primary action instead of Finish.
+   * primary action instead of Finish. "Finish early →" forces the same label —
+   * ending on purpose before isStable() agrees is definitionally early.
    */
-  const earlyResult = closePairs > 0 && closePairs >= active.length - 1;
+  const earlyResult = forceFinish || (closePairs > 0 && closePairs >= active.length - 1);
 
   /*
    * ONE QUIET LINE INSTEAD OF TWO PILL BADGES. "6 too close to call" and
@@ -963,13 +989,13 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
          * Still a link, not a button: right-click, middle-click and the status
          * bar URL all keep working. The click is only intercepted when there is
          * something to lose — real votes, mid-ranking. With no votes yet, or
-         * once the ranking is finished (where the dialog does not render), it
-         * navigates as before.
+         * once the consensus screen is up (where the dialog does not render),
+         * it navigates as before.
          */}
         <Link
           href="/"
           onClick={(e) => {
-            if (!session || finished) return;
+            if (!session || consensusReached) return;
             if (totalComparisons(session) === 0) return;
             e.preventDefault();
             setExitOpen(true);
@@ -1034,7 +1060,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <LightsDownToggle isLightsDown={lightsDown} onToggle={handleToggleLightsDown} />
           <SoundToggle isSoundEnabled={soundEnabled} onToggle={handleToggleSound} />
-          {!finished && (
+          {!consensusReached && (
             <>
               <button
                 ref={exitTriggerRef}
@@ -1066,7 +1092,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         </p>
       )}
 
-      {exitOpen && !finished && (
+      {exitOpen && !consensusReached && (
         <div
           className="fixed inset-0 z-40 flex animate-fade-in items-start justify-center bg-black/60 px-4 pt-24 backdrop-blur-[2px]"
           onClick={() => setExitOpen(false)}
@@ -1105,21 +1131,21 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
                 onClick={handleResumeLater}
                 className="min-h-11 rounded bg-surface-raised px-4 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
               >
-                Resume later
+                {signedIn ? "Save draft and leave" : "Leave, keep votes in this browser"}
               </button>
               <button
                 type="button"
                 onClick={handleAbandon}
                 className="min-h-11 rounded px-4 text-sm font-medium text-accent-red ring-1 ring-accent-red/40 transition-colors duration-200 ease-out hover:bg-accent-red/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-red active:scale-[0.98]"
               >
-                Abandon ranking
+                Discard
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {canJoin && !finished && (
+      {canJoin && !consensusReached && (
         <div className="mx-auto w-full max-w-2xl animate-fade-in px-4 pt-3 sm:px-6">
           <div
             role="group"
@@ -1181,236 +1207,15 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         </div>
       )}
 
-      {signedIn === false &&
-        !initial &&
-        !finished &&
-        sheetStatus === null &&
-        session.movies.length >= 2 &&
-        totalComparisons(session) >= NUDGE_COMPARISONS &&
-        !session.nudgeShown && (
-          /* THE SAVE NUDGE IS A TOAST, NOT A BAR, and that is the whole fix.
-             It used to render here as an in-flow `div` above the stage, so the
-             moment the tenth comparison landed it INSERTED ~40px of layout and
-             shoved both posters down mid-vote. A board that reflows under the
-             player between one tap and the next is the single most jarring
-             thing this screen did; a NYT game would never do it.
-
-             `fixed` takes it out of flow entirely, so appearing and dismissing
-             both cost exactly zero layout shift. Position is chosen so it
-             covers neither of the two things that matter: the progress board is
-             at the top of the stage and the posters are centred, so the toast
-             lives in the bottom margin over the YOUR MOVIES tray — the only
-             genuinely secondary surface on the screen, and one the player can
-             still reach by dismissing.
-
-             The bottom offset stacks it ABOVE the "Unsaved — lives in this
-             browser" pill rather than on top of it: both are gated on `!initial`
-             so they always appear together, and two floating chips overlapping
-             in the same corner reads as a bug. From sm: up there is room to put
-             the toast in the opposite corner instead and drop the offset.
-
-             animate-sheet-up (220ms) is the site's existing entrance for
-             something arriving from the bottom edge; globals.css already
-             neutralises it under prefers-reduced-motion. */
-          <div
-            role="status"
-            className="fixed inset-x-3 bottom-[max(3.25rem,calc(env(safe-area-inset-bottom)+3rem))] z-30 animate-sheet-up sm:inset-x-auto sm:left-4 sm:bottom-[max(0.75rem,calc(env(safe-area-inset-bottom)+0.5rem))] sm:max-w-md"
-          >
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-surface/95 p-3 ring-1 ring-gold/25 shadow-2xl backdrop-blur-sm">
-              <p className="min-w-0 flex-1 text-sm text-muted">
-                Save your progress to your account?
-              </p>
-              <button
-                type="button"
-                onClick={() => void handleDirectSave("draft")}
-                disabled={savingDirectly}
-                className="min-h-11 rounded bg-surface-raised px-4 text-sm font-medium transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:opacity-50"
-              >
-                {savingDirectly ? "Saving…" : "Save as draft"}
-              </button>
-              <button
-                type="button"
-                onClick={dismissNudge}
-                aria-label="Dismiss"
-                className="flex size-11 items-center justify-center rounded text-muted transition-colors duration-200 ease-out hover:text-text focus-visible:outline-2 focus-visible:outline-accent active:text-text"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        )}
-
-      {finished ? (
-        /* THE FINALE IS THE STAGE MOMENT, so it gets curtain vocabulary. The
-           `stable && !sharpening` consensus screen below already had bg-curtain
-           and spotlight-glow; this screen — the one the Finish button actually
-           lands you on, and the last thing a first-time ranker sees — sat on
-           bare house black. The bigger beat had the plainer set.
-
-           WHY bg-curtain-soft AND NOT bg-curtain: DESIGN.md is explicit that the
-           full-strength drape never goes behind dense content or poster grids,
-           and that "posters never sit directly on fold crests without a surface
-           card between". This is the densest screen in the room — a whole
-           RankedList plus the Premiere Pass with its champion poster and
-           runner-up thumbnails. bg-curtain-soft exists for exactly this case:
-           the same burgundy fold vocabulary, but under a near-opaque house-light
-           overlay pulled back toward --bg, with a bottom fade so the buttons and
-           caption below the cards stay legible. It is what the vote stage
-           already uses, for the same reason. Both utilities are static
-           gradients, so reduced motion needs no override here.
-
-           The consensus screen keeps full bg-curtain on purpose: it shows a
-           three-poster Podium inside one surface card, not a grid, so it can
-           carry the stronger drape. */
-        <section className="bg-curtain-soft relative overflow-hidden flex flex-1 flex-col items-center justify-center gap-6 px-4 py-8">
-          <CurtainCallCelebration title="Curtain Call · Ranking Finalized" />
-          {/* Warm focal pool, same as the consensus screen. It has to be its own
-              element because .spotlight-glow and .bg-curtain-soft both write
-              background-image and would clobber each other on one node. */}
-          <div aria-hidden="true" className="spotlight-glow pointer-events-none absolute inset-0" />
-          {/* Every content child below carries `relative` so it paints ABOVE the
-              absolutely-positioned glow instead of under it. */}
-          <div className="relative w-full max-w-md rounded bg-surface p-5 ring-1 ring-white/10">
-            {/* THE "+N XP EARNED" BADGE WAS REMOVED FROM HERE, and this note is
-                why, so it is not re-added by reflex.
-
-                It rendered `+{active.length} XP` — one XP per film in play —
-                and that was never what the ranking paid. `movieXp` in
-                lib/gamification.ts clamps movie XP at MAX_XP_PER_LIST (20) per
-                list, so a 30-film ranking promised +30 and banked 20. The two
-                completion bonuses that sit outside that cap
-                (MARQUEE_COMPLETION_XP, CO_CURATION_XP) were not counted either,
-                so the number was not even wrong in a single direction.
-
-                Worse, this screen is PRE-SAVE. Nothing has been banked when it
-                renders: a guest who never saves earns exactly 0, and the "Keep
-                voting" button at the bottom of this very screen means even a
-                signed-in player may never press Save. Advertising a balance
-                before the transaction is the same class of bug the XP-sources
-                note in lib/gamification.ts was written about — a "+10 XP"
-                marquee bonus and a "+5 XP" group bonus that no code ever paid —
-                and the position stated there is that the guide reads the
-                constants rather than restating them.
-
-                The honest number already exists and already ships:
-                CompletionSummaryCard renders it on /l/[id] after saving, from
-                lib/completion.ts, which DIFFS total XP before and after the list
-                instead of guessing at it. That is the only place that can know,
-                because it is the only place the XP has actually moved. Do not
-                reconstruct an estimate here; send people there. */}
-            <p className="pb-2 text-sm uppercase tracking-widest text-accent">Final order</p>
-            <RankedList movies={active} />
-          </div>
-
-          {/* Premiere Pass Golden Ticket Export Card */}
-          <div className="relative w-full max-w-xl">
-            <PremierePassCard
-              /* THE SPOILER RULE APPLIES HERE TOO. For a marquee session
-                 `session.title` IS the theme title — the answer to the
-                 connection puzzle the player is about to be asked. The header
-                 at the top of this room masks it through
-                 `marqueeDisplayTitle(...)`, and so do the home hero, the share
-                 text, the OG card and the saved list page; this card printed it
-                 in gold on the Premiere Pass, on the very screen that leads to
-                 the quiz. Same masked string as the header, same arguments.
-
-                 `themeTitle` below still receives the raw title on purpose.
-                 It is forwarded into TicketRenderOptions, and ticket-canvas.ts
-                 declares the field but never draws it — checked, not assumed —
-                 so nothing reaches a pixel or a share sheet through it today.
-                 Only the visible headline needed masking. If that prop ever
-                 starts rendering, it needs the same treatment. */
-              title={
-                marqueeDisplayTitle(session.title, session.themeSlug, marqueeNumber()) ||
-                "Movie Ranking Consensus"
-              }
-              items={finalizeRanks(active)
-                .filter((r): r is { tmdbId: number; rank: number } => r.rank !== null)
-                .map((r) => {
-                  const m = active.find((x) => x.tmdbId === r.tmdbId);
-                  return {
-                    rank: r.rank,
-                    title: m?.title ?? "Movie",
-                    releaseYear: m?.releaseYear ?? null,
-                    posterPath: m?.posterPath ?? null,
-                  };
-                })}
-              participants={session.participants}
-              themeTitle={session.title}
-              totalRanked={active.length}
-            />
-          </div>
-
-          <div className="relative flex flex-col items-center gap-2">
-            {!session.themeSlug && (
-              <label
-                htmlFor="play-room-spotlight-opt-in"
-                className="mb-1 flex items-center gap-2.5 cursor-pointer select-none rounded-lg px-2 py-1.5 text-xs sm:text-sm text-text transition-colors hover:bg-white/5"
-              >
-                <input
-                  type="checkbox"
-                  id="play-room-spotlight-opt-in"
-                  name="submitToSpotlight"
-                  checked={submitToSpotlight}
-                  onChange={(e) => setSubmitToSpotlight(e.target.checked)}
-                  className="size-4 rounded border-white/20 bg-surface-raised accent-gold cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-                />
-                <span>Submit to Community Spotlight</span>
-              </label>
-            )}
-            <button
-              type="button"
-              onClick={() => void handleDirectSave("done")}
-              disabled={savingDirectly}
-              className="min-h-11 rounded bg-accent px-6 font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:opacity-50"
-            >
-              {savingDirectly && savingStatus === "done" ? "Saving ranking…" : "Save & finish"}
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleDirectSave("draft")}
-              disabled={savingDirectly}
-              className="min-h-11 rounded bg-surface-raised px-5 text-sm font-medium transition-colors duration-200 ease-out hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:opacity-50"
-            >
-              {savingDirectly && savingStatus === "draft" ? "Saving draft…" : "Save & quit as draft"}
-            </button>
-            <p className="mt-1 max-w-xs text-center text-xs text-muted">
-              {session.themeSlug
-                ? "✦ Weekly Marquee rankings are public by default to power community stats."
-                : submitToSpotlight
-                  ? "✦ Will appear in Community Spotlight on the home page."
-                  : signedIn
-                    ? "Saves unlisted to your profile & lists."
-                    : "Your ranking lives in this browser until you save it."}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              hasTrackedFinish.current = false;
-              setFinished(false);
-            }}
-            className="relative min-h-11 rounded bg-surface px-5 text-sm font-medium text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface-raised"
-          >
-            Keep voting
-          </button>
-        </section>
-      ) : active.length < 2 ? (
-        <section className="flex flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
-          <h2 className="text-xl font-bold">Not enough movies in play</h2>
-          <p className="max-w-sm text-sm text-muted">
-            Fewer than two movies are left. Bring some back via Your movies
-            below, or finish with what you have.
-          </p>
-          <button
-            type="button"
-            onClick={() => setFinished(true)}
-            className="min-h-11 rounded bg-accent px-6 font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
-          >
-            Finish
-          </button>
-        </section>
-      ) : stable && !sharpening ? (
+      {consensusReached ? (
+        /* THE CONSENSUS SCREEN IS THE LAST SCREEN. There used to be a second,
+           separate "finished" screen beyond this one — reached only by
+           pressing a Finish button here — with its own RankedList, Premiere
+           Pass card and Save & finish / Save & quit as draft / Keep voting
+           buttons. It is gone: a signed-in ranking saves itself the moment
+           this screen is reached (the effect above this render), and the
+           list page (/l/[id]) already shows the ranked list and the Premiere
+           Pass once it's there. One screen, one door out. */
         <section className="relative overflow-hidden bg-curtain flex flex-1 flex-col items-center justify-center gap-6 px-4 py-8 text-center">
           <CurtainCallCelebration title={earlyResult ? "Curtain Call · Early Result" : "Curtain Call · Consensus Reached"} />
           <div aria-hidden="true" className="spotlight-glow pointer-events-none absolute inset-0" />
@@ -1426,6 +1231,26 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               {session.participants.length > 0 &&
                 ` · ${session.participants.length} voter${session.participants.length === 1 ? "" : "s"}`}
             </p>
+            {/* Auto-save state, signed in only — anonymous players never save
+                from here, they save by signing in via the button below. */}
+            {signedIn && (
+              <p aria-live="polite" className="mt-2 text-center text-xs font-medium text-muted">
+                {autoSaveState === "saving" && "Saving…"}
+                {autoSaveState === "saved" && <span className="text-gold">Saved to your profile</span>}
+                {autoSaveState === "error" && (
+                  <span className="text-accent-red">
+                    Couldn&apos;t save — check your connection.{" "}
+                    <button
+                      type="button"
+                      onClick={() => void runAutoSave()}
+                      className="font-semibold underline underline-offset-2 hover:text-gold"
+                    >
+                      Retry
+                    </button>
+                  </span>
+                )}
+              </p>
+            )}
           </div>
           {session.themeSlug && (
             <div className="w-full max-w-xl mx-auto">
@@ -1451,7 +1276,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               <button
                 type="button"
                 onClick={startSharpen}
-                className={`inline-flex items-center gap-2 min-h-11 rounded-full px-5 font-semibold ring-1 ring-white/10 ${earlyResult ? "bg-accent text-bg" : "bg-surface-raised text-text"} transition-all duration-200 ease-out hover:-translate-y-0.5 hover:ring-gold/50 hover:text-gold active:scale-[0.98]`}
+                className={`inline-flex items-center gap-2 min-h-11 rounded-full px-5 font-semibold ring-1 ring-white/10 bg-surface-raised text-text transition-all duration-200 ease-out hover:-translate-y-0.5 hover:ring-gold/50 hover:text-gold active:scale-[0.98]`}
               >
                 <span>Sharpen close calls</span>
                 <span className="rounded bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-gold">+XP</span>
@@ -1461,19 +1286,48 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
                 No close calls left — ready to finish.
               </p>
             )}
-            <button
-              type="button"
-              onClick={() => setFinished(true)}
-              className="min-h-11 rounded bg-accent px-6 font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
-            >
-              Finish
-            </button>
+            {signedIn ? (
+              <button
+                type="button"
+                onClick={handleSeeRanking}
+                disabled={autoSaveState !== "saved"}
+                className="min-h-11 rounded bg-accent px-6 font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:opacity-50"
+              >
+                {autoSaveState === "saving" ? "Saving…" : "See your ranking →"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setSheetStatus("done")}
+                className="min-h-11 rounded bg-accent px-6 font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+              >
+                Sign in to save your ranking
+              </button>
+            )}
           </div>
+          {!signedIn && (
+            <p className="text-xs text-muted">Kept in this browser until you sign in.</p>
+          )}
           {sharpening && (
             <p className="rounded-full bg-surface px-4 py-2 text-sm text-muted ring-1 ring-white/10">
               Sharpening — closest call first…
             </p>
           )}
+        </section>
+      ) : active.length < 2 ? (
+        <section className="flex flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
+          <h2 className="text-xl font-bold">Not enough movies in play</h2>
+          <p className="max-w-sm text-sm text-muted">
+            Fewer than two movies are left. Bring some back via Your movies
+            below, or finish with what you have.
+          </p>
+          <button
+            type="button"
+            onClick={() => setForceFinish(true)}
+            className="min-h-11 rounded bg-accent px-6 font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+          >
+            Finish
+          </button>
         </section>
       ) : pair ? (
         /* Low-intensity curtain wash (user feedback): burgundy drape vocabulary
@@ -1525,28 +1379,12 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
               </div>
               <button
                 type="button"
-                onClick={() => setFinished(true)}
+                onClick={() => setForceFinish(true)}
                 className="inline-flex min-h-11 shrink-0 items-center rounded-full bg-surface px-4 text-xs sm:text-sm font-semibold uppercase tracking-wider text-text ring-1 ring-white/10 transition-colors duration-200 ease-out hover:bg-white/10 hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:bg-surface-raised"
               >
-                Wrap up list →
+                Finish early →
               </button>
             </div>
-            {podiumLocked && (
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gold/10 px-3.5 py-2 ring-1 ring-gold/30 animate-fade-in">
-                <div className="flex items-center gap-2 text-xs text-gold">
-                  <span aria-hidden="true" className="font-display text-sm">✦</span>
-                  <span className="font-semibold">Top 3 locked</span>
-                  <span className="hidden sm:inline text-muted text-[11px]">— Finish now or keep ranking the full list for complete stats</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setFinished(true)}
-                  className="inline-flex min-h-8 items-center rounded-full bg-gold px-3.5 text-xs font-bold uppercase tracking-wider text-bg shadow hover:opacity-90 active:scale-95 transition-all cursor-pointer shrink-0"
-                >
-                  Finish with Top 3 →
-                </button>
-              </div>
-            )}
           </div>
           <div className="relative flex flex-1 flex-col justify-center py-2">
             {/* Premiere Night stage lighting: static low-intensity curtain
@@ -1563,7 +1401,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         </section>
       ) : null}
 
-      {!finished && (
+      {!consensusReached && (
         <div className={`parked-strip-container transition-opacity duration-300 ${lightsDown ? "cinema-peripheral" : ""}`}>
           <ParkedStrip movies={session.movies} onToggle={handleParkToggle} />
         </div>
@@ -1574,7 +1412,6 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           session={session}
           status={sheetStatus}
           existingId={initial?.id}
-          initialSubmitToSpotlight={submitToSpotlight}
           // Reset the redirect latch too: if OAuth failed in place (auth_error
           // + sheet closed, no navigation) the latch would stay set forever,
           // permanently disarming the leave-warning.
@@ -1584,12 +1421,6 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
           }}
           onAuthRedirect={() => setAuthRedirecting(true)}
         />
-      )}
-
-      {!initial && (
-        <p className="pointer-events-none fixed bottom-[max(0.75rem,calc(env(safe-area-inset-bottom)+0.5rem))] right-3 z-10 rounded-full bg-surface/90 px-3 py-1 text-xs text-muted ring-1 ring-white/10 shadow backdrop-blur-sm">
-          Unsaved — lives in this browser
-        </p>
       )}
     </main>
   );
