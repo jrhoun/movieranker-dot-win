@@ -68,6 +68,8 @@ function FilmStrip({ films }: { films: ProposalFilm[] }) {
 }
 
 interface Stats {
+  accounts: number;
+  solvers: number;
   profiles: number;
   publicProfiles: number;
   lists: number;
@@ -123,10 +125,10 @@ function Dashboard({ data }: { data: StatsResponse | null }) {
   const s = data.stats;
   return (
     <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-      <Stat label="Profiles" value={s.profiles} sub={`${s.publicProfiles} public`} />
+      <Stat label="Accounts" value={s.accounts} sub={`${s.profiles} claimed a handle · ${s.publicProfiles} public`} />
       <Stat label="Rankings" value={s.lists} sub={`${s.doneLists} done · ${s.draftLists} draft`} />
       <Stat label="Films ranked" value={s.filmsRanked} />
-      <Stat label="Connections cracked" value={s.solves} />
+      <Stat label="Connections cracked" value={s.solves} sub={`by ${s.solvers} ${s.solvers === 1 ? "person" : "people"}`} />
       <Stat label="Proposals pending" value={s.proposals.pending} />
       <Stat
         label="Proposals decided"

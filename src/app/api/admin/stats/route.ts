@@ -48,7 +48,29 @@ export async function GET() {
       return n ?? 0;
     };
 
+    // Accounts, not profiles: a profile row only exists once someone claims a
+    // handle, so "Profiles" alone hid a signed-up user who had ranked and
+    // solved but never claimed one (seen 2026-09-15). Auth users are the real
+    // headcount; the beta is far below one page of them.
+    const accountsPromise = db.auth.admin
+      .listUsers({ page: 1, perPage: 1000 })
+      .then(({ data, error }) => {
+        if (error) throw error;
+        return data.total ?? data.users.length;
+      });
+    // Distinct people who cracked a connection, next to the raw solve count.
+    const solversPromise = db
+      .from("marquee_solves")
+      .select("user_id")
+      .eq("correct", true)
+      .then(({ data, error }) => {
+        if (error) throw error;
+        return new Set((data ?? []).map((r: { user_id: string }) => r.user_id)).size;
+      });
+
     const [
+      accounts,
+      solvers,
       profiles,
       publicProfiles,
       lists,
@@ -59,6 +81,8 @@ export async function GET() {
       approved,
       rejected,
     ] = await Promise.all([
+      accountsPromise,
+      solversPromise,
       count("profiles"),
       count("profiles", (q) => q.eq("visibility", "public")),
       count("lists"),
@@ -75,6 +99,8 @@ export async function GET() {
     return NextResponse.json({
       available: true,
       stats: {
+        accounts,
+        solvers,
         profiles,
         publicProfiles,
         lists,
