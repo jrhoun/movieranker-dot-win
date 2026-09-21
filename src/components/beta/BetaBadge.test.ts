@@ -24,4 +24,13 @@ describe("BetaBadge", () => {
   it("re-export from src/components/BetaBadge matches default export", () => {
     expect(BetaBadgeReExport).toBe(BetaBadge);
   });
+
+  it("renders with interactive button semantics, cursor-pointer, and accessible title", () => {
+    const html = renderToStaticMarkup(h(BetaBadge));
+    expect(html).toContain('role="button"');
+    expect(html).toContain('tabindex="0"');
+    expect(html).toContain("cursor-pointer");
+    expect(html).toContain('title="View beta requirements"');
+    expect(html).toContain('aria-label="View beta requirements"');
+  });
 });
