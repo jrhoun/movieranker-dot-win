@@ -32,6 +32,7 @@ export default function FeedbackModal({
   const [category, setCategory] = useState<FeedbackCategory>(initialCategory);
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
+  const [hpWebsite, setHpWebsite] = useState("");
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">(initialStatus);
   const [errorMessage, setErrorMessage] = useState(initialErrorMessage);
 
@@ -61,6 +62,7 @@ export default function FeedbackModal({
   const resetForm = () => {
     setMessage("");
     setEmail("");
+    setHpWebsite("");
     setCategory("bug");
     setStatus("idle");
     setErrorMessage("");
@@ -101,6 +103,7 @@ export default function FeedbackModal({
           message: trimmedMessage,
           email: trimmedEmail || undefined,
           pageUrl: resolvedPageUrl,
+          hp_website: hpWebsite || undefined,
         }),
       });
 
@@ -280,6 +283,20 @@ export default function FeedbackModal({
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 className="w-full rounded-lg border border-white/15 bg-bg/80 px-3 py-2 text-sm text-text placeholder-muted/60 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+              />
+            </div>
+
+            {/* Honeypot field - hidden from humans, trapped for bots */}
+            <div className="sr-only" aria-hidden="true" style={{ display: "none" }}>
+              <label htmlFor="feedback-hp">Website</label>
+              <input
+                id="feedback-hp"
+                type="text"
+                name="hp_website"
+                tabIndex={-1}
+                autoComplete="off"
+                value={hpWebsite}
+                onChange={(e) => setHpWebsite(e.target.value)}
               />
             </div>
 

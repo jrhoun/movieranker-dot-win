@@ -61,6 +61,11 @@ describe("FeedbackModal component", () => {
     expect(html).toContain("Cancel");
   });
 
+  it("renders hidden honeypot input for spam bot protection", () => {
+    const html = renderToStaticMarkup(h(FeedbackModal, { isOpen: true }));
+    expect(html).toContain('name="hp_website"');
+  });
+
   it("renders the updated plain placeholder for general feedback", () => {
     const html = renderToStaticMarkup(
       h(FeedbackModal, { isOpen: true, initialCategory: "other" }),

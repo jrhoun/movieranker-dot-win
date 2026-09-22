@@ -140,7 +140,16 @@ export default function IdentityDropdown({
         </Link>
         {isOwner && (
           <Link role="menuitem" href="/admin" className={itemCls} tabIndex={open ? 0 : -1}>
-            <span aria-hidden="true">🎛</span>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 16 16"
+              className="h-3.5 w-3.5 shrink-0 fill-none stroke-current stroke-[1.5]"
+            >
+              <path d="M2 4h12M2 8h12M2 12h12" />
+              <circle cx="5" cy="4" r="1.5" className="fill-surface" />
+              <circle cx="11" cy="8" r="1.5" className="fill-surface" />
+              <circle cx="7" cy="12" r="1.5" className="fill-surface" />
+            </svg>
             Admin
           </Link>
         )}

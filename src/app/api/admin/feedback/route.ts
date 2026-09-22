@@ -64,3 +64,44 @@ export async function GET() {
     });
   }
 }
+
+export async function DELETE(request: Request) {
+  if (!(await requireOwner())) return new Response("Not Found", { status: 404 });
+
+  if (!supabaseSecretKey()) {
+    return NextResponse.json(
+      { error: "SUPABASE_SECRET_KEY is not set" },
+      { status: 500 },
+    );
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const id =
+    typeof body === "object" && body !== null
+      ? (body as Record<string, unknown>).id
+      : null;
+  if (typeof id !== "string" || !id.trim()) {
+    return NextResponse.json({ error: "Feedback id is required" }, { status: 400 });
+  }
+
+  try {
+    const db = supabaseAdmin();
+    const { error } = await db.from("feedback").delete().eq("id", id.trim());
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Failed to delete feedback" },
+      { status: 500 },
+    );
+  }
+}
+

@@ -24,4 +24,14 @@ describe("IdentityDropdown", () => {
     );
     expect(html).not.toContain("bg-gold ring-2 ring-bg");
   });
+
+  it("renders Admin link with clean SVG icon when isOwner is true", () => {
+    const html = renderToStaticMarkup(
+      h(IdentityDropdown, { handle: "jr", signOut, isOwner: true }),
+    );
+    expect(html).toContain('href="/admin"');
+    expect(html).not.toContain("🎛");
+    expect(html).toContain("Admin");
+  });
 });
+

@@ -276,4 +276,23 @@ describe("POST /api/feedback", () => {
     const blockedBody = await blockedRes.json();
     expect(blockedBody.error).toBe("Too many feedback submissions. Please try again later.");
   });
+
+  it("silently drops submissions with honeypot field populated without inserting into database", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/feedback", {
+        method: "POST",
+        body: JSON.stringify({
+          category: "bug",
+          message: "Spam bot message",
+          hp_website: "https://spam-link.example.com",
+        }),
+        headers: { "content-type": "application/json", "x-forwarded-for": "10.0.0.99" },
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toEqual({ ok: true });
+    expect(insertedRows).toHaveLength(0);
+  });
 });
+

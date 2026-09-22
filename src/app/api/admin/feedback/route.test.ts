@@ -1,9 +1,11 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { GET } from "./route";
+import { GET, DELETE } from "./route";
 
 let mockUser: { id: string; email: string } | null = null;
 let mockSecretKey: string | undefined = "mock-secret-key";
 let queryError: { message: string } | null = null;
+let deleteError: { message: string } | null = null;
+let deletedId: string | null = null;
 let mockFeedbackRows: Record<string, unknown>[] = [];
 let queryParams: { table: string; cols: string; orderCol?: string; ascending?: boolean; limit?: number } | null = null;
 
@@ -34,6 +36,15 @@ vi.mock("@/lib/supabase/admin", () => ({
             return { data: mockFeedbackRows, error: null };
           }),
         })),
+      })),
+      delete: vi.fn(() => ({
+        eq: vi.fn(async (_col: string, val: string) => {
+          deletedId = val;
+          if (deleteError) {
+            return { error: deleteError };
+          }
+          return { error: null };
+        }),
       })),
     })),
   })),
@@ -131,3 +142,93 @@ describe("GET /api/admin/feedback", () => {
     expect(body.reason).toBe("relation public.feedback does not exist");
   });
 });
+
+describe("DELETE /api/admin/feedback", () => {
+  const originalOwnerEmail = process.env.OWNER_EMAIL;
+
+  beforeEach(() => {
+    process.env.OWNER_EMAIL = "admin@example.com";
+    mockUser = null;
+    mockSecretKey = "mock-secret-key";
+    deleteError = null;
+    deletedId = null;
+    vi.clearAllMocks();
+  });
+
+  afterAll(() => {
+    process.env.OWNER_EMAIL = originalOwnerEmail;
+  });
+
+  it("returns 404 if user is unauthenticated", async () => {
+    mockUser = null;
+    const res = await DELETE(
+      new Request("http://localhost/api/admin/feedback", {
+        method: "DELETE",
+        body: JSON.stringify({ id: "fb-123" }),
+      }),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 if user is not the owner", async () => {
+    mockUser = { id: "user-2", email: "stranger@example.com" };
+    const res = await DELETE(
+      new Request("http://localhost/api/admin/feedback", {
+        method: "DELETE",
+        body: JSON.stringify({ id: "fb-123" }),
+      }),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 400 if id is missing or invalid", async () => {
+    mockUser = { id: "user-1", email: "admin@example.com" };
+
+    const res1 = await DELETE(
+      new Request("http://localhost/api/admin/feedback", {
+        method: "DELETE",
+        body: JSON.stringify({}),
+      }),
+    );
+    expect(res1.status).toBe(400);
+
+    const res2 = await DELETE(
+      new Request("http://localhost/api/admin/feedback", {
+        method: "DELETE",
+        body: JSON.stringify({ id: "   " }),
+      }),
+    );
+    expect(res2.status).toBe(400);
+  });
+
+  it("deletes feedback row by id and returns { ok: true }", async () => {
+    mockUser = { id: "user-1", email: "admin@example.com" };
+
+    const res = await DELETE(
+      new Request("http://localhost/api/admin/feedback", {
+        method: "DELETE",
+        body: JSON.stringify({ id: "fb-to-delete" }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toEqual({ ok: true });
+    expect(deletedId).toBe("fb-to-delete");
+  });
+
+  it("returns 500 if Supabase delete returns an error", async () => {
+    mockUser = { id: "user-1", email: "admin@example.com" };
+    deleteError = { message: "Database failure" };
+
+    const res = await DELETE(
+      new Request("http://localhost/api/admin/feedback", {
+        method: "DELETE",
+        body: JSON.stringify({ id: "fb-fail" }),
+      }),
+    );
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).toBe("Database failure");
+  });
+});
+

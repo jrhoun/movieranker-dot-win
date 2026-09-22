@@ -142,7 +142,17 @@ function Dashboard({ data }: { data: StatsResponse | null }) {
 /**
  * Recent feedback submissions (up to 50), loaded via the service role.
  */
-function FeedbackSection({ data }: { data: AdminFeedbackResponse | null }) {
+export function FeedbackSection({
+  data,
+  onDelete,
+}: {
+  data: AdminFeedbackResponse | null;
+  onDelete: (id: string) => Promise<void>;
+}) {
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   if (data === null) return <p className="mt-4 text-sm text-muted">Loading…</p>;
   if (!data.available) {
     if (!data.reason) return null;
@@ -155,71 +165,145 @@ function FeedbackSection({ data }: { data: AdminFeedbackResponse | null }) {
   if (data.feedback.length === 0) {
     return <p className="mt-4 text-sm text-muted">No feedback submitted yet.</p>;
   }
+
+  const filtered = data.feedback.filter((item) => {
+    if (filterCategory !== "all" && item.category !== filterCategory) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchMsg = item.message.toLowerCase().includes(q);
+      const matchEmail = item.email?.toLowerCase().includes(q);
+      const matchUrl = item.page_url?.toLowerCase().includes(q);
+      if (!matchMsg && !matchEmail && !matchUrl) return false;
+    }
+    return true;
+  });
+
+  const handleDelete = async (id: string) => {
+    if (typeof window !== "undefined" && window.confirm && !window.confirm("Permanently delete this feedback?")) {
+      return;
+    }
+    setDeletingId(id);
+    await onDelete(id);
+    setDeletingId(null);
+  };
+
   return (
-    <ul className="mt-4 space-y-3">
-      {data.feedback.map((item) => (
-        <li key={item.id} className="rounded bg-surface p-4 ring-1 ring-white/10">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span
-              className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
-                item.category === "bug"
-                  ? "bg-accent-red/15 text-accent-red ring-1 ring-accent-red/30"
-                  : item.category === "idea"
-                  ? "bg-gold/15 text-gold ring-1 ring-gold/30"
-                  : "bg-white/10 text-muted ring-1 ring-white/10"
+    <div className="mt-4 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Category filter pills */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {[
+            { id: "all", label: "All" },
+            { id: "bug", label: "🐛 Bugs" },
+            { id: "idea", label: "💡 Ideas" },
+            { id: "other", label: "💬 Other" },
+          ].map((cat) => (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => setFilterCategory(cat.id)}
+              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                filterCategory === cat.id
+                  ? "bg-gold text-bg font-semibold"
+                  : "bg-surface text-muted hover:text-text ring-1 ring-white/10"
               }`}
             >
-              {item.category === "bug"
-                ? "🐛 Bug"
-                : item.category === "idea"
-                ? "💡 Idea"
-                : "💬 Other"}
-            </span>
-            <span className="text-[11px] tabular-nums text-muted">
-              {new Date(item.created_at).toLocaleString()}
-            </span>
-          </div>
-          <p className="mt-2 text-sm text-text/90 whitespace-pre-wrap break-words">
-            {item.message}
-          </p>
-          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/5 pt-2 text-xs text-muted">
-            {item.page_url && (
-              <span>
-                Page: <span className="text-text/70">{item.page_url}</span>
-              </span>
-            )}
-            {item.email && (
-              <span>
-                Email:{" "}
-                <a
-                  href={`mailto:${item.email}`}
-                  className="text-gold hover:underline"
+              {cat.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Search filter */}
+        <div className="w-full sm:w-64">
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search feedback…"
+            className="w-full rounded bg-surface px-2.5 py-1 text-xs text-text placeholder-muted/60 ring-1 ring-white/10 focus-visible:outline-2 focus-visible:outline-gold"
+          />
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="mt-4 text-sm text-muted">No feedback matching current filters.</p>
+      ) : (
+        <ul className="space-y-3">
+          {filtered.map((item) => (
+            <li key={item.id} className="rounded bg-surface p-4 ring-1 ring-white/10">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
+                      item.category === "bug"
+                        ? "bg-accent-red/15 text-accent-red ring-1 ring-accent-red/30"
+                        : item.category === "idea"
+                        ? "bg-gold/15 text-gold ring-1 ring-gold/30"
+                        : "bg-white/10 text-muted ring-1 ring-white/10"
+                    }`}
+                  >
+                    {item.category === "bug"
+                      ? "🐛 Bug"
+                      : item.category === "idea"
+                      ? "💡 Idea"
+                      : "💬 Other"}
+                  </span>
+                  <span className="text-[11px] tabular-nums text-muted">
+                    {new Date(item.created_at).toLocaleString()}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleDelete(item.id)}
+                  disabled={deletingId === item.id}
+                  className="rounded px-2 py-0.5 text-xs font-medium text-accent-red ring-1 ring-accent-red/30 transition-colors hover:bg-accent-red/10 disabled:opacity-50"
                 >
-                  {item.email}
-                </a>
-              </span>
-            )}
-            {item.user_id && (
-              <span title={item.user_id}>
-                User:{" "}
-                <span className="font-mono text-[11px]">
-                  {item.user_id.slice(0, 8)}…
-                </span>
-              </span>
-            )}
-            {!item.email && !item.user_id && <span>Anonymous</span>}
-          </div>
-          {item.user_agent && (
-            <p
-              className="mt-1 truncate text-[10px] text-muted/60"
-              title={item.user_agent}
-            >
-              {item.user_agent}
-            </p>
-          )}
-        </li>
-      ))}
-    </ul>
+                  {deletingId === item.id ? "Deleting…" : "Delete"}
+                </button>
+              </div>
+              <p className="mt-2 text-sm text-text/90 whitespace-pre-wrap break-words">
+                {item.message}
+              </p>
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/5 pt-2 text-xs text-muted">
+                {item.page_url && (
+                  <span>
+                    Page: <span className="text-text/70">{item.page_url}</span>
+                  </span>
+                )}
+                {item.email && (
+                  <span>
+                    Email:{" "}
+                    <a
+                      href={`mailto:${item.email}`}
+                      className="text-gold hover:underline"
+                    >
+                      {item.email}
+                    </a>
+                  </span>
+                )}
+                {item.user_id && (
+                  <span title={item.user_id}>
+                    User:{" "}
+                    <span className="font-mono text-[11px]">
+                      {item.user_id.slice(0, 8)}…
+                    </span>
+                  </span>
+                )}
+                {!item.email && !item.user_id && <span>Anonymous</span>}
+              </div>
+              {item.user_agent && (
+                <p
+                  className="mt-1 truncate text-[10px] text-muted/60"
+                  title={item.user_agent}
+                >
+                  {item.user_agent}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -291,7 +375,10 @@ function ScheduleControl({
   );
 }
 
+type AdminTab = "overview" | "feedback" | "moderation" | "proposals";
+
 export default function AdminPage() {
+  const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const [proposals, setProposals] = useState<Proposal[] | null>(null);
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [feedbackData, setFeedbackData] = useState<AdminFeedbackResponse | null>(null);
@@ -302,6 +389,28 @@ export default function AdminPage() {
     currentMarqueeNumber: number;
     scheduling: boolean;
   } | null>(null);
+
+  async function deleteFeedback(id: string) {
+    setFeedbackData((prev) => {
+      if (!prev || !prev.available) return prev;
+      return {
+        ...prev,
+        feedback: prev.feedback.filter((item) => item.id !== id),
+      };
+    });
+
+    const res = await fetch("/api/admin/feedback", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+
+    if (!res.ok) {
+      const msg = (await res.json().catch(() => null)) as { error?: string } | null;
+      setError(msg?.error ?? `Could not delete feedback (${res.status}).`);
+      void loadFeedback();
+    }
+  }
 
   async function load() {
     const res = await fetch("/api/admin/proposals");
@@ -405,27 +514,91 @@ export default function AdminPage() {
     <main className="mx-auto w-full max-w-page flex-1 px-4 py-10">
       <MarqueeHeading as="h2">Admin</MarqueeHeading>
 
-      <h3 className="mt-6 border-b border-white/10 pb-1.5 text-xs font-semibold uppercase tracking-wider text-text/80">
-        The site right now
-      </h3>
-      <Dashboard data={stats} />
+      {/* Navigation tabs */}
+      <nav
+        role="tablist"
+        aria-label="Admin Sections"
+        className="mt-6 flex flex-wrap gap-2 border-b border-white/10 pb-px"
+      >
+        <button
+          type="button"
+          role="tab"
+          id="tab-overview"
+          aria-selected={activeTab === "overview"}
+          aria-controls="panel-overview"
+          onClick={() => setActiveTab("overview")}
+          className={`flex items-center gap-2 border-b-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors duration-150 ${
+            activeTab === "overview"
+              ? "border-gold text-gold"
+              : "border-transparent text-muted hover:border-white/20 hover:text-text"
+          }`}
+        >
+          <span>Overview</span>
+          {pending.length > 0 && (
+            <span className="rounded-full bg-gold/20 px-1.5 py-0.5 text-[10px] font-mono text-gold">
+              {pending.length}
+            </span>
+          )}
+        </button>
 
-      <h3 className="mt-10 flex items-baseline justify-between gap-3 border-b border-white/10 pb-1.5">
-        <span className="text-xs font-semibold uppercase tracking-wider text-text/80">
-          Feedback
-        </span>
-        {feedbackData?.available && (
-          <span className="text-[11px] tabular-nums text-muted">
-            {feedbackData.feedback.length}
-          </span>
-        )}
-      </h3>
-      <FeedbackSection data={feedbackData} />
+        <button
+          type="button"
+          role="tab"
+          id="tab-feedback"
+          aria-selected={activeTab === "feedback"}
+          aria-controls="panel-feedback"
+          onClick={() => setActiveTab("feedback")}
+          className={`flex items-center gap-2 border-b-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors duration-150 ${
+            activeTab === "feedback"
+              ? "border-gold text-gold"
+              : "border-transparent text-muted hover:border-white/20 hover:text-text"
+          }`}
+        >
+          <span>Feedback</span>
+          {feedbackData?.available && feedbackData.feedback.length > 0 && (
+            <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-mono text-muted">
+              {feedbackData.feedback.length}
+            </span>
+          )}
+        </button>
 
-      <h3 className="mt-10 border-b border-white/10 pb-1.5 text-xs font-semibold uppercase tracking-wider text-text/80">
-        Public content
-      </h3>
-      <ModerationQueue />
+        <button
+          type="button"
+          role="tab"
+          id="tab-moderation"
+          aria-selected={activeTab === "moderation"}
+          aria-controls="panel-moderation"
+          onClick={() => setActiveTab("moderation")}
+          className={`flex items-center gap-2 border-b-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors duration-150 ${
+            activeTab === "moderation"
+              ? "border-gold text-gold"
+              : "border-transparent text-muted hover:border-white/20 hover:text-text"
+          }`}
+        >
+          <span>Moderation</span>
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          id="tab-proposals"
+          aria-selected={activeTab === "proposals"}
+          aria-controls="panel-proposals"
+          onClick={() => setActiveTab("proposals")}
+          className={`flex items-center gap-2 border-b-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors duration-150 ${
+            activeTab === "proposals"
+              ? "border-gold text-gold"
+              : "border-transparent text-muted hover:border-white/20 hover:text-text"
+          }`}
+        >
+          <span>Proposals</span>
+          {decided.length > 0 && (
+            <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-mono text-muted">
+              {decided.length}
+            </span>
+          )}
+        </button>
+      </nav>
 
       {error && (
         <p className="mt-4 rounded bg-surface p-3 text-sm text-gold ring-1 ring-gold/30" role="status">
@@ -433,104 +606,154 @@ export default function AdminPage() {
         </p>
       )}
 
-      {proposals === null ? (
-        <p className="mt-6 text-sm text-muted">Loading…</p>
-      ) : (
-        <>
-          <h3 className="mt-6 flex items-baseline justify-between gap-3 border-b border-white/10 pb-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-text/80">
-              Awaiting a decision
-            </span>
-            <span className="text-[11px] tabular-nums text-muted">{pending.length}</span>
+      {/* Overview tab panel */}
+      {activeTab === "overview" && (
+        <div id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" className="mt-6">
+          <h3 className="border-b border-white/10 pb-1.5 text-xs font-semibold uppercase tracking-wider text-text/80">
+            The site right now
           </h3>
+          <Dashboard data={stats} />
 
-          {pending.length === 0 ? (
-            <p className="mt-4 text-sm text-muted">No pending proposals.</p>
+          {proposals === null ? (
+            <p className="mt-6 text-sm text-muted">Loading…</p>
           ) : (
-            <ul className="mt-4 space-y-4">
-              {pending.map((p) => (
-                <li key={p.id} className="rounded bg-surface p-4 ring-1 ring-white/10">
-                  <h4 className="font-semibold">{p.title}</h4>
-                  {p.blurb && <p className="mt-0.5 text-sm text-muted">{p.blurb}</p>}
-                  <p className="mt-1 text-xs text-muted">
-                    {p.films.length} film{p.films.length === 1 ? "" : "s"}
-                    {p.proposerHandle ? ` · @${p.proposerHandle}` : " · anonymous"}
-                  </p>
-                  <FilmStrip films={p.films} />
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void decide(p.id, "approved")}
-                      disabled={busyId === p.id}
-                      className={`${btn} bg-gold text-bg`}
-                    >
-                      Approve
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void decide(p.id, "rejected")}
-                      disabled={busyId === p.id}
-                      className={`${btn} bg-surface-raised text-text ring-1 ring-white/10 hover:bg-white/10`}
-                    >
-                      Reject
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {decided.length > 0 && (
             <>
               <h3 className="mt-10 flex items-baseline justify-between gap-3 border-b border-white/10 pb-1.5">
                 <span className="text-xs font-semibold uppercase tracking-wider text-text/80">
-                  Decided
+                  Awaiting a decision
+                </span>
+                <span className="text-[11px] tabular-nums text-muted">{pending.length}</span>
+              </h3>
+
+              {pending.length === 0 ? (
+                <p className="mt-4 text-sm text-muted">No pending proposals.</p>
+              ) : (
+                <ul className="mt-4 space-y-4">
+                  {pending.map((p) => (
+                    <li key={p.id} className="rounded bg-surface p-4 ring-1 ring-white/10">
+                      <h4 className="font-semibold">{p.title}</h4>
+                      {p.blurb && <p className="mt-0.5 text-sm text-muted">{p.blurb}</p>}
+                      <p className="mt-1 text-xs text-muted">
+                        {p.films.length} film{p.films.length === 1 ? "" : "s"}
+                        {p.proposerHandle ? ` · @${p.proposerHandle}` : " · anonymous"}
+                      </p>
+                      <FilmStrip films={p.films} />
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void decide(p.id, "approved")}
+                          disabled={busyId === p.id}
+                          className={`${btn} bg-gold text-bg`}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void decide(p.id, "rejected")}
+                          disabled={busyId === p.id}
+                          className={`${btn} bg-surface-raised text-text ring-1 ring-white/10 hover:bg-white/10`}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Feedback tab panel */}
+      {activeTab === "feedback" && (
+        <div id="panel-feedback" role="tabpanel" aria-labelledby="tab-feedback" className="mt-6">
+          <h3 className="flex items-baseline justify-between gap-3 border-b border-white/10 pb-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wider text-text/80">
+              User Feedback
+            </span>
+            {feedbackData?.available && (
+              <span className="text-[11px] tabular-nums text-muted">
+                {feedbackData.feedback.length} total
+              </span>
+            )}
+          </h3>
+          <FeedbackSection data={feedbackData} onDelete={deleteFeedback} />
+        </div>
+      )}
+
+      {/* Moderation tab panel */}
+      {activeTab === "moderation" && (
+        <div id="panel-moderation" role="tabpanel" aria-labelledby="tab-moderation" className="mt-6">
+          <h3 className="border-b border-white/10 pb-1.5 text-xs font-semibold uppercase tracking-wider text-text/80">
+            Public content
+          </h3>
+          <ModerationQueue />
+        </div>
+      )}
+
+      {/* Proposals tab panel */}
+      {activeTab === "proposals" && (
+        <div id="panel-proposals" role="tabpanel" aria-labelledby="tab-proposals" className="mt-6">
+          {proposals === null ? (
+            <p className="text-sm text-muted">Loading…</p>
+          ) : (
+            <>
+              <h3 className="flex items-baseline justify-between gap-3 border-b border-white/10 pb-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wider text-text/80">
+                  Decided Proposals
                 </span>
                 <span className="text-[11px] tabular-nums text-muted">{decided.length}</span>
               </h3>
-              <ul className="mt-4 space-y-2">
-                {decided.map((p) => (
-                  <li
-                    key={p.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded bg-surface p-3 ring-1 ring-white/10"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">{p.title}</span>
-                      <span className="text-[11px] text-muted">
-                        {p.status === "approved" ? statusLine(p, weekInfo) : "Rejected"}
-                        {p.proposerHandle ? ` · @${p.proposerHandle}` : ""}
+
+              {decided.length === 0 ? (
+                <p className="mt-4 text-sm text-muted">No decided proposals yet.</p>
+              ) : (
+                <ul className="mt-4 space-y-2">
+                  {decided.map((p) => (
+                    <li
+                      key={p.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded bg-surface p-3 ring-1 ring-white/10"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium">{p.title}</span>
+                        <span className="text-[11px] text-muted">
+                          {p.status === "approved" ? statusLine(p, weekInfo) : "Rejected"}
+                          {p.proposerHandle ? ` · @${p.proposerHandle}` : ""}
+                        </span>
                       </span>
-                    </span>
-                    <span className="flex flex-wrap gap-2">
-                      {p.status === "approved" && weekInfo?.scheduling && (
-                        <ScheduleControl
-                          proposal={p}
-                          weekInfo={weekInfo}
+                      <span className="flex flex-wrap gap-2">
+                        {p.status === "approved" && weekInfo?.scheduling && (
+                          <ScheduleControl
+                            proposal={p}
+                            weekInfo={weekInfo}
+                            disabled={busyId === p.id}
+                            onSchedule={schedule}
+                          />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => void decide(p.id, "pending")}
                           disabled={busyId === p.id}
-                          onSchedule={schedule}
-                        />
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => void decide(p.id, "pending")}
-                        disabled={busyId === p.id}
-                        className={`${btn} bg-surface-raised text-text ring-1 ring-white/10 hover:bg-white/10`}
-                        title={
-                          p.status === "approved"
-                            ? "Returns this to the queue and releases any week it holds"
-                            : "Returns this to the queue"
-                        }
-                      >
-                        Undo
-                      </button>
-                    </span>
-                  </li>
-                ))}
-              </ul>
+                          className={`${btn} bg-surface-raised text-text ring-1 ring-white/10 hover:bg-white/10`}
+                          title={
+                            p.status === "approved"
+                              ? "Returns this to the queue and releases any week it holds"
+                              : "Returns this to the queue"
+                          }
+                        >
+                          Undo
+                        </button>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </>
           )}
-        </>
+        </div>
       )}
     </main>
   );
 }
+

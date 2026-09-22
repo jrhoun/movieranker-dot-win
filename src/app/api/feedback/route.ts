@@ -36,7 +36,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const { category, message, email } = body as Record<string, unknown>;
+  const rawBody = body as Record<string, unknown>;
+  const honeypot = rawBody.hp_website ?? rawBody.website;
+  if (typeof honeypot === "string" && honeypot.trim().length > 0) {
+    // Honeypot triggered: silently drop spam submission without persisting
+    console.info("[feedback] Honeypot triggered, dropping submission");
+    return NextResponse.json({ ok: true });
+  }
+
+  const { category, message, email } = rawBody;
 
   // Category validation
   if (typeof category !== "string") {
