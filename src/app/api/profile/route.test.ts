@@ -33,7 +33,9 @@ vi.mock("@/lib/supabase/admin", () => ({
   }),
 }));
 
-function makeDb(opts: { user?: { id: string } | null }) {
+function makeDb(opts: {
+  user?: { id: string; user_metadata?: Record<string, unknown> } | null;
+}) {
   const calls: Call[] = [];
   const client = {
     auth: {
@@ -48,6 +50,7 @@ function makeDb(opts: { user?: { id: string } | null }) {
       };
       obj.select = track("select");
       obj.eq = track("eq");
+      obj.ilike = track("ilike");
       obj.order = track("order");
       obj.in = track("in");
       obj.limit = track("limit");
@@ -175,6 +178,35 @@ describe("POST /api/profile", () => {
   it("500 surfaces non-conflict db errors", async () => {
     currentDb.writeResult = { error: { message: "boom" } };
     expect((await post("fine-handle-1")).status).toBe(500);
+  });
+
+  it("falls back to the referrer stashed in user metadata when no cookie or ref is sent", async () => {
+    const referrer = "11111111-2222-4333-8444-555555555555";
+    currentDb = {
+      ...makeDb({ user: { id: "u-1", user_metadata: { referred_by: referrer } } }),
+      // resolveReferrerId's profiles lookup and the existing-profile read both
+      // land here; neither carries a referred_by, so the stash wins.
+      row: { id: referrer },
+    };
+    const res = await post("fresh-handle");
+    expect(res.status).toBe(201);
+    const upsert = currentDb.calls.find((c) => c.method === "upsert")!;
+    expect(upsert.args[0]).toEqual({
+      id: "u-1",
+      handle: "fresh-handle",
+      referred_by: referrer,
+    });
+  });
+
+  it("never credits a user as their own referrer via stashed metadata", async () => {
+    currentDb = {
+      ...makeDb({ user: { id: "u-1", user_metadata: { referred_by: "u-1" } } }),
+      row: { id: "u-1" },
+    };
+    const res = await post("fresh-handle");
+    expect(res.status).toBe(201);
+    const upsert = currentDb.calls.find((c) => c.method === "upsert")!;
+    expect(upsert.args[0]).toEqual({ id: "u-1", handle: "fresh-handle" });
   });
 
   it("rate-limits claim attempts, counting failures too", async () => {

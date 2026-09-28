@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { trackSignInClick } from "@/lib/analytics";
 
 /** Sign-in link that remembers the current page via /login?next=<path>. */
 export default function SignInLink({ className }: { className: string }) {
@@ -11,7 +12,11 @@ export default function SignInLink({ className }: { className: string }) {
   if (onLogin) return null;
   const next = pathname ? `?next=${encodeURIComponent(pathname)}` : "";
   return (
-    <Link href={`/login${next}`} className={`${className} whitespace-nowrap`}>
+    <Link
+      href={`/login${next}`}
+      onClick={() => trackSignInClick("header")}
+      className={`${className} whitespace-nowrap`}
+    >
       <span className="hidden sm:inline">Sign in / Join</span>
       <span className="sm:hidden">Sign in</span>
     </Link>

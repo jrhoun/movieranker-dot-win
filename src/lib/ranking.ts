@@ -13,9 +13,32 @@ const K = 32;
 
 export const STABILITY_VOTES_N = 6;
 export const SHARPEN_GAP_THRESHOLD = 50;
-/** Pairs within this gap are settled enough to stop the quick phase but close
- * enough to argue about — Sharpen mode exists to separate them. */
-export const SHARPEN_COMFORT_GAP = 120;
+/**
+ * A "close call" is an adjacent pair the engine could not tell apart: their
+ * gap sits inside the same tie band that isStable() uses (STABLE_ORDER_TOLERANCE,
+ * 30). One decisive head-to-head moves two tied films ~32 points apart, so a
+ * pair the player separated with their own vote is NOT a close call.
+ *
+ * This was 120. Simulated finishes for six films (any player: consistent,
+ * noisy, random) end with every adjacent gap under 120 — the median gap is
+ * ~30 — so "5 of 5 matchups still too close to call" and the "Early result"
+ * label fired on every single Marquee. Verified against production on
+ * 2026-09-28. Keep this equal to STABLE_ORDER_TOLERANCE (asserted in tests).
+ */
+export const SHARPEN_COMFORT_GAP = 30;
+
+/**
+ * Hard stop on the quick phase. isStable() needs a run of quiet votes, and a
+ * player whose picks are intransitive (tapping the same side every time, or
+ * guessing) never produces one: in simulation such a player is still voting
+ * at 270+ votes on a six-film list. Past this many votes the consensus screen
+ * shows regardless. Well above what any coherent player needs (sim p90 for
+ * six films is 26 votes at 85% consistency; for ten films, 63).
+ */
+export function maxVotes(activeCount: number): number {
+  const pairs = (activeCount * (activeCount - 1)) / 2;
+  return Math.max(pairs, Math.ceil(expectedConsensusVotes(activeCount) * 2.5));
+}
 
 function expectedScore(winnerElo: number, loserElo: number): number {
   return 1 / (1 + Math.pow(10, (loserElo - winnerElo) / 400));

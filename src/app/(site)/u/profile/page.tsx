@@ -15,7 +15,15 @@ import { loadOwnerProfile } from "./customise/profile-data";
 const PRIMARY =
   "inline-flex min-h-11 items-center rounded-full bg-gold px-5 font-semibold text-bg transition-opacity duration-200 ease-out hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold";
 
-export default async function MyListsPage() {
+export default async function MyListsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  // The auth callback sends a brand-new account here with ?welcome=1 so its
+  // first page is the handle claim, not a home page it has already seen.
+  const { welcome } = await searchParams;
+  const isWelcome = welcome === "1";
   const {
     handle,
     claimed,
@@ -105,6 +113,11 @@ export default async function MyListsPage() {
 
           {!claimed && (
             <div className="mx-auto mt-6 max-w-reading">
+              {isWelcome && (
+                <p className="text-center text-base text-muted">
+                  Welcome in. Pick a handle and your rankings get a home.
+                </p>
+              )}
               <ClaimHandleCard />
             </div>
           )}

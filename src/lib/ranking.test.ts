@@ -12,6 +12,7 @@ import {
   finalizeRanks,
   expectedConsensusVotes,
   isStable,
+  maxVotes,
   nextMatchup,
   recordMatchupResult,
   sharpenNextPair,
@@ -323,20 +324,20 @@ describe("estimateRemainingVotes", () => {
 
   test("stability leaves sharpen work: close calls counted, then gone after sharpening", () => {
     let order = [
-      movie({ tmdbId: 1, elo: 1050, comparisons: 3 }),
-      movie({ tmdbId: 2, elo: 1030, comparisons: 3 }),
+      movie({ tmdbId: 1, elo: 1040, comparisons: 3 }),
+      movie({ tmdbId: 2, elo: 1020, comparisons: 3 }),
       movie({ tmdbId: 3, elo: 1000, comparisons: 3 }),
     ];
-    // differentiated + settled, while every gap < comfort band
+    // differentiated + settled, while every gap is inside the tie band
     expect(isStable(order, STABILITY_VOTES_N, true)).toBe(true);
     expect(sharpenNextPair(order)).not.toBeNull();
     expect(estimateRemainingVotes(order)).toBe(4); // 2 close calls
 
-    // simulated sharpen votes push both gaps past the comfort band
+    // one decisive head-to-head each pushes both gaps past the band
     order = [
-      movie({ tmdbId: 1, elo: 1250 }),
-      movie({ tmdbId: 2, elo: 1110 }),
-      movie({ tmdbId: 3, elo: 970 }),
+      movie({ tmdbId: 1, elo: 1064 }),
+      movie({ tmdbId: 2, elo: 1032 }),
+      movie({ tmdbId: 3, elo: 1000 }),
     ];
     expect(sharpenNextPair(order)).toBeNull();
     expect(estimateRemainingVotes(order)).toBe(1); // min-1
@@ -344,6 +345,29 @@ describe("estimateRemainingVotes", () => {
 });
 
 describe("countClosePairs", () => {
+  test("the close-call band IS the engine's tie band", () => {
+    // A pair the player separated with one direct vote moves ~32 apart
+    // (K=32, expected 0.5) and must not read as "too close to call".
+    expect(SHARPEN_COMFORT_GAP).toBe(STABLE_ORDER_TOLERANCE);
+    const decided = applyWin([movie({ tmdbId: 1 }), movie({ tmdbId: 2 })], 1, 2);
+    expect(countClosePairs(decided)).toBe(0);
+  });
+
+  test("a natural six-film finish is not all close calls", () => {
+    // Shape of a real consistent-player finish (sim median gaps ≈ 30-48):
+    // most neighbours were separated by a vote, a couple were not.
+    const finish = [
+      movie({ tmdbId: 1, elo: 1090 }),
+      movie({ tmdbId: 2, elo: 1050 }),
+      movie({ tmdbId: 3, elo: 1020 }), // gap 30: close
+      movie({ tmdbId: 4, elo: 985 }),
+      movie({ tmdbId: 5, elo: 960 }), // gap 25: close
+      movie({ tmdbId: 6, elo: 900 }),
+    ];
+    expect(countClosePairs(finish)).toBe(2);
+    expect(countClosePairs(finish)).toBeLessThan(finish.length - 1);
+  });
+
   test("all-equal elos: every adjacent pair is close (n-1)", () => {
     const tied = Array.from({ length: 19 }, (_, i) => movie({ tmdbId: i + 1 }));
     expect(countClosePairs(tied)).toBe(18);
@@ -351,12 +375,50 @@ describe("countClosePairs", () => {
 
   test("matches the comfort band and ignores parked-free ordering", () => {
     const spread = [
-      movie({ tmdbId: 1, elo: 1300 }),
+      movie({ tmdbId: 1, elo: 1230 }),
       movie({ tmdbId: 2, elo: 1200 }), // gap exactly at band -> close
       movie({ tmdbId: 3, elo: 1000 }), // gap 200 -> not close
     ];
     expect(countClosePairs(spread)).toBe(1);
     expect(estimateRemainingVotes(spread)).toBe(2); // ceil(1*2), no floor needed
+  });
+});
+
+describe("maxVotes", () => {
+  test("is a hard stop well above any coherent player's finish", () => {
+    // sim p90 at 85% consistency: 26 votes for 6 films, 63 for 10
+    expect(maxVotes(6)).toBe(40);
+    expect(maxVotes(10)).toBe(85);
+    expect(maxVotes(6)).toBeGreaterThan(26);
+    expect(maxVotes(10)).toBeGreaterThan(63);
+  });
+
+  test("never below the number of distinct pairs", () => {
+    for (const n of [2, 3, 4, 20, 40]) {
+      expect(maxVotes(n)).toBeGreaterThanOrEqual((n * (n - 1)) / 2);
+    }
+  });
+
+  test("an always-left player is stopped by the cap, not by stability", () => {
+    // Intransitive picks never produce the quiet run isStable() needs.
+    let movies = Array.from({ length: 6 }, (_, i) => movie({ tmdbId: i + 1 }));
+    let quiet = 0;
+    let split = false;
+    let votes = 0;
+    let prev: [number, number] | undefined;
+    const history: Array<[number, number]> = [];
+    while (votes < maxVotes(6)) {
+      const [a, b] = nextMatchup(movies, prev, history);
+      const r = recordMatchupResult(movies, a.tmdbId, b.tmdbId);
+      movies = r.movies;
+      quiet = r.orderChanged ? 0 : quiet + 1;
+      split = split || r.orderChanged;
+      history.push([a.tmdbId, b.tmdbId]);
+      prev = [a.tmdbId, b.tmdbId];
+      votes++;
+      if (isStable(movies, quiet, split)) break;
+    }
+    expect(votes).toBe(maxVotes(6));
   });
 });
 
@@ -383,10 +445,10 @@ describe("sharpenNextPair", () => {
     expect([a.tmdbId, b.tmdbId]).toEqual([3, 2]); // gap 20 < gap 100
   });
 
-  test(`has work at stability: a ${SHARPEN_GAP_THRESHOLD + 30} gap is above the stability threshold but within comfort`, () => {
+  test(`has work at stability: a gap inside the tie band (<= ${SHARPEN_GAP_THRESHOLD}) is stable, yet sharpenable`, () => {
     const order = [
       movie({ tmdbId: 1, elo: 1300, comparisons: 3 }),
-      movie({ tmdbId: 2, elo: 1220, comparisons: 3 }), // gap 80: stable, yet sharpenable
+      movie({ tmdbId: 2, elo: 1275, comparisons: 3 }), // gap 25: stable, yet sharpenable
       movie({ tmdbId: 3, elo: 1000, comparisons: 3 }),
     ];
     expect(isStable(order, STABILITY_VOTES_N, true)).toBe(true);

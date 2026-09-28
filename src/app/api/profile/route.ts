@@ -84,12 +84,17 @@ export async function POST(request: Request) {
       { status: 400 },
     );
 
-  // Check for referrer cookie or request payload
+  // Check for referrer in the request payload, the cookie, or (when both are
+  // gone by claim time) the referrer id the auth callback stashed in user
+  // metadata at account creation — a resolved uuid, which resolveReferrerId
+  // re-checks against profiles like any other code.
   const cookieHeader = request.headers.get("cookie") ?? "";
   const matchCookie = cookieHeader.match(/(?:^|;\s*)mr_ref=([^;]+)/);
+  const stashedRef = auth.user.user_metadata?.referred_by;
   const refCode =
     (body as { ref?: string }).ref ??
-    (matchCookie ? decodeURIComponent(matchCookie[1]) : null);
+    (matchCookie ? decodeURIComponent(matchCookie[1]) : null) ??
+    (typeof stashedRef === "string" ? stashedRef : null);
 
   let referrerId: string | null = null;
   if (refCode) {
