@@ -219,8 +219,8 @@ describe("Empirical Challenger 2: Concurrency & Boundary Verification", () => {
 
       const movies: RankedMovie[] = [
         { tmdbId: 1, title: "A", posterPath: null, releaseYear: null, elo: 1200, comparisons: 5, parked: false },
-        { tmdbId: 2, title: "B", posterPath: null, releaseYear: null, elo: 1150, comparisons: 5, parked: false }, // gap 50 <= 120 (close)
-        { tmdbId: 3, title: "C", posterPath: null, releaseYear: null, elo: 900, comparisons: 5, parked: false },  // gap 250 > 120 (far)
+        { tmdbId: 2, title: "B", posterPath: null, releaseYear: null, elo: 1180, comparisons: 5, parked: false }, // gap 20 <= 30 (close)
+        { tmdbId: 3, title: "C", posterPath: null, releaseYear: null, elo: 900, comparisons: 5, parked: false },  // gap 280 > 30 (far)
       ];
 
       expect(countClosePairs(movies)).toBe(1);

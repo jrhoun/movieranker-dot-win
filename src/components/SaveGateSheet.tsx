@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { finalizeRanks } from "@/lib/ranking";
 import { clearSession, type PlaySession } from "@/lib/session";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { trackEvent } from "@/lib/analytics";
+import { trackEvent, trackSignInClick } from "@/lib/analytics";
 
 const inputCls =
   "h-11 w-full rounded bg-surface-raised px-3 text-sm text-text placeholder:text-muted ring-1 ring-white/10 transition-shadow duration-150 ease-out hover:ring-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
@@ -172,10 +172,21 @@ export default function SaveGateSheet({
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
+    trackSignInClick("save_gate", "password");
     setBusy(true);
     setNote(null);
     const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.auth.signUp({ email, password });
+    // With email confirmation on, the confirm link used to land on the Site
+    // URL ("/"), leaving the ranking stranded in this browser. Send it back
+    // to the room instead: the session there carries `finishedAt`, so the
+    // room reopens on the consensus screen signed in and auto-saves.
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/r/play")}`,
+      },
+    });
     if (error) {
       setBusy(false);
       setNote(error.message);
@@ -196,12 +207,19 @@ export default function SaveGateSheet({
   }
 
   async function handleMagicLink() {
+    trackSignInClick("save_gate", "magic_link");
     if (!email.trim()) {
       setNote("Enter your email above first.");
       return;
     }
     setBusy(true);
     setNote(null);
+    // Same flag the OAuth path sets: if the link is opened in THIS tab the
+    // room reopens the sheet and saves. Opened in a new tab, the persisted
+    // `finishedAt` on the session does the same job.
+    try {
+      sessionStorage.setItem("mr_pending_auth_save", status);
+    } catch {}
     const { error } = await createSupabaseBrowserClient().auth.signInWithOtp({
       email,
       options: {
@@ -209,10 +227,16 @@ export default function SaveGateSheet({
       },
     });
     setBusy(false);
+    if (error) {
+      try {
+        sessionStorage.removeItem("mr_pending_auth_save");
+      } catch {}
+    }
     setNote(error ? error.message : `Magic link sent to ${email}.`);
   }
 
   async function handleOAuth(provider: "google") {
+    trackSignInClick("save_gate", provider);
     setBusy(true);
     setNote(null);
     try {

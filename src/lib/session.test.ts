@@ -162,7 +162,7 @@ describe("voting helpers", () => {
     const tight = three();
     tight.movies = [
       { ...movie(1), elo: 1200 },
-      { ...movie(2), elo: 1160 }, // 40 gap to m1, sharpenable
+      { ...movie(2), elo: 1180 }, // 20 gap to m1, inside the tie band: sharpenable
       { ...movie(3), elo: 1000 },
     ];
     expect(selectNextPair(tight, true)!.map((m) => m.tmdbId)).toEqual([2, 1]);

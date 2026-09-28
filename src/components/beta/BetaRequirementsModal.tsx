@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { trackSignInClick } from "@/lib/analytics";
 
 export interface BetaRequirementsStats {
   isSignedIn?: boolean;
@@ -235,7 +236,10 @@ export default function BetaRequirementsModal({
             {!step1Done && (
               <Link
                 href="/login"
-                onClick={onClose}
+                onClick={() => {
+                  trackSignInClick("beta_modal");
+                  onClose();
+                }}
                 className="shrink-0 rounded-lg border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-gold hover:bg-gold hover:text-bg transition-colors"
               >
                 Sign In →

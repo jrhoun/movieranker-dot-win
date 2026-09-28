@@ -10,6 +10,7 @@ import MoviePoster from "@/components/list/MoviePoster";
 import SearchPanel from "@/components/SearchPanel";
 import UpvoteButton from "@/components/community/UpvoteButton";
 import ForkButton from "@/components/community/ForkButton";
+import { trackEvent } from "@/lib/analytics";
 import { FAN_POSTERS } from "@/lib/hero-posters";
 import type { RankedMovie } from "@/lib/ranking";
 import { clearSession, loadSession, saveSession, totalComparisons, type PlaySession } from "@/lib/session";
@@ -427,7 +428,10 @@ export default function HomeClient({
                 ) : (
                   <button
                     type="button"
-                    onClick={() => start(true)}
+                    onClick={() => {
+                      trackEvent("home_cta_clicked", { cta: "play_marquee" });
+                      start(true);
+                    }}
                     className="inline-flex h-12 min-h-12 cursor-pointer items-center justify-center rounded-full bg-gold px-6 text-sm font-semibold text-bg shadow-lg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
                   >
                     Play this week&apos;s list
@@ -435,7 +439,10 @@ export default function HomeClient({
                 )}
                 <button
                   type="button"
-                  onClick={scrollToBuilderAndFocus}
+                  onClick={() => {
+                    trackEvent("home_cta_clicked", { cta: "build_own" });
+                    scrollToBuilderAndFocus();
+                  }}
                   className="inline-flex h-12 min-h-12 cursor-pointer items-center justify-center rounded-full border border-gold/40 bg-surface/80 px-6 text-sm font-semibold text-text ring-1 ring-white/10 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-gold hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
                 >
                   Build your own
@@ -480,14 +487,20 @@ export default function HomeClient({
             <div className="mt-6 flex flex-wrap items-center justify-center gap-[10px]">
               <button
                 type="button"
-                onClick={() => scrollToBuilderAndFocus()}
+                onClick={() => {
+                  trackEvent("home_cta_clicked", { cta: "play_marquee" });
+                  scrollToBuilderAndFocus();
+                }}
                 className="inline-flex h-12 min-h-12 cursor-pointer items-center justify-center rounded-full bg-gold px-6 text-sm font-semibold text-bg shadow-lg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
               >
                 Play this week&apos;s list
               </button>
               <button
                 type="button"
-                onClick={scrollToBuilderAndFocus}
+                onClick={() => {
+                  trackEvent("home_cta_clicked", { cta: "build_own" });
+                  scrollToBuilderAndFocus();
+                }}
                 className="inline-flex h-12 min-h-12 cursor-pointer items-center justify-center rounded-full border border-gold/40 bg-surface/80 px-6 text-sm font-semibold text-text ring-1 ring-white/10 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-gold hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
               >
                 Build your own
@@ -590,6 +603,7 @@ export default function HomeClient({
             )}
             <Link
               href="/r/play"
+              onClick={() => trackEvent("home_cta_clicked", { cta: "resume" })}
               className="inline-flex min-h-11 items-center rounded-full bg-gold px-5 text-sm font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98]"
             >
               Resume ranking

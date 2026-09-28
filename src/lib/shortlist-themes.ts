@@ -14,6 +14,21 @@ export type { ThemeConnectionGame };
  * identifiable late-film moments. ("Rain Soaked Cinema" good; anything that
  * names how a specific film ends bad.) Never name contained films outright;
  * obtuse connections only their viewers decode are the brand.
+ *
+ * Obtuse is about the CONNECTION, not the films. "Obtuse" had drifted into
+ * "unfamiliar": a list nobody has seen is a list nobody ranks. Every roster
+ * should be built from films most people have actually watched (TMDB
+ * vote_count is the proxy we measure with; aim for every film above ~5,000
+ * and a median above ~10,000), and the premise should be one a viewer gets
+ * instantly and already has an opinion about ("best movie with a US
+ * president", not "films that share a cinematographer's mood").
+ *
+ * ORDER MATTERS. shortlist.ts picks `SHORTLIST_THEMES[week % length]`, so
+ * adding, removing or reordering entries re-maps every week — including the
+ * one currently running. Before changing this array, compute the live index
+ * (`weeksSinceUtcEpoch(now) % newLength`) and make sure the theme that is live
+ * right now sits at that index in the new array. As of 2026-09-28 (week
+ * 2961, 63 themes) that index is 0, which is why "midnight-drive" leads.
  */
 export interface ShortlistTheme {
   slug: string;
@@ -24,6 +39,89 @@ export interface ShortlistTheme {
 }
 
 export const SHORTLIST_THEMES: ShortlistTheme[] = [
+  // Live for week 2961 (Marquee #6). Do not move without re-anchoring; see above.
+  {
+    slug: "midnight-drive",
+    title: "Empty Highways, Glowing Dashboards",
+    blurb: "Synths on the stereo, streetlights passing by, and nighttime contemplation.",
+    movieIds: [64690, 339403, 1538, 242582, 210479, 949],
+  },
+
+  // --- The twelve added 2026-09-28: broad premises, widely seen films. ---
+  {
+    slug: "rooting-for-the-wrong-guy",
+    title: "Rooting for the Wrong Guy",
+    blurb: "The hero is fine. The hero is great. Now let's talk about the one you actually remember.",
+    movieIds: [274, 284054, 16869, 37724, 558, 6977],
+  },
+  {
+    slug: "hail-to-the-chief",
+    title: "Hail to the Chief",
+    blurb: "Motorcades, red phones, and the leader of the free world having a very long day.",
+    movieIds: [602, 9772, 13, 68721, 646380, 935],
+  },
+  {
+    slug: "the-ride-is-the-star",
+    title: "The Ride Is the Star",
+    blurb: "Chrome, horsepower, and a co-star that never learned its lines. Yes, boats count.",
+    movieIds: [105, 597, 920, 1858, 359724, 9654],
+  },
+  {
+    slug: "monster-vs-action-hero",
+    title: "Reload. It's Still Coming.",
+    blurb: "Big guns, bigger teeth, and the toughest person on the payroll suddenly on the menu.",
+    movieIds: [106, 679, 135397, 345940, 293167, 766507],
+  },
+  {
+    slug: "dont-touch-anything",
+    title: "Don't Touch Anything",
+    blurb: "Paradoxes, grandfathers, and the one rule everyone breaks within ten minutes.",
+    movieIds: [299534, 673, 218, 577922, 59967, 122906],
+  },
+  {
+    slug: "return-to-your-seats",
+    title: "Please Return to Your Seats",
+    blurb: "Cruising altitude, one working bathroom, and nowhere to step outside for a minute.",
+    movieIds: [744, 363676, 87502, 225574, 813, 1701],
+  },
+  {
+    slug: "animal-gets-the-best-lines",
+    title: "The Animal Gets the Best Lines",
+    blurb: "Fur, scales, or stuffing: whoever's talking, it isn't the human, and it's funnier.",
+    movieIds: [808, 269149, 12, 72105, 118340, 278927],
+  },
+  {
+    slug: "adults-are-useless-here",
+    title: "Adults Are Useless Here",
+    blurb: "Every grown-up in the room is either absent, oblivious, or actively the problem.",
+    movieIds: [671, 771, 601, 8844, 14836, 10830],
+  },
+  {
+    slug: "one-night-only",
+    title: "One Night Only",
+    blurb: "Everything that can happen between dinner and breakfast, and none of it good for your sleep.",
+    movieIds: [562, 1593, 7191, 755, 948, 76],
+  },
+  {
+    slug: "good-boy-best-actor",
+    title: "Good Boy, Best Actor",
+    blurb: "The humans got the poster. The dog got the movie.",
+    movieIds: [245891, 6479, 12230, 28178, 328111, 14306],
+  },
+  {
+    slug: "speak-now",
+    title: "Speak Now or Forever Hold Your Peace",
+    blurb: "Open bar, seating-chart politics, and at least one speech that should have been cut.",
+    movieIds: [18785, 393, 11631, 567609, 9522, 55721],
+  },
+  {
+    slug: "nobody-asked-them-to-sing",
+    title: "Nobody Asked Them to Sing",
+    blurb: "Mid-sentence, mid-crisis, mid-street: the feelings got too big and here comes the orchestra.",
+    movieIds: [313369, 109445, 10020, 568124, 316029, 621],
+  },
+
+  // --- Original rotation, in its original order (minus the live theme above). ---
   {
     slug: "secretly-same-story",
     title: "Secretly The Same Story",
@@ -34,7 +132,7 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "best-hairpieces",
     title: "Best Hairpieces & Prosthetics",
     blurb: "Somewhere under three pounds of latex is a very committed A-lister.",
-    movieIds: [854, 888, 399404, 788, 1955, 7446, 118340],
+    movieIds: [854, 8871, 399404, 788, 1955, 7446, 118340],
   },
   {
     slug: "one-location",
@@ -64,7 +162,7 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "so-bad-theyre-great",
     title: "So Bad They're Masterpieces",
     blurb: "You can't look away, and you definitely can't explain why.",
-    movieIds: [415, 314, 8645, 17473, 664, 927],
+    movieIds: [415, 314, 8645, 8966, 297761, 216015],
   },
   {
     slug: "trains-youd-rather-not-miss",
@@ -112,7 +210,7 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "undercover-lies",
     title: "Badge Off, Mask On",
     blurb: "Deep cover, shifting loyalties, and nobody knows who is wearing a wire.",
-    movieIds: [1422, 769, 640, 10398, 757, 16869],
+    movieIds: [1422, 769, 640, 754, 9366, 16869],
   },
   {
     slug: "high-seas-peril",
@@ -124,7 +222,7 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "courtroom-fire",
     title: "Objection Sustained",
     blurb: "Twelve jurors, one witness, and the dramatic monologue of a lifetime.",
-    movieIds: [389, 881, 595, 10377, 8835, 24226],
+    movieIds: [389, 881, 595, 1624, 8835, 492188],
   },
   {
     slug: "the-grand-heist",
@@ -136,7 +234,7 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "culinary-meltdowns",
     title: "Order Up, Fire Burning",
     blurb: "Michelin stars, screaming chefs, and kitchen nightmares on high heat.",
-    movieIds: [2062, 593643, 212778, 24803, 392, 295964],
+    movieIds: [2062, 593643, 212778, 22794, 118, 295964],
   },
   {
     slug: "space-silence",
@@ -148,7 +246,7 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "unhinged-holidays",
     title: "Peace on Earth, Pure Mayhem",
     blurb: "Family reunions, runaway snowmobiles, and holiday chaos.",
-    movieIds: [562, 771, 10719, 5825, 927, 1585],
+    movieIds: [562, 771, 10719, 9479, 927, 1585],
   },
   {
     slug: "frozen-wastelands",
@@ -160,7 +258,7 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "summer-gone-wrong",
     title: "Sunny Days, Dark Turns",
     blurb: "Campfires, boardwalks, and a vacation nobody will ever forget.",
-    movieIds: [578, 9340, 235, 925, 3597, 530385],
+    movieIds: [578, 9340, 235, 458723, 3597, 530385],
   },
   {
     slug: "fast-lanes-high-octane",
@@ -184,19 +282,19 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "whodunit-manor",
     title: "The Butler Didn't Do It",
     blurb: "A sprawling estate, an eccentric detective, and everyone with a motive.",
-    movieIds: [546554, 661374, 15196, 392044, 5279, 505026],
+    movieIds: [546554, 661374, 15196, 392044, 10528, 505026],
   },
   {
     slug: "suburban-dystopia",
     title: "White Picket Fences, Dark Secrets",
     blurb: "Manicured lawns, neighborhood barbecues, and sinister smiling neighbors.",
-    movieIds: [37165, 419430, 162, 14, 793, 2657],
+    movieIds: [37165, 419430, 162, 14, 793, 210577],
   },
   {
     slug: "boxing-redemption",
     title: "Down on the Canvas",
     blurb: "Sweat, heart, broken ribs, and one last shot at glory in the ring.",
-    movieIds: [1366, 550, 312221, 59440, 1578, 45317],
+    movieIds: [1366, 550, 312221, 59440, 1578, 70],
   },
   {
     slug: "journalism-truth",
@@ -214,7 +312,7 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "wild-west-standoff",
     title: "High Noon in the Sun",
     blurb: "Spurs jingling, tumbleweeds rolling, and fingers hovering over holsters.",
-    movieIds: [68718, 6977, 429, 33, 11969, 44264],
+    movieIds: [68718, 6977, 429, 33, 273248, 44264],
   },
   {
     slug: "jazz-and-obsession",
@@ -232,19 +330,13 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "creepy-dolls-puppets",
     title: "Toy Box Nightmares",
     blurb: "Porcelain smiles, glass eyes that follow you, and batteries definitely not included.",
-    movieIds: [10585, 250546, 536554, 862, 927, 14001],
+    movieIds: [10585, 250546, 536554, 862, 927, 138843],
   },
   {
     slug: "high-stakes-gambling",
     title: "All In, Aces High",
     blurb: "Green felt, smokey backrooms, and everything riding on the river card.",
-    movieIds: [36557, 161, 106646, 524, 10220, 473033],
-  },
-  {
-    slug: "transit-at-30000-feet",
-    title: "Turbulence & Terror",
-    blurb: "Cruising altitude, locked cockpit doors, and nowhere to step outside.",
-    movieIds: [1701, 9772, 9315, 363676, 361743, 225574],
+    movieIds: [36557, 161, 106646, 524, 8065, 473033],
   },
   {
     slug: "coming-of-age-roadtrip",
@@ -286,13 +378,13 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "high-school-social-warfare",
     title: "Cafeteria Caste Systems",
     blurb: "Locker combinations, hallway politics, and survival of the fittest.",
-    movieIds: [10625, 9603, 8363, 9377, 2108, 8835, 1584],
+    movieIds: [10625, 9603, 8363, 9377, 2108, 64688, 1584],
   },
   {
     slug: "mountain-peak-peril",
     title: "Thin Air, Vertical Drops",
-    blurb: "Crampons slipping, freezing fog, and cliffs with zero safety nets.",
-    movieIds: [9350, 253412, 11678, 44115, 11194, 7305],
+    blurb: "Rock, ice, glass, or a rooftop ledge: one slip, and the drop does the rest.",
+    movieIds: [9350, 253412, 426, 44115, 447200, 985939],
   },
   {
     slug: "golden-age-giants",
@@ -316,13 +408,7 @@ export const SHORTLIST_THEMES: ShortlistTheme[] = [
     slug: "espionage-in-the-cold",
     title: "Shadows Behind the Iron Curtain",
     blurb: "Dead drops, coded radio signals, and spies who trust no one.",
-    movieIds: [1669, 341013, 13580, 582, 49517, 296098],
-  },
-  {
-    slug: "midnight-drive",
-    title: "Empty Highways, Glowing Dashboards",
-    blurb: "Synths on the stereo, streetlights passing by, and nighttime contemplation.",
-    movieIds: [64690, 339403, 1538, 242582, 210479, 949],
+    movieIds: [1669, 341013, 68734, 582, 49517, 296098],
   },
   {
     slug: "diner-conversations",

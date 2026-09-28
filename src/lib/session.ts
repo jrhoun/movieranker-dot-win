@@ -20,6 +20,15 @@ export interface PlaySession {
   history?: Array<[number, number]>;
   /** Pre-vote deep copy for single-level undo; has its own snapshot stripped. */
   undoSnapshot?: PlaySession | null;
+  /**
+   * Epoch ms when the consensus screen was first reached. Stability itself is
+   * not persisted (votesSinceOrderChange is, but the differentiated flag is
+   * component state), so a player who leaves for a magic link or an email
+   * confirmation and returns would land back on the duel stage with nothing
+   * saved. With this set, the room reopens on the consensus screen and the
+   * signed-in auto-save fires.
+   */
+  finishedAt?: number;
 }
 
 const KEY = "mr-session";

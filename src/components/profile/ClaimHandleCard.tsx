@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isProfane, isReserved, isValidHandle, normalizeHandle } from "@/lib/handles";
+import { trackEvent } from "@/lib/analytics";
 
 type Status =
   | { kind: "idle" }
@@ -101,6 +102,7 @@ export default function ClaimHandleCard() {
         body: JSON.stringify({ handle: value }),
       });
       if (res.ok) {
+        trackEvent("handle_claimed");
         setClaimedHandle(handle);
         router.refresh();
       } else if (res.status === 409) setCheckState("taken");

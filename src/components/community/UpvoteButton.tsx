@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { trackSignInClick } from "@/lib/analytics";
 
 export interface UpvoteButtonProps {
   listId: string;
@@ -153,6 +154,7 @@ export default function UpvoteButton({
             <div className="mt-6 flex flex-col gap-2.5">
               <Link
                 href={`/login?next=${encodeURIComponent(`/l/${listId}`)}`}
+                onClick={() => trackSignInClick("upvote")}
                 className="flex min-h-11 items-center justify-center rounded-full bg-gold px-5 text-sm font-bold uppercase tracking-wide text-bg shadow-lg transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-gold"
               >
                 Sign in to continue

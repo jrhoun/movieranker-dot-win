@@ -36,13 +36,13 @@ import {
 import { getThemeConnectionGame } from "@/lib/shortlist-themes";
 import { getMovieWinStreak } from "@/lib/streak";
 import {
-  closeCallProgress,
   countClosePairs,
   estimateRemainingVotes,
   expectedConsensusVotes,
   finalizeRanks,
   isPodiumLocked,
   isStable,
+  maxVotes,
   type RankedMovie,
 } from "@/lib/ranking";
 import {
@@ -146,6 +146,11 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
   // ORs into the render branch and into consensusReached below; never reset,
   // since Sharpen re-enters voting and a later real stability check takes over.
   const [forceFinish, setForceFinish] = useState(false);
+  // A session that already reached the consensus screen before this mount
+  // (player left for a magic link / email confirmation and came back). Reopens
+  // on the consensus screen without the "Early result" label. Cleared by
+  // Sharpen, which re-enters voting and lets real stability take over again.
+  const [resumedFinished, setResumedFinished] = useState(false);
   const [sheetStatus, setSheetStatus] = useState<"done" | "draft" | null>(null);
   const [authNotice, setAuthNotice] = useState(false);
   // OAuth returned this browser to a session-less /r/play (storage lost across
@@ -228,6 +233,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
         : loadSession();
       setSession(s);
       setPair(s ? selectNextPair(s, false) : null);
+      if (s?.finishedAt) setResumedFinished(true);
       setReady(true);
       if (s && !hasTrackedStart.current) {
         hasTrackedStart.current = true;
@@ -389,10 +395,26 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     !!session &&
     active.length >= 2 &&
     isStable(active, session.votesSinceOrderChange, fieldSplit);
-  // The consensus screen is the last screen: natural stability OR an explicit
-  // "Finish early" both land here, as long as a Sharpen pass isn't in flight.
+  // The consensus screen is the last screen: natural stability, an explicit
+  // "Finish early", the hard vote cap (see maxVotes: an intransitive player
+  // never stabilises), or a session that already finished before this mount
+  // all land here, as long as a Sharpen pass isn't in flight.
   // Used by hooks below (auto-save, keyboard blocking) as well as the render.
-  const consensusReached = (stable || forceFinish) && !sharpening;
+  const votesCast = session ? Math.round(totalComparisons(session) / 2) : 0;
+  const capReached = active.length >= 2 && votesCast >= maxVotes(active.length);
+  const consensusReached =
+    (stable || forceFinish || capReached || resumedFinished) && !sharpening;
+
+  // Persist "this ranking is done" so a return from a magic link or an email
+  // confirmation (new tab, no component state) reopens on this screen.
+  // Storage only, no state: the in-memory session never needs the stamp, and
+  // re-writing it on every session change while this screen is up is cheap
+  // and idempotent (a Sharpen pass overwrites storage with un-stamped votes,
+  // so the stamp is re-applied when the screen comes back).
+  useEffect(() => {
+    if (!consensusReached || !session) return;
+    saveSession({ ...session, finishedAt: session.finishedAt ?? Date.now() });
+  }, [consensusReached, session]);
 
   const [initialClosePairs, setInitialClosePairs] = useState<number | null>(null);
 
@@ -610,7 +632,7 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     if (rankSignature(session.movies) === lastAutoSavedRanksRef.current) return;
     void runAutoSave();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stable, forceFinish, sharpening, signedIn]);
+  }, [stable, forceFinish, capReached, resumedFinished, sharpening, signedIn]);
 
   function handleSeeRanking() {
     if (!savedListId) return;
@@ -942,13 +964,15 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
    */
   const closeCallsAreInformative = closePairs > 0 && closePairs < active.length - 1;
   /**
-   * "Consensus reached" above "5 of 5 matchups still too close to call" read as a
-   * contradiction (beta review, 2026-09-09). When nearly every neighbouring pair
-   * is still close, the board is an early result: say so, and make Sharpen the
-   * primary action instead of Finish. "Finish early →" forces the same label —
-   * ending on purpose before isStable() agrees is definitionally early.
+   * "Early result" means the PLAYER ended it: "Finish early →" before
+   * isStable() agreed. It used to also fire whenever nearly every neighbouring
+   * pair was inside the close-call band — and with that band at 120 Elo, every
+   * six-film Marquee ever played ended as an "Early result" with "5 of 5
+   * matchups still too close to call" and Sharpen pushed ahead of saving
+   * (production, 2026-09-28). The band is now the engine's own tie tolerance
+   * (see SHARPEN_COMFORT_GAP), so the stable screen is a consensus and says so.
    */
-  const earlyResult = forceFinish || (closePairs > 0 && closePairs >= active.length - 1);
+  const earlyResult = forceFinish && !stable;
 
   /*
    * ONE QUIET LINE INSTEAD OF TWO PILL BADGES. "6 too close to call" and
@@ -1265,27 +1289,12 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
             </div>
           )}
 
-          {canSharpen && initialClosePairs !== null && (
-            <p className="max-w-sm rounded-full bg-surface px-4 py-2 text-sm text-muted ring-1 ring-white/10">
-              {closeCallProgress(closePairs, initialClosePairs)} — Sharpen settles them one at
-              a time.
-            </p>
-          )}
-          <div className="flex flex-wrap justify-center gap-3">
-            {canSharpen ? (
-              <button
-                type="button"
-                onClick={startSharpen}
-                className={`inline-flex items-center gap-2 min-h-11 rounded-full px-5 font-semibold ring-1 ring-white/10 bg-surface-raised text-text transition-all duration-200 ease-out hover:-translate-y-0.5 hover:ring-gold/50 hover:text-gold active:scale-[0.98]`}
-              >
-                <span>Sharpen close calls</span>
-                <span className="rounded bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-gold">+XP</span>
-              </button>
-            ) : (
-              <p className="rounded-full bg-surface px-4 py-2 text-sm text-muted ring-1 ring-white/10">
-                No close calls left — ready to finish.
-              </p>
-            )}
+          {/* ONE PRIMARY ACTION, AND IT IS THE DOOR OUT. Saving (signed in:
+              "See your ranking"; anonymous: sign in) comes first and gold.
+              Sharpen is an optional bonus round and reads as one: a quiet
+              secondary button, no status pill above it, and no "N of M still
+              too close to call" line unless the number is informative. */}
+          <div className="flex flex-wrap items-center justify-center gap-3">
             {signedIn ? (
               <button
                 type="button"
@@ -1301,12 +1310,31 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
                 onClick={() => setSheetStatus("done")}
                 className="min-h-11 rounded bg-accent px-6 font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
               >
-                Sign in to save your ranking
+                Save your ranking →
+              </button>
+            )}
+            {canSharpen && (
+              <button
+                type="button"
+                onClick={startSharpen}
+                className="inline-flex min-h-11 items-center gap-2 rounded-full px-5 font-semibold text-muted ring-1 ring-white/10 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:text-gold hover:ring-gold/50 active:scale-[0.98]"
+              >
+                <span>Sharpen close calls</span>
+                <span className="rounded bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-gold">+XP</span>
               </button>
             )}
           </div>
+          {canSharpen && closeCallsAreInformative && (
+            <p className="max-w-sm text-xs text-muted">
+              {closePairs === 1
+                ? "One pair is still a coin flip. Sharpen settles it."
+                : `${closePairs} pairs are still coin flips. Sharpen settles them one at a time.`}
+            </p>
+          )}
           {!signedIn && (
-            <p className="text-xs text-muted">Kept in this browser until you sign in.</p>
+            <p className="text-xs text-muted">
+              Free account, ten seconds. Kept in this browser until you sign in.
+            </p>
           )}
           {sharpening && (
             <p className="rounded-full bg-surface px-4 py-2 text-sm text-muted ring-1 ring-white/10">

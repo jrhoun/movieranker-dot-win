@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { safeNext } from "@/lib/redirect";
+import { trackSignInClick } from "@/lib/analytics";
 
 // ?next= is passed by links to /login; the callback route re-validates it.
 function requestedNext(): string | null {
@@ -46,12 +47,19 @@ export default function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    trackSignInClick("login_page", "password");
     setBusy(true);
     setNote(null);
     const supabase = createSupabaseBrowserClient();
 
     if (mode === "signup") {
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      // Route the confirmation link through the callback so a new account
+      // lands where it was headed (?next), not on the bare Site URL.
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: callbackUrl() },
+      });
       setBusy(false);
       if (error) {
         setNote({ type: "error", text: error.message });
@@ -80,6 +88,7 @@ export default function LoginPage() {
   }
 
   async function handleMagicLink() {
+    trackSignInClick("login_page", "magic_link");
     if (!email.trim()) {
       setNote({ type: "error", text: "Enter your email above first to receive a magic sign-in link." });
       return;
@@ -126,6 +135,7 @@ export default function LoginPage() {
   }
 
   async function handleOAuth(provider: "google") {
+    trackSignInClick("login_page", provider);
     setBusy(true);
     setNote(null);
     try {
