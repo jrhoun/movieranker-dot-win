@@ -45,6 +45,178 @@ export interface ThemeConnectionGame {
  *    stated confidently, make the general observation instead.
  */
 export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
+  // --- Added 2026-09-28, in rotation order. ---
+
+  "rooting-for-the-wrong-guy": {
+    connection:
+      "The villain steals the film. Each antagonist is written, played and remembered as the most magnetic presence on screen, and the hero spends the runtime trying to keep up.",
+    options: [
+      "The antagonist is the presence everyone remembers from each film",
+      "Every antagonist here is revealed to be a close relative of the hero",
+      "Each of these villains is a supernatural being rather than a human",
+      "All six villains are on screen for less than ten minutes in total",
+    ],
+    correctIndex: 0,
+    triviaNote:
+      "A screen villain needs far less time than a hero. One Oscar-winning antagonist in this roster is on screen for roughly a quarter of an hour, and the film is remembered as his.",
+  },
+
+  "hail-to-the-chief": {
+    connection:
+      "The President of the United States is a character. Fictional or historical, heroic or hapless, every film puts a sitting US president on screen and inside the plot.",
+    options: [
+      "A sitting US president appears on screen as a character in every film",
+      "Every president shown here is a real historical figure played by an actor",
+      "Each of these films takes place entirely inside the White House",
+      "All six presidents here are running for re-election during the story",
+    ],
+    correctIndex: 0,
+    triviaNote:
+      "Hollywood's presidents skew fictional for a reason: a made-up commander-in-chief can be kidnapped, cowardly or comic without a lawyer or a historian objecting. Real ones tend to get the biopic treatment instead.",
+  },
+
+  "the-ride-is-the-star": {
+    connection:
+      "The vehicle is the lead. A specific car, ship or machine is the thing the film is about — named, fetishised, fought over — and the humans mostly orbit it.",
+    options: [
+      "One particular vehicle is the real star, and the people orbit around it",
+      "Every vehicle in these films is destroyed before the closing credits",
+      "All six stories take place in the same decade in which they were released",
+      "Each of these vehicles can talk, and does so throughout the film",
+    ],
+    correctIndex: 0,
+    triviaNote:
+      "A picture car is usually several cars: a pristine hero car for close-ups, a stunt car built to be wrecked, and a process car towed on a rig so the actors can act instead of drive.",
+  },
+
+  "monster-vs-action-hero": {
+    connection:
+      "The hunter becomes the hunted. Each film hands its creature a genuinely capable action hero — soldier, mercenary, diver, tracker — and then makes that person the target.",
+    options: [
+      "A creature turns the film's action hero into the one being hunted",
+      "Every creature in these films arrived on Earth from another planet",
+      "Each hero here is a serving soldier under orders for the entire film",
+      "All six of these creatures are shown clearly in the opening minutes",
+    ],
+    correctIndex: 0,
+    triviaNote:
+      "Creature features borrowed the action film's confidence on purpose. Give the monster someone who should win, and every wound it inflicts tells the audience the rules have changed.",
+  },
+
+  "dont-touch-anything": {
+    connection:
+      "Time travel. Every film sends someone out of their own present and then makes the consequences — paradoxes, loops, grandfathers — the whole plot.",
+    options: [
+      "Someone travels through time, and the fallout is the entire plot",
+      "Every journey through time in these films is made by pure accident",
+      "All six of these stories send their travellers into the distant past",
+      "Each film's time machine is a vehicle the traveller drives or pilots",
+    ],
+    correctIndex: 0,
+    triviaNote:
+      "Screen time travel runs on one of two rules: the past can be changed, or it was always going to happen this way. Films that pick one early stay coherent; films that quietly use both are the ones with plot holes.",
+  },
+
+  "return-to-your-seats": {
+    connection:
+      "Airborne. A substantial part of every film happens inside an aircraft in flight, where the setting supplies the stakes: no exits, no help, and a very long way down.",
+    options: [
+      "A large part of each story plays out aboard an aircraft in flight",
+      "Every one of these flights is brought down by a hijacker on board",
+      "Each aircraft here crashes before the film reaches its final scene",
+      "All six take place aboard a commercial passenger jet full of civilians",
+    ],
+    correctIndex: 0,
+    triviaNote:
+      "Aircraft interiors are nearly always sets. A real fuselage leaves no room for a camera, lights and crew, so productions build cabins with lift-out seats and walls that swing away.",
+  },
+
+  "animal-gets-the-best-lines": {
+    connection:
+      "The talking animal. In every film the funniest, most quotable character has fur, fins or stuffing — and the humans are mostly there to play straight.",
+    options: [
+      "The quotable scene-stealer in each film is an animal that talks",
+      "All six of these films are entirely animated rather than shot live",
+      "Every animal here can be understood by exactly one human character",
+      "Each animal in these films is a pet that lives in the hero's house",
+    ],
+    correctIndex: 0,
+    triviaNote:
+      "Talking animals are a casting shortcut. A recognisable voice does the character work in a single line, which is why studios pay film-star money for a performer the audience will never see.",
+  },
+
+  "adults-are-useless-here": {
+    connection:
+      "Kids in charge. Every film hands the plot to a child and makes the adults absent, oblivious, or the actual problem — the grown-ups are the obstacle, never the solution.",
+    options: [
+      "A child carries the plot while every adult is absent, oblivious or worse",
+      "Each child in these films has been orphaned before the story begins",
+      "All six of these stories take place over the course of one school holiday",
+      "Every child here is protected by an adult who knows what is happening",
+    ],
+    correctIndex: 0,
+    triviaNote:
+      "Child protagonists force a rule on the writer: remove the adults. A competent parent would solve the plot in ten minutes, so every one of these films spends its first act explaining why help is not coming.",
+  },
+
+  "one-night-only": {
+    connection:
+      "A single night. Each film runs from dusk to dawn and not much past it — the sun goes down in the first act and everything has to be settled before it comes back up.",
+    options: [
+      "Each story begins after dark and is over by the following sunrise",
+      "Every one of these nights falls on the same holiday of the calendar year",
+      "All six of these films unfold in real time, with no cuts forward at all",
+      "Each of these nights ends with everyone exactly where they started",
+    ],
+    correctIndex: 0,
+    triviaNote:
+      "A one-night structure is a gift to editors: the clock is the plot, and every shot of a window turning grey is an act break the audience can read without a line of dialogue.",
+  },
+
+  "good-boy-best-actor": {
+    connection:
+      "The dog is the point. In every film a dog is the emotional engine — the reason the plot starts, the thing the hero cannot lose, or simply the character everyone came to see.",
+    options: [
+      "A dog is the emotional centre of each film, whatever the poster says",
+      "Every dog in these films can talk, and is voiced by a famous actor",
+      "All six of these dogs are of the same breed, chosen for its screen face",
+      "Each of these dogs is a stray that the hero takes in during the story",
+    ],
+    correctIndex: 0,
+    triviaNote:
+      "Animal performers are usually several animals: one for close-ups, one for action, one that will sit still. The credits list a single name because the audience has to believe in a single dog.",
+  },
+
+  "speak-now": {
+    connection:
+      "The wedding. Every film is built around one — the run-up, the day, the night after — and uses the ceremony's rules, guests and expectations as the pressure the plot needs.",
+    options: [
+      "A wedding is the event every one of these plots is organised around",
+      "All six of these weddings take place at a beach resort or on an island",
+      "Each of these films follows the bride rather than anyone else",
+      "Every couple here has known each other for less than a single week",
+    ],
+    correctIndex: 0,
+    triviaNote:
+      "A wedding hands a screenwriter three gifts: a deadline nobody can move, a guest list of people who avoid each other, and a ceremony with a built-in moment for someone to object.",
+  },
+
+  "nobody-asked-them-to-sing": {
+    connection:
+      "The musical. In every film characters stop talking and start singing — not on a stage, not at a concert, but mid-scene, because the feeling got too big for dialogue.",
+    options: [
+      "Characters break into song mid-scene because talking stopped being enough",
+      "Every song in these films is performed on a stage in front of an audience",
+      "All six of these films are adaptations of Broadway stage productions",
+      "Each of these musicals is fully animated rather than shot with live actors",
+    ],
+    correctIndex: 0,
+    triviaNote:
+      "Musicals record the singing first. Actors mime to a playback on set, which is why a number can cut between six locations without the vocal ever drifting.",
+  },
+
+  // --- Original rotation. ---
+
   "secretly-same-story": {
     connection:
       "The Hero's Journey. Across wildly different genres, each film walks Joseph Campbell's monomyth: an ordinary world, a call refused, a mentor, a threshold, an ordeal, and a return carrying something the hero did not leave with.",
@@ -103,7 +275,7 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
 
   "mountain-peak-peril": {
     connection:
-      "Lethal height. Every film turns on vertical exposure — rock, ice, or thin air — where a single slip is not survivable and the mountain has no interest either way.",
+      "Lethal height. Every film turns on vertical exposure — rock, ice, steel, or thin air — where a single slip is not survivable and the drop has no interest either way.",
     options: [
       "Every film turns on extreme height, where one mistake is not survivable",
       "All six of these films are dramatisations of events that really happened",
@@ -561,20 +733,6 @@ export const CONNECTION_GAMES: Record<string, ThemeConnectionGame> = {
     correctIndex: 0,
     triviaNote:
       "Gambling scenes have to teach the rules and raise the stakes simultaneously. Hence the table-level insert and the character who explains the odds aloud to nobody in particular.",
-  },
-
-  "transit-at-30000-feet": {
-    connection:
-      "Airborne jeopardy. Every film puts its emergency in the air, where the ground is a long way down and the options are whatever is already on board.",
-    options: [
-      "Every crisis in these films happens in the air, aboard an aircraft in flight",
-      "Every one of these films features an armed hijacking carried out mid-flight",
-      "Each aircraft depicted in these films crashes before the story ends",
-      "All six take place entirely aboard a single aircraft from start to finish",
-    ],
-    correctIndex: 0,
-    triviaNote:
-      "Aircraft interiors are nearly always sets. A real fuselage leaves no room for a camera, lights and crew, so productions build cabins with lift-out seats and walls that swing away.",
   },
 
   "coming-of-age-roadtrip": {
