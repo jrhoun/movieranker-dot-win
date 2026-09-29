@@ -1,5 +1,5 @@
 import { posterAvatarId } from "./avatars";
-import { drawFrom, droppablePool } from "./canister";
+import { drawFrom, droppablePool } from "./marquee-drops";
 import { CATALOGUE, itemById } from "./catalogue";
 
 /**
@@ -9,7 +9,7 @@ import { CATALOGUE, itemById } from "./catalogue";
  * auditable from rows we already query.
  */
 export interface OwnershipStats {
-  /** Seeds canister draws, so two players' sequences differ. */
+  /** Seeds Marquee drops, so two players' sequences differ. */
   userId: string;
   level: number;
   unlockedAchievementKeys: string[];
@@ -39,19 +39,20 @@ export function ownedItemIds(stats: OwnershipStats, grants: string[] = []): Set<
     else if (u.kind === "marquee" && stats.finishedThemeSlugs.includes(u.themeSlug)) {
       owned.add(item.id);
     }
-    // "drop" is resolved below; "purchase" only ever arrives via `grants`.
+    // "drop" is resolved below.
   }
 
-  // Replay canisters in order. Each draw sees what the previous ones gave, which
-  // is what makes duplicates impossible and the whole sequence reproducible.
+  // Replay the Marquee drops in order. Each draw sees what the previous ones
+  // gave, which is what makes duplicates impossible and the whole sequence
+  // reproducible.
   for (const themeSlug of stats.finishedThemeSlugs) {
     const pick = drawFrom(droppablePool(owned), `${stats.userId}|${themeSlug}`);
     if (pick) owned.add(pick.id);
   }
 
   // Poster avatar claims are DERIVED from stored claims on the profile showcase.
-  // MUST STAY BELOW THE REPLAY LOOP: keeping all post-canister derivations below
-  // the replay guarantees canister drop determinism is unperturbed.
+  // MUST STAY BELOW THE REPLAY LOOP: keeping all post-replay derivations below
+  // it guarantees the drop sequence is unperturbed.
   if (stats.avatarClaims) {
     for (const tmdbId of stats.avatarClaims) {
       owned.add(posterAvatarId(tmdbId));
@@ -60,11 +61,13 @@ export function ownedItemIds(stats: OwnershipStats, grants: string[] = []): Set<
 
   // MUST STAY BELOW THE REPLAY LOOP. `droppablePool` subtracts what is already
   // owned, so seeding a granted item before the replay changes the pool every
-  // subsequent draw walks — one purchase would retroactively rewrite that
-  // user's entire drop history, handing them a different set of items than the
-  // ones their profile has been showing. Applying grants after the replay
-  // leaves the derived sequence untouched, which is the whole point of
-  // deriving it. Hoisting this for tidiness is not a refactor.
+  // subsequent draw walks — one grant would retroactively rewrite that user's
+  // entire drop history, handing them a different set of items than the ones
+  // their profile has been showing. Applying grants after the replay leaves
+  // the derived sequence untouched, which is the whole point of deriving it.
+  // Hoisting this for tidiness is not a refactor. An id that has since left
+  // the catalogue is ignored rather than owned, so a stale grant cannot put
+  // an unrenderable item on a profile.
   for (const id of grants) {
     if (itemById(id)) owned.add(id);
   }

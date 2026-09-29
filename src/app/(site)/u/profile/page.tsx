@@ -7,6 +7,7 @@ import LevelProgressionModal from "@/components/profile/LevelProgressionModal";
 import ReferralInviteCard from "@/components/profile/ReferralInviteCard";
 import ShowcaseCard from "@/components/profile/ShowcaseCard";
 import ShowcaseLists from "@/components/profile/ShowcaseLists";
+import TasteSection from "@/components/profile/TasteSection";
 import BetaWalkthroughCard from "@/components/BetaWalkthroughCard";
 import { unlockedAt } from "@/lib/gamification";
 import { loadOwnerProfile } from "./customise/profile-data";
@@ -40,6 +41,7 @@ export default async function MyListsPage({
     canvasPosters,
     taglineText,
     statsLine,
+    taste,
   } = await loadOwnerProfile();
 
   const { locked } = unlockedAt(level.level);
@@ -210,6 +212,9 @@ export default async function MyListsPage({
             />
           </div>
         </section>
+
+        {/* Renders nothing until there is a finished list to read taste from. */}
+        <TasteSection taste={taste} mode="owner" handle={handle ?? ""} className="mt-14" />
 
         <section aria-labelledby="invite-heading" className="mt-14">
           <MarqueeHeading as="h2">Invite friends</MarqueeHeading>

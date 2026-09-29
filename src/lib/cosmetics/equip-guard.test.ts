@@ -13,7 +13,7 @@ describe("validateEquipPatch", () => {
   });
 
   it("refuses an unowned item", () => {
-    const r = validateEquipPatch({ frame: "frame.neon-cyan" }, owned, films);
+    const r = validateEquipPatch({ frame: "frame.prism" }, owned, films);
     expect(r.ok).toBe(false);
   });
 

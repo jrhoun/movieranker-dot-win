@@ -1,3 +1,5 @@
+import { isLiveMarqueeTheme, marqueeDisplayTitle } from "@/lib/marquee-title";
+import { marqueeNumber } from "@/lib/shortlist";
 import { isEarnedTagline } from "./taglines";
 import type { CosmeticItem, Unlock } from "./types";
 import { ACHIEVEMENTS } from "../gamification";
@@ -30,9 +32,7 @@ export function unlockLabel(unlock: Unlock): string {
     case "marquee":
       return "Finish that week's Marquee";
     case "drop":
-      return "From a reel canister";
-    case "purchase":
-      return "Not yet available";
+      return "From a weekly Marquee";
   }
 }
 
@@ -51,10 +51,26 @@ export function unlockLabel(unlock: Unlock): string {
  * pioneer, which has no placeholder at all.)
  *
  * Locked STATIC lines still show their words, which is the point of a
- * collection: with a tagline, the line is the thing you want.
+ * collection: with a tagline, the line is the thing you want — WITH ONE
+ * EXCEPTION. A Marquee souvenir line IS the week's theme title, and the theme
+ * title paraphrases the answer to that week's connection quiz (see the spoiler
+ * rule in marquee-title.ts). While that week is live, a locked souvenir is
+ * the answer printed in the wardrobe of everyone who has not finished yet, so
+ * it is masked the way every other surface masks it: "Weekly Marquee #N".
+ * `owned` is what lifts the mask — a player who finished the week has seen
+ * the title — and it defaults to false so a caller that forgets it fails
+ * closed. Past weeks are revealed here as on every browsing surface.
  */
-export function labelFor(item: CosmeticItem, taglineTexts: Record<string, string>): string {
+export function labelFor(
+  item: CosmeticItem,
+  taglineTexts: Record<string, string>,
+  owned = false,
+  now: Date = new Date(),
+): string {
   if (item.slot !== "tagline") return item.name;
+  if (item.unlock.kind === "marquee" && !owned && isLiveMarqueeTheme(item.unlock.themeSlug, now)) {
+    return marqueeDisplayTitle(item.name, item.unlock.themeSlug, marqueeNumber(now));
+  }
   const text = taglineTexts[item.id];
   if (text) return `“${text}”`;
   return isEarnedTagline(item.id) ? "An earned line" : `“${item.name}”`;

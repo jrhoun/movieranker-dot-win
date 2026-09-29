@@ -59,12 +59,17 @@ describe("synthetic poster avatars", () => {
   });
 });
 
+/** The three styles and six seeds that ship, in generator order. */
+const SHIPPED_STYLES = ["lorelei", "notionists", "open-peeps"];
+const SHIPPED_SEEDS = ["reel", "usher", "matinee", "double-feature", "spotlight", "celluloid"];
+
 describe("generated avatars", () => {
   const manifest = JSON.parse(
     readFileSync(join(process.cwd(), "public/avatars/manifest.json"), "utf8"),
-  ) as { id: string; style: string; license: string }[];
+  ) as { id: string; style: string; seed: string; license: string }[];
 
   const generated = AVATARS.filter((a) => a.id.startsWith("avatar.gen."));
+  const drawn = generated.filter((a) => a.id !== "avatar.gen.beta-reel");
 
   it("ships only CC0 styles — the CC BY styles require visible designer credit", () => {
     // A licence breach is invisible at runtime and expensive later, so it is
@@ -95,50 +100,45 @@ describe("generated avatars", () => {
   });
 
   it("no generated avatar is droppable", () => {
-    // 24 droppable items would rewrite every user's canister history far more
-    // violently than the two that already did. catalogue.test.ts enforces this
-    // for the whole slot; this states it where the entries are built.
+    // Droppable avatars would rewrite every user's drop history far more
+    // violently than the two gradients that already did. catalogue.test.ts
+    // enforces this for the whole slot; this states it where the entries are
+    // built.
     for (const a of generated) {
       expect(a.unlock.kind, a.id).not.toBe("drop");
     }
   });
 
-  it("gives a new profile real choice, and paces the rest inside the level ceiling", () => {
-    expect(generated.filter((a) => a.unlock.kind === "starter").length).toBeGreaterThanOrEqual(3);
-    for (const a of generated) {
-      if (a.unlock.kind === "level") {
-        expect(a.unlock.level, a.id).toBeGreaterThan(1);
-        expect(a.unlock.level, a.id).toBeLessThanOrEqual(100);
-      }
+  it("ships exactly three styles by six seeds, and every one is a starter", () => {
+    // THE CUT OF 2026-09-28. Six styles by twelve seeds was seventy-two
+    // interchangeable illustrations, thirty-six of them paced across levels 2
+    // to 100 — levelling awarding clutter, which the design spec's §1.1
+    // forbids. What is left is a choice a person can make in one look, and
+    // none of it is withheld: a face says nothing about the player, so a
+    // level has nothing to certify by keeping one back.
+    expect(manifest.map((e) => e.style)).toEqual(
+      SHIPPED_STYLES.flatMap((s) => SHIPPED_SEEDS.map(() => s)),
+    );
+    expect(manifest.map((e) => e.seed)).toEqual(SHIPPED_STYLES.flatMap(() => SHIPPED_SEEDS));
+    expect(drawn.length).toBe(18);
+    for (const a of drawn) {
+      expect(a.unlock, a.id).toEqual({ kind: "starter" });
+      expect(a.rarity, a.id).toBe("common");
     }
   });
 
-  it("opens with a choice that spans every style, not every seed of a few", () => {
-    // The whole reason the starter split counts within each style instead of
-    // slicing the first N: the manifest is grouped style-by-style, so a slice
-    // hands over four complete styles and none of the other two. This fails
-    // for a positional slice and passes for the per-style count, which is
-    // exactly the distinction worth pinning.
-    const styles = new Set(manifest.map((e) => e.style));
-    const starterStyles = new Set(
-      generated
-        .filter((a) => a.unlock.kind === "starter")
-        .map((a) => manifest.find((e) => `avatar.gen.${e.id}` === a.id)!.style),
-    );
-    expect(starterStyles).toEqual(styles);
+  it("no drawn avatar sits behind a level", () => {
+    // The counterweight to "all starters": a future entry that reintroduces a
+    // level price on an illustration is the clutter coming back.
+    expect(itemsForSlot("avatar").filter((i) => i.unlock.kind === "level")).toEqual([]);
   });
 
-  it("leaves something to earn at every stage, and nothing at level 1", () => {
-    const gated = generated.filter((a) => a.unlock.kind === "level");
-    expect(gated.length).toBeGreaterThan(0);
-
-    // Spread, not bunched. If every gated avatar landed inside the first few
-    // levels the tail of the career would have no face left to unlock.
-    const levels = gated
-      .map((a) => (a.unlock.kind === "level" ? a.unlock.level : 0))
-      .sort((x, y) => x - y);
-    expect(new Set(levels).size, "two avatars unlock at the same level").toBe(levels.length);
-    expect(levels[levels.length - 1]).toBeGreaterThanOrEqual(30);
+  it("keeps the Beta Reel as the one avatar an achievement earns", () => {
+    const beta = generated.find((a) => a.id === "avatar.gen.beta-reel");
+    expect(beta?.unlock).toEqual({ kind: "challenge", key: "beta_pioneer" });
+    expect(generated.filter((a) => a.unlock.kind !== "starter").map((a) => a.id)).toEqual([
+      "avatar.gen.beta-reel",
+    ]);
   });
 
   it("keeps the same default avatar it has always had", () => {
@@ -149,19 +149,11 @@ describe("generated avatars", () => {
     // it is load-bearing rather than cosmetic.
     //
     // Pinned exactly, because the ways it can move are all silent: reordering
-    // AVATARS' two spreads, regenerating the manifest, or changing which
-    // entries count as starters. Changing the default is a fine thing to do
+    // AVATARS' spreads, regenerating the manifest, or changing which entries
+    // count as starters. Changing the default is a fine thing to do
     // deliberately — it should just not happen as a side effect of something
     // else.
     expect(starterFor("avatar").id).toBe("avatar.gen.lorelei-reel");
-  });
-
-  it("never calls a starter rare", () => {
-    // Rarity is the word printed on the tile. An item every profile owns on
-    // day one cannot carry it.
-    for (const a of generated) {
-      if (a.unlock.kind === "starter") expect(a.rarity, a.id).toBe("common");
-    }
   });
 
   it("names read as names, not as filenames", () => {
@@ -172,42 +164,11 @@ describe("generated avatars", () => {
     }
   });
 
-  it("provides exactly 12 avatars for every CC0 illustrated style (72 total)", () => {
-    const avatars = itemsForSlot("avatar").filter((i) => i.id.startsWith("avatar.gen."));
-    const styles = ["lorelei", "notionists", "open-peeps", "pixel-art", "shapes", "thumbs"];
-    for (const style of styles) {
-      const count = avatars.filter((i) => i.id.startsWith(`avatar.gen.${style}-`)).length;
-      expect(count).toBe(12);
-    }
-    expect(avatars.length).toBe(73); // 72 CC0 avatars + 1 beta-reel
-  });
-
-  it("provides exactly 6 free starters for each of the 6 CC0 styles", () => {
-    const styles = ["lorelei", "notionists", "open-peeps", "pixel-art", "shapes", "thumbs"];
-    for (const style of styles) {
-      const starters = AVATARS.filter(
-        (a) => a.id.startsWith(`avatar.gen.${style}-`) && a.unlock.kind === "starter",
-      );
-      expect(starters.length).toBe(6);
-    }
-  });
-
-  it("paces all level-gated avatars uniquely across levels 2..100 with zero collisions", () => {
-    const levelGated = itemsForSlot("avatar").filter((i) => i.unlock.kind === "level");
-    const levels = levelGated.map((i) => (i.unlock as { kind: "level"; level: number }).level);
-    expect(levels.length).toBe(39);
-    expect(new Set(levels).size).toBe(levels.length);
-    for (const lvl of levels) {
-      expect(lvl).toBeGreaterThanOrEqual(2);
-      expect(lvl).toBeLessThanOrEqual(100);
-    }
-  });
-
-  it("strictly contains NO gradients in any avatar SVG asset", () => {
+  it("commits exactly the nineteen SVGs the catalogue lists, and none carries a gradient or a script", () => {
     const files = readdirSync(join(process.cwd(), "public/avatars")).filter((f) =>
       f.endsWith(".svg"),
     );
-    expect(files.length).toBe(73);
+    expect(files.length).toBe(19); // 18 drawn + beta-reel
     for (const f of files) {
       const content = readFileSync(join(process.cwd(), "public/avatars", f), "utf8");
       expect(content.toLowerCase()).not.toContain("<lineargradient");
@@ -222,9 +183,10 @@ describe("generated avatars", () => {
 });
 
 describe("gradient avatars", () => {
+  const grads = AVATARS.filter((a) => a.id.startsWith("avatar.grad."));
+
   it("gradient avatar ids are unique and properly namespaced", () => {
-    const grads = AVATARS.filter((a) => a.id.startsWith("avatar.grad."));
-    expect(grads.length).toBe(18);
+    expect(grads.length).toBe(8);
     const ids = grads.map((g) => g.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const g of grads) {
@@ -233,66 +195,28 @@ describe("gradient avatars", () => {
     }
   });
 
-  it("starter invariant: a new profile opens with a wardrobe, not two options", () => {
-    // Scoped to gradients, as the name says. It previously filtered ALL of
-    // AVATARS, which only matched because gradients were the only entries;
-    // adding generated starters made the unscoped version fail for no real
-    // reason.
-    //
-    // The exact list is deliberately NOT pinned — naming fourteen ids here
-    // would turn "add a gradient" into "edit a test that asserts nothing about
-    // behaviour". What matters is that the opening set is genuinely a set, and
-    // that the two originals are still in it.
-    const starters = AVATARS.filter(
-      (a) => a.id.startsWith("avatar.grad.") && a.unlock.kind === "starter",
-    ).map((s) => s.id);
-
-    expect(starters.length).toBeGreaterThanOrEqual(10);
-    expect(starters).toContain("avatar.grad.ember");
-    expect(starters).toContain("avatar.grad.velvet");
-  });
-
-  it("keeps the earned gradients earned", () => {
-    // The counterweight to the test above: opening the wardrobe must not have
-    // quietly handed over the items that are supposed to cost something. These
-    // four are the whole gated set, and cyan/magenta in particular are the
-    // pair that once shipped as canister drops and rewrote 38 of 40 users'
-    // histories — they stay level-gated.
-    const gated = AVATARS.filter(
-      (a) => a.id.startsWith("avatar.grad.") && a.unlock.kind !== "starter",
-    ).map((g) => g.id);
-
-    expect(gated.sort()).toEqual(
-      [
-        "avatar.grad.cyan",
-        "avatar.grad.magenta",
-        "avatar.grad.nitrate",
-        "avatar.grad.toxic",
-      ].sort(),
-    );
-  });
-
-  it("unlock rules cover level and challenge requirements", () => {
-    const nitrate = AVATARS.find((a) => a.id === "avatar.grad.nitrate");
-    expect(nitrate?.unlock).toEqual({ kind: "level", level: 5 });
-    expect(nitrate?.rarity).toBe("common");
-
-    const cyan = AVATARS.find((a) => a.id === "avatar.grad.cyan");
-    expect(cyan?.unlock).toEqual({ kind: "level", level: 10 });
-    expect(cyan?.rarity).toBe("rare");
-
-    const magenta = AVATARS.find((a) => a.id === "avatar.grad.magenta");
-    expect(magenta?.unlock).toEqual({ kind: "level", level: 20 });
-    expect(magenta?.rarity).toBe("rare");
-
-    const toxic = AVATARS.find((a) => a.id === "avatar.grad.toxic");
-    expect(toxic?.unlock).toEqual({ kind: "challenge", key: "cryptologist" });
-    expect(toxic?.rarity).toBe("legendary");
+  it("is eight starters and nothing withheld", () => {
+    // The two originals are still in it, and nothing sits behind a level or
+    // an achievement: cyan, magenta and nitrate were the level-paced clutter
+    // and toxic was a colour nobody associates with a cinema.
+    expect(grads.map((g) => g.id)).toEqual([
+      "avatar.grad.ember",
+      "avatar.grad.velvet",
+      "avatar.grad.sepia",
+      "avatar.grad.noir",
+      "avatar.grad.technicolor",
+      "avatar.grad.proscenium",
+      "avatar.grad.matinee",
+      "avatar.grad.celluloid",
+    ]);
+    for (const g of grads) {
+      expect(g.unlock, g.id).toEqual({ kind: "starter" });
+      expect(g.rarity, g.id).toBe("common");
+    }
   });
 
   it("every gradient avatar has a matching .ca-* rule in globals.css", () => {
     const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
-    const grads = AVATARS.filter((a) => a.id.startsWith("avatar.grad."));
     for (const item of grads) {
       const cls = item.id.replace(/^avatar\.grad\./, "ca-");
       expect(css, `${item.id} missing .${cls} rule in globals.css`).toMatch(

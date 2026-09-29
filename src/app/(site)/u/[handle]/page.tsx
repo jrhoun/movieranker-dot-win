@@ -16,10 +16,15 @@ import {
   EMPTY_SHOWCASE,
   parseShowcase,
   attachParticipantChips,
+  countCorrectSolves,
   shapePublicProfile,
   type PublicListCardData,
 } from "@/lib/public-profile";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseAdmin, supabaseSecretKey } from "@/lib/supabase/admin";
+import VisitorDoor, { shouldShowVisitorDoor } from "@/components/profile/VisitorDoor";
+import TasteSection from "@/components/profile/TasteSection";
+import { loadTasteForProfile } from "@/lib/taste";
 
 interface DbProfile {
   id: string;
@@ -146,6 +151,10 @@ export default async function PublicProfilePage({
 
   const isOwner = !!auth.user && auth.user.id === profile?.id;
   if (!profile || (profile.visibility !== "public" && !isOwner)) notFound();
+  const showVisitorDoor = shouldShowVisitorDoor({
+    viewerId: auth.user?.id ?? null,
+    ownerId: profile.id,
+  });
 
   // Showcase ONLY public done lists — unlisted stays link-accessible but hidden here.
   const { data: lists } = await supabase
@@ -243,15 +252,17 @@ export default async function PublicProfilePage({
     }));
   const standing = marqueeStanding(completions, profile.id);
 
-  // Scoped to profile owner: RLS ensures only the owner can read their own rows,
-  // preventing viewer solve counts from leaking onto another user's public profile.
-  const { count: solveCount } = await supabase
-    .from("marquee_solves")
-    .select("theme_slug", { count: "exact", head: true })
-    .eq("user_id", profile.id)
-    // The table records every attempt, including wrong guesses and peeks, so
-    // the badge must count only the ones that were actually cracked.
-    .eq("correct", true);
+  // The OWNER's solve count, whoever is looking. marquee_solves is RLS-scoped
+  // to its reader, so the session client answers "how many of YOUR solves
+  // have user_id = owner" — zero for every visitor — and Codebreaker /
+  // Cryptologist never showed on a public profile. Read through the
+  // privileged client when the server has one; the session query is the
+  // fallback (still right for the owner previewing their own page).
+  const solveCount = await countCorrectSolves(
+    profile.id,
+    supabase,
+    supabaseSecretKey() ? supabaseAdmin() : null,
+  );
 
   // Finished-Marquee count for achievementStats.marqueeWeeks below — only
   // the COUNT is read, so unlike the ordered version /api/profile computes
@@ -269,6 +280,12 @@ export default async function PublicProfilePage({
   // (12 finished Marquees) could never unlock on this page, so an equipped
   // attendance tagline would silently fall back to nothing. Added to match the
   // /api/profile validator, which does count it (`marqueeWeeks: finishedThemeSlugs.length`).
+  // Beta Test Screener is time-boxed (PUBLIC_BETA_ENDS_AT): the earliest
+  // public finished list is what has to fall inside the beta window.
+  const publicDoneCreatedAts = ((lists ?? []) as Record<string, unknown>[])
+    .filter((r) => r.status === "done" && r.visibility === "public" && typeof r.created_at === "string")
+    .map((r) => r.created_at as string)
+    .sort();
   const achievementStats = {
     doneLists: cards.length,
     moviesRanked,
@@ -279,8 +296,13 @@ export default async function PublicProfilePage({
     publicDoneLists: cards.length,
     hasHandle: Boolean(profile.handle),
     isSignedIn: true,
+    earliestPublicDoneListAt: publicDoneCreatedAts[0] ?? null,
     ...standing,
   };
+  const taste = await loadTasteForProfile(supabase, profile.id, {
+    publicOnly: true,
+    connectionsCracked: solveCount ?? 0,
+  });
   const evaluated = evaluateAchievements(achievementStats);
   const allAchievements = evaluated.filter((a) => a.unlocked);
   // Counted, not listed: the public page names what someone HAS won. What is
@@ -289,8 +311,8 @@ export default async function PublicProfilePage({
   const stillToEarn = evaluated.length - allAchievements.length;
 
   // NOT resolveEquipped: this page's achievement stats above are inherently
-  // RLS-limited (shapePublicProfile counts only public done lists, and
-  // marquee_solves is scoped by RLS to its own reader), so they can never
+  // RLS-limited (shapePublicProfile counts only public done lists; only the
+  // solve count is read with full access), so they can never
   // fully reconstruct ownership of a challenge- or drop-gated item earned
   // partly through private data. Re-checking ownership here with them would
   // not catch a stale grant — it would produce FALSE NEGATIVES: a user who
@@ -307,8 +329,8 @@ export default async function PublicProfilePage({
   const canvasEquipped = sanitizeEquipped(showcase.equipped);
   // Rendered as the stored SNAPSHOT, never recomputed via resolveTaglineText
   // on this page: this page's achievementStats above is itself RLS-limited
-  // (public done lists only, and marquee_solves is scoped to its own reader),
-  // so a tagline earned partly through private lists or solves would
+  // (public done lists only; the solve count is the one full-access stat),
+  // so a tagline earned partly through private lists would
   // silently vanish here for EVERY viewer — including the owner previewing
   // their own /u/[handle] — if recomputed with these stats. /api/profile
   // resolves and stores it once, at equip time, from the real owner's own
@@ -389,6 +411,10 @@ export default async function PublicProfilePage({
             pinned={pinned}
             handleAs="h1"
           />
+          {/* The two doors out of someone ELSE's profile, right under the
+              identity so a share-link visitor sees them before the wall. The
+              owner gets neither: their doors are on /u/profile. */}
+          {showVisitorDoor && <VisitorDoor handle={profile.handle} />}
         </div>
       </header>
 
@@ -398,12 +424,12 @@ export default async function PublicProfilePage({
           // who can ever read it, and they already know what a private
           // profile is — what they need is the way to change it.
           <p className={`mb-10 inline-block px-4 py-3 text-sm text-muted ${SCRIM}`}>
-            Only you can see this profile.{" "}
+            Only you can see this profile. Make it public in{" "}
             <Link
               href="/settings"
               className="text-gold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-gold"
             >
-              Make it public in settings
+              settings
             </Link>
             .
           </p>
@@ -443,6 +469,13 @@ export default async function PublicProfilePage({
             </ul>
           )}
         </section>
+
+        <TasteSection
+          taste={taste}
+          mode={isOwner ? "owner" : "visitor"}
+          handle={profile.handle}
+          className="mt-14"
+        />
 
         {achievements.length > 0 && (
           <section aria-labelledby="achievements-heading" className="mt-14">

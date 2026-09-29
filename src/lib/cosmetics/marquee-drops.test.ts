@@ -1,7 +1,8 @@
-// src/lib/cosmetics/canister.test.ts
+// src/lib/cosmetics/marquee-drops.test.ts
 import { describe, expect, it } from "vitest";
 import { CATALOGUE } from "./catalogue";
-import { drawFrom, droppablePool } from "./canister";
+import { drawFrom, droppablePool } from "./marquee-drops";
+import * as shim from "./canister";
 import type { CosmeticItem } from "./types";
 
 const pool = (ids: string[]): CosmeticItem[] =>
@@ -14,7 +15,7 @@ describe("droppablePool", () => {
     }
   });
 
-  it("never offers a level, challenge or purchase item", () => {
+  it("never offers a level, challenge or marquee item", () => {
     const ids = new Set(droppablePool(new Set()).map((i) => i.id));
     for (const item of CATALOGUE) {
       if (item.unlock.kind !== "drop") {
@@ -23,10 +24,29 @@ describe("droppablePool", () => {
     }
   });
 
-  it("excludes what is already owned, so a canister is always a real gain", () => {
+  it("excludes what is already owned, so a drop is always a real gain", () => {
     const all = droppablePool(new Set());
     const owned = new Set([all[0].id]);
     expect(droppablePool(owned).map((i) => i.id)).not.toContain(all[0].id);
+  });
+
+  it("is ten items after the 2026-09-28 cut: eight lines and two atmospheres", () => {
+    // Pinned on purpose. Every drop is positional in `drawFrom`, so a change
+    // here is a change to what every user has already drawn — the same
+    // reason ownership.test.ts pins the sequence itself.
+    const ids = droppablePool(new Set()).map((i) => i.id);
+    expect(ids).toEqual([
+      "overlay.dust",
+      "overlay.flicker",
+      "tagline.trailer.one-last-job",
+      "tagline.trailer.personal",
+      "tagline.trailer.unprepared",
+      "tagline.trailer.never-the-same",
+      "tagline.print.no-animals",
+      "tagline.print.on-location",
+      "tagline.print.aspect-ratio",
+      "tagline.print.fictitious",
+    ]);
   });
 });
 
@@ -49,13 +69,13 @@ describe("drawFrom", () => {
   });
 
   it("only ever returns a member of the pool it was given", () => {
-    const p = pool(["frame.neon-cyan", "frame.toxic"]);
+    const p = pool(["overlay.dust", "tagline.print.no-animals"]);
     for (let i = 0; i < 50; i += 1) {
       expect(p).toContain(drawFrom(p, `seed-${i}`));
     }
   });
 
-  it("favours common over legendary across many seeds", () => {
+  it("favours common over rare across many seeds", () => {
     const p = droppablePool(new Set());
     const counts = { common: 0, rare: 0, legendary: 0 };
     for (let i = 0; i < 2000; i += 1) {
@@ -63,5 +83,14 @@ describe("drawFrom", () => {
       if (pick) counts[pick.rarity] += 1;
     }
     expect(counts.common).toBeGreaterThan(counts.rare);
+  });
+});
+
+describe("the canister.ts shim", () => {
+  it("re-exports the same functions, so an old import path still draws the same item", () => {
+    // Files outside this module still import "./cosmetics/canister"; the
+    // rename must not fork the draw.
+    expect(shim.drawFrom).toBe(drawFrom);
+    expect(shim.droppablePool).toBe(droppablePool);
   });
 });

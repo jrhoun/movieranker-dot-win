@@ -55,13 +55,13 @@ export default function ProfileVisibilityToggle({
   return (
     <div className="rounded-lg bg-surface p-5 ring-1 ring-white/10 shadow-lg">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-text">Profile Visibility</h3>
+        <h3 className="text-sm font-semibold text-text">Profile visibility</h3>
         {claimed && handle && (
           <Link
             href={`/u/${handle}`}
-            className="text-xs font-semibold text-gold hover:underline flex items-center gap-1"
+            className="text-xs font-semibold text-gold underline-offset-4 hover:underline"
           >
-            Preview Profile (/u/{handle}) ↗
+            Preview profile (/u/{handle})
           </Link>
         )}
       </div>
@@ -82,13 +82,13 @@ export default function ProfileVisibilityToggle({
           [
             {
               value: "private",
-              label: "🔒 Private",
+              label: "Private",
               title: "Only you can see your profile.",
               desc: "Hidden from search engines and other users.",
             },
             {
               value: "public",
-              label: "🌐 Public",
+              label: "Public",
               title: "Your profile is viewable by anyone at movieranker.win/u/your-handle.",
               desc: "Anyone on the web with your link can view your profile and public rankings.",
             },
@@ -102,7 +102,7 @@ export default function ProfileVisibilityToggle({
             title={opt.title}
             disabled={!claimed}
             onClick={() => void set(opt.value)}
-            className={`min-h-10 flex-1 rounded-md px-3 text-xs font-semibold uppercase tracking-wider transition-all duration-200 ease-out focus-visible:outline-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:opacity-40 ${
+            className={`min-h-10 flex-1 rounded-md px-3 text-sm font-semibold transition-all duration-200 ease-out focus-visible:outline-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:opacity-40 ${
               value === opt.value
                 ? "bg-gold/20 text-gold ring-1 ring-gold shadow"
                 : "text-muted hover:bg-white/5 hover:text-text"

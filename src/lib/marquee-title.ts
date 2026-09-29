@@ -1,4 +1,25 @@
-import { marqueeNumber } from "./shortlist";
+import { marqueeNumber, pickTonightsEntry, weeksSinceUtcEpoch } from "./shortlist";
+import { SHORTLIST_THEMES } from "./shortlist-themes";
+
+/**
+ * Is this theme the curated rotation's pick for the week everyone is playing
+ * right now? For a CATALOGUE surface — the wardrobe's tagline pane, where a
+ * Marquee souvenir line IS the theme title — there is no list row and no
+ * `created_at` to anchor `maskListTitle` on, so the question is asked of the
+ * theme itself.
+ *
+ * Decided from the curated rotation only. A scheduled community proposal that
+ * displaces the curated theme for a week is not in SHORTLIST_THEMES and has no
+ * souvenir line to leak; the curated theme it displaced then reads as live
+ * for a week it is not — a mask where none was needed, never a leak.
+ */
+export function isLiveMarqueeTheme(
+  themeSlug: string | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (!themeSlug) return false;
+  return pickTonightsEntry(SHORTLIST_THEMES, weeksSinceUtcEpoch(now))?.slug === themeSlug;
+}
 
 /**
  * THE SPOILER RULE, in one place.

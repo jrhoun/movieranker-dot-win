@@ -29,7 +29,7 @@ export default async function CustomisePage() {
     <main className="mx-auto w-full max-w-page flex-1 px-4 py-10 sm:px-6 lg:px-8">
       <MarqueeHeading>Edit Profile</MarqueeHeading>
       <p className="mt-2 text-sm text-muted">
-        Customize your avatar, frame, background, and profile tagline.{" "}
+        Choose the avatar, frame, background, atmosphere and tagline your profile wears.{" "}
         <Link
           href={`/u/${data.handle}`}
           className="text-gold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-gold"

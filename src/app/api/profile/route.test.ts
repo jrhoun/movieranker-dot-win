@@ -209,6 +209,42 @@ describe("POST /api/profile", () => {
     expect(upsert.args[0]).toEqual({ id: "u-1", handle: "fresh-handle" });
   });
 
+  async function postWith(body: Record<string, unknown>) {
+    const { POST } = await import("./route");
+    return POST(
+      new Request("http://x/api/profile", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    );
+  }
+
+  it("writes the chosen visibility on a first claim", async () => {
+    for (const visibility of ["public", "private"]) {
+      vi.resetModules();
+      currentDb = { ...makeDb({ user: { id: "u-1" } }), row: null };
+      const res = await postWith({ handle: "fresh-handle", visibility });
+      expect(res.status).toBe(201);
+      const upsert = currentDb.calls.find((c) => c.method === "upsert")!;
+      expect(upsert.args[0]).toEqual({ id: "u-1", handle: "fresh-handle", visibility });
+    }
+  });
+
+  it("400 on a visibility value outside public/private", async () => {
+    expect((await postWith({ handle: "fresh-handle", visibility: "unlisted" })).status).toBe(400);
+    expect((await postWith({ handle: "fresh-handle", visibility: 42 })).status).toBe(400);
+    expect(currentDb.calls.find((c) => c.method === "upsert")).toBeUndefined();
+  });
+
+  it("ignores visibility when a profiles row already exists", async () => {
+    // A re-claim must not flip a profile its owner has since made private.
+    currentDb.row = { id: "u-1", referred_by: null };
+    const res = await postWith({ handle: "fresh-handle", visibility: "public" });
+    expect(res.status).toBe(201);
+    const upsert = currentDb.calls.find((c) => c.method === "upsert")!;
+    expect(upsert.args[0]).toEqual({ id: "u-1", handle: "fresh-handle" });
+  });
+
   it("rate-limits claim attempts, counting failures too", async () => {
     // LIMITS.claimHandle = 5/hour; every failed validation still counts.
     for (let i = 0; i < 5; i++) {

@@ -187,7 +187,7 @@ function TaglineRows({
               <span
                 className={`text-base italic leading-snug ${isOwned ? "text-text" : "text-text/45"}`}
               >
-                {labelFor(item, taglineTexts)}
+                {labelFor(item, taglineTexts, isOwned)}
               </span>
               {isSelected ? (
                 <span className="shrink-0 text-xs text-gold">Equipped</span>
@@ -358,7 +358,7 @@ function GroupedSwatches({
                 owned={ownedSet.has(item.id)}
                 selected={selectedId === item.id}
                 posterPath={posterPathFor(item.id)}
-                label={labelFor(item, taglineTexts)}
+                label={labelFor(item, taglineTexts, ownedSet.has(item.id))}
                 onChoose={onChoose}
               />
             ))}
@@ -1074,7 +1074,7 @@ export default function CustomiseClient({
                                   owned={ownedSet.has(item.id)}
                                   selected={draft.avatar === item.id}
                                   posterPath={posterPathFor(item.id)}
-                                  label={labelFor(item, taglineTexts)}
+                                  label={labelFor(item, taglineTexts, ownedSet.has(item.id))}
                                   onChoose={choose}
                                 />
                               ))}

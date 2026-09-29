@@ -37,6 +37,16 @@ describe("isReserved", () => {
     expect(isReserved("moderator")).toBe(true);
     expect(isReserved("filmfan")).toBe(false);
   });
+
+  it("reserves the invite flow's placeholder words", () => {
+    // Unclaimed users' invite links once carried `?ref=join`; whoever claimed
+    // "join" as a handle would have been credited for every one of them.
+    for (const word of ["join", "ref", "invite", "me"]) {
+      expect(isReserved(word), word).toBe(true);
+    }
+    expect(checkHandle("join")).toEqual({ ok: false, reason: "reserved" });
+    expect(checkHandle("Invite")).toEqual({ ok: false, reason: "reserved" });
+  });
 });
 
 describe("isProfane", () => {

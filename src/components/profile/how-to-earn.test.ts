@@ -15,14 +15,15 @@ describe("howToEarn", () => {
     for (const item of CATALOGUE) {
       const line = howToEarn(item.unlock);
       expect(line, item.id).toBeTruthy();
-      // A grid that mixes "Dropped from a reel canister." with "Level 25"
-      // reads as two different writers. Every kind is a full sentence.
+      // A grid that mixes "Dropped by a weekly Marquee you finished." with
+      // "Level 25" reads as two different writers. Every kind is a full
+      // sentence.
       expect(line, item.id).toMatch(/\.$/);
       expect(line[0], item.id).toBe(line[0].toUpperCase());
     }
   });
 
-  it("never leaks a template placeholder or a promise", () => {
+  it("never leaks a template placeholder, a promise, or the old vocabulary", () => {
     for (const item of CATALOGUE) {
       const line = howToEarn(item.unlock);
       // "{count}" lives in the earned taglines' name/text, never in an unlock.
@@ -30,18 +31,20 @@ describe("howToEarn", () => {
       // Removed from an earlier build deliberately: a collection that says
       // "Coming Soon" about a thing it is showing you has told you nothing.
       expect(line.toLowerCase(), item.id).not.toContain("coming soon");
-      // Nothing is purchasable and nothing is planned to be (spec §5.4), so
-      // `purchase` must never read as a storefront.
+      // Nothing is purchasable and nothing is planned to be (spec §5.4).
       expect(line.toLowerCase(), item.id).not.toContain("buy");
+      // "Reel canister" left the vocabulary on 2026-09-28; a drop is from a
+      // weekly Marquee, which is a thing the player has actually done.
+      expect(line.toLowerCase(), item.id).not.toContain("canister");
+      expect(line.toLowerCase(), item.id).not.toMatch(/\b(legendary|rare)\b/);
     }
   });
 
   it("names the specific path for each kind", () => {
     expect(howToEarn({ kind: "starter" })).toBe("Yours from the start.");
     expect(howToEarn({ kind: "level", level: 25 })).toBe("Unlocks at level 25.");
-    expect(howToEarn({ kind: "drop" })).toBe("Dropped from a reel canister.");
+    expect(howToEarn({ kind: "drop" })).toBe("Dropped by a weekly Marquee you finished.");
     expect(howToEarn({ kind: "marquee", themeSlug: "w1" })).toMatch(/Marquee\.$/);
-    expect(howToEarn({ kind: "purchase" })).toBe("Not available yet.");
   });
 
   it("says which achievement, by its real name", () => {

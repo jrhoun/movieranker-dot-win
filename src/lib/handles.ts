@@ -53,8 +53,16 @@ export function isProfane(handle: string): boolean {
   return PROFANITY_BLOCKLIST.some((word) => folded.includes(word));
 }
 
-/** Routes that must never be shadowed by a public profile path. */
+/**
+ * Routes that must never be shadowed by a public profile path, plus words the
+ * invite flow uses as placeholders: `?ref=` resolves a handle to a referrer, so
+ * "join", "ref" and "invite" would otherwise let someone claim every invite
+ * link that was ever shared without a handle.
+ */
 export const RESERVED = new Set([
+  "join",
+  "ref",
+  "invite",
   "admin",
   "login",
   "signup",

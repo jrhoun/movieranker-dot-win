@@ -158,19 +158,18 @@ export default function BetaRequirementsModal({
         <div className="flex items-start justify-between border-b border-white/10 pb-4">
           <div>
             <div className="mb-1 inline-flex items-center gap-1.5 font-display text-[10px] uppercase tracking-widest text-gold bg-gold/15 px-2 py-0.5 rounded-md ring-1 ring-gold/40">
-              <span aria-hidden="true">📼</span>
-              <span>Open Beta Screening</span>
+              <span>Public beta</span>
             </div>
             <h2
               id="beta-requirements-title"
               className="font-display text-2xl uppercase tracking-wider text-text sm:text-3xl"
             >
-              Beta Requirements &amp; Bonuses
+              Beta Test Screener
             </h2>
             <p className="mt-1 text-xs text-muted sm:text-sm">
-              Complete 3 quick onboarding steps to earn the legendary{" "}
-              <strong className="text-gold font-normal">Beta Test Screener</strong> achievement and
-              unlock exclusive profile cosmetics.
+              Three steps during the public beta earn the{" "}
+              <strong className="text-gold font-normal">Beta Test Screener</strong> laurel and its
+              avatar, frame and tagline.
             </p>
           </div>
           <button
@@ -186,7 +185,7 @@ export default function BetaRequirementsModal({
         {/* Progress Tracker */}
         <div className="mt-5 rounded-xl border border-white/10 bg-bg/60 p-4">
           <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider">
-            <span className="text-muted">Your Beta Screening Progress</span>
+            <span className="text-muted">Your progress</span>
             <span className="text-gold font-display text-base tracking-normal">
               {isLoading ? "Checking…" : `${completedCount} / 3 Completed`}
             </span>
@@ -339,7 +338,7 @@ export default function BetaRequirementsModal({
                 </h4>
               </div>
               <p className="mt-0.5 text-xs text-text/80">
-                You have unlocked the Beta Canister rewards suite. Equip your cosmetics in your profile!
+                The Beta Test Screener laurel is yours, with its avatar, frame and tagline. Wear them from your profile.
               </p>
             </div>
             <Link
@@ -355,12 +354,11 @@ export default function BetaRequirementsModal({
         {/* Rewards Showcase */}
         <div className="mt-5 border-t border-white/10 pt-4">
           <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-2.5">
-            Unlockable Beta Canister Cosmetics
+            What the Beta Test Screener wears
           </h4>
           <div className="grid grid-cols-3 gap-2.5">
             {/* Reward 1 */}
             <div className="flex flex-col items-center justify-center rounded-lg border border-white/10 bg-bg/40 p-3 text-center">
-              <span className="text-2xl mb-1">📼</span>
               <span className="font-display text-xs uppercase tracking-wider text-text">
                 Beta Reel
               </span>
@@ -368,15 +366,13 @@ export default function BetaRequirementsModal({
             </div>
             {/* Reward 2 */}
             <div className="flex flex-col items-center justify-center rounded-lg border border-white/10 bg-bg/40 p-3 text-center">
-              <span className="text-2xl mb-1">🎞️</span>
               <span className="font-display text-xs uppercase tracking-wider text-text">
                 Beta Cassette
               </span>
-              <span className="text-[10px] text-muted">Profile Frame</span>
+              <span className="text-[10px] text-muted">Frame</span>
             </div>
             {/* Reward 3 */}
             <div className="flex flex-col items-center justify-center rounded-lg border border-white/10 bg-bg/40 p-3 text-center">
-              <span className="text-2xl mb-1">💬</span>
               <span className="font-display text-xs uppercase tracking-wider text-gold">
                 &ldquo;Betamax was better&rdquo;
               </span>

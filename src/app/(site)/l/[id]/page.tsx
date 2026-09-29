@@ -16,11 +16,19 @@ import UpvoteButton from "@/components/community/UpvoteButton";
 import ForkButton from "@/components/community/ForkButton";
 import { withRanks, type ListMovieRow } from "@/lib/list-view";
 import { marqueeListNumber, maskListTitle } from "@/lib/marquee-title";
-import { summariseCompletion, isWorthCelebrating, type CompletionSummary } from "@/lib/completion";
+import {
+  summariseCompletion,
+  isWorthCelebrating,
+  type CompletionSnapshot,
+  type CompletionSummary,
+} from "@/lib/completion";
+import { parseAvatarClaims } from "@/lib/cosmetics/claims";
+import { ownedItemIds } from "@/lib/cosmetics/ownership";
 import {
   calculateXpBreakdown,
   countMoviesRanked,
   evaluateAchievements,
+  levelFor,
   type AchievementStats,
 } from "@/lib/gamification";
 import { reconcileCareerXp, toXpLists, type CareerListRow } from "@/lib/career-xp";
@@ -235,7 +243,7 @@ export default async function PublicListPage({
   // failure is silent will drift, and this one already had.
   //
   // EVERY TITLE ON THIS PAGE IS `displayTitle`, not `list.title`. The heading
-  // was already withheld, but the Premiere Pass printed the theme in 48px caps
+  // was already withheld, but the Ticket Stub printed the theme in 48px caps
   // directly under the withheld heading, and the Fork button named it in its
   // accessible label — on the single most-shared surface on the site. The rule
   // is only worth anything if it is applied to every string that reaches a
@@ -280,7 +288,7 @@ export default async function PublicListPage({
 
     // The query above is already scoped to finished lists, so every row here is
     // done by construction.
-    const owned: ({ id: string } & CareerListRow)[] = (
+    const owned: ({ id: string; visibility: string; created_at: string } & CareerListRow)[] = (
       (ownedRows ?? []) as Record<string, unknown>[]
     ).map((r) => ({
       id: String(r.id),
@@ -288,6 +296,8 @@ export default async function PublicListPage({
       theme_slug: (r.theme_slug as string | null) ?? null,
       participants: r.participants,
       movieCount: Array.isArray(r.list_movies) ? r.list_movies.length : 0,
+      visibility: String(r.visibility ?? ""),
+      created_at: String(r.created_at ?? ""),
     }));
     const before = owned.filter((l) => l.id !== id);
 
@@ -316,23 +326,13 @@ export default async function PublicListPage({
     const hasHandle = Boolean(
       (profileRow as { handle?: string | null } | null)?.handle,
     );
-    const publicDoneLists = ((ownedRows ?? []) as Record<string, unknown>[]).filter(
-      (r) => r.visibility === "public",
-    ).length;
-    const betaStats: AchievementStats = {
-      doneLists: (ownedRows ?? []).length,
-      moviesRanked: 0,
-      publicDoneLists,
-      hasHandle,
-      isSignedIn: true,
-    };
-    const betaUnlocked =
-      evaluateAchievements(betaStats).find((a) => a.key === "beta_pioneer")?.unlocked ?? false;
-    if (!betaUnlocked) {
-      // isSignedIn is always true on this branch (isOwner requires a signed-in
-      // user), so at most the handle and the public list are still open.
-      betaBannerRemainingSteps = (hasHandle ? 0 : 1) + (publicDoneLists >= 1 ? 0 : 1);
-    }
+    const publicDoneLists = owned.filter((l) => l.visibility === "public").length;
+    // Poster avatar claims are part of ownership (see ownedItemIds); without
+    // them a claimed poster would show up here as newly owned every time.
+    const avatarClaims =
+      parseAvatarClaims(
+        (profileRow as { showcase?: { avatarClaims?: unknown } } | null)?.showcase?.avatarClaims,
+      ) ?? [];
 
     // Marquee ordering (first to finish a theme, front row, century) is global,
     // so it needs every themed done list — the same read the profile page does.
@@ -361,34 +361,71 @@ export default async function PublicListPage({
         ),
     );
 
-    const snapshot = (ls: typeof owned, completions: ThemeCompletion[]) => {
+    const snapshot = (ls: typeof owned, completions: ThemeCompletion[]): CompletionSnapshot => {
       const xpLists = toXpLists(ls);
       const breakdown = calculateXpBreakdown({
         lists: xpLists,
         referralCount: referralStats.activeReferrals,
         connectionsSolved: solveCount ?? 0,
       });
-      return {
-        xp: reconcileCareerXp(breakdown, bankedXp, bankedCurve).total,
-        stats: {
-          // Filtered on the mapper's own flag rather than trusting the query
-          // three screens up to stay scoped to finished lists.
-          doneLists: xpLists.filter((l) => l.done).length,
-          moviesRanked: countMoviesRanked(xpLists),
-          maxMoviesInSingleList: Math.max(0, ...ls.map((l) => l.movieCount)),
-          coCuratedLists: xpLists.filter((l) => l.done && l.coCurated).length,
-          marqueeWeeks: xpLists.filter((l) => l.done && l.isMarquee).length,
-          marqueeConnectionsSolved: solveCount ?? 0,
-          ...marqueeStanding(completions, user.id),
-        },
+      const xp = reconcileCareerXp(breakdown, bankedXp, bankedCurve).total;
+      // Every achievement input, including the three Beta Test Screener
+      // reads: same derivation the profile page and its API route use
+      // (`hasHandle` from profiles.handle, `publicDoneLists` from the
+      // owner's done rows at visibility='public'). Omitting them here meant
+      // the achievement could unlock but never be announced.
+      const stats: AchievementStats = {
+        // Filtered on the mapper's own flag rather than trusting the query
+        // three screens up to stay scoped to finished lists.
+        doneLists: xpLists.filter((l) => l.done).length,
+        moviesRanked: countMoviesRanked(xpLists),
+        maxMoviesInSingleList: Math.max(0, ...ls.map((l) => l.movieCount)),
+        coCuratedLists: xpLists.filter((l) => l.done && l.coCurated).length,
+        marqueeWeeks: xpLists.filter((l) => l.done && l.isMarquee).length,
+        marqueeConnectionsSolved: solveCount ?? 0,
+        publicDoneLists: ls.filter((l) => l.visibility === "public").length,
+        hasHandle,
+        isSignedIn: true,
+        // Beta Test Screener is time-boxed: the first public finish must
+        // fall inside the beta window (PUBLIC_BETA_ENDS_AT).
+        earliestPublicDoneListAt:
+          ls
+            .filter((l) => l.visibility === "public")
+            .map((l) => l.created_at)
+            .sort()[0] ?? null,
+        ...marqueeStanding(completions, user.id),
       };
+      // Ownership resolved exactly as the dressing room does it (oldest
+      // finished theme first, since that order replays the drop sequence),
+      // so what this card announces is what the profile will show.
+      const finishedThemeSlugs = ls
+        .filter((l) => typeof l.theme_slug === "string" && l.theme_slug.length > 0)
+        .slice()
+        .sort((a, b) => a.created_at.localeCompare(b.created_at))
+        .map((l) => l.theme_slug as string);
+      const ownedCosmetics = ownedItemIds({
+        userId: user.id,
+        level: levelFor(xp).level,
+        unlockedAchievementKeys: evaluateAchievements(stats)
+          .filter((a) => a.unlocked)
+          .map((a) => a.key),
+        finishedThemeSlugs,
+        avatarClaims,
+      });
+      return { xp, stats, owned: ownedCosmetics };
     };
 
-    const summary = summariseCompletion(
-      snapshot(before, completionsBefore),
-      snapshot(owned, allCompletions),
-    );
+    const after = snapshot(owned, allCompletions);
+    const summary = summariseCompletion(snapshot(before, completionsBefore), after);
     completion = isWorthCelebrating(summary) ? summary : null;
+
+    const betaUnlocked =
+      evaluateAchievements(after.stats).find((a) => a.key === "beta_pioneer")?.unlocked ?? false;
+    if (!betaUnlocked) {
+      // isSignedIn is always true on this branch (isOwner requires a signed-in
+      // user), so at most the handle and the public list are still open.
+      betaBannerRemainingSteps = (hasHandle ? 0 : 1) + (publicDoneLists >= 1 ? 0 : 1);
+    }
   }
 
   // Top three by final rank, for the share text. Rows with a null finalRank
@@ -427,7 +464,7 @@ export default async function PublicListPage({
   }
   const pct = (x: number) => `${Math.round(x * 100)}%`;
 
-  // The pass is the most-copied artefact on the site — a PNG people paste into
+  // The ticket stub is the most-copied artefact on the site — a PNG people paste into
   // group chats — so it takes the withheld title like everything else. It used
   // to take `list.title`, which printed "THE GOLDEN AGE OF HOLLYWOOD" in Bebas
   // caps immediately below the heading that had just refused to say it.
@@ -611,8 +648,8 @@ export default async function PublicListPage({
       )}
 
       {list.status === "done" && rows.length > 0 && (
-        <section aria-label="Official premiere pass" className="mt-14 flex flex-col items-center text-center">
-          <MarqueeHeading as="h2">Premiere Pass</MarqueeHeading>
+        <section aria-label="Ticket stub" className="mt-14 flex flex-col items-center text-center">
+          <MarqueeHeading as="h2">Ticket Stub</MarqueeHeading>
           <p className="mt-2 text-xs text-muted sm:text-sm">
             Your ticket stub. Share it, or save the image.
           </p>

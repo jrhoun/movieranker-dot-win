@@ -117,10 +117,12 @@ describe("CustomiseClient", () => {
   });
 
   it("says how to earn every locked thing, and never hides one", () => {
-    // avatar.grad.nitrate is level 5; the pane must print its price rather
-    // than blur it or drop it.
-    expect(html).toContain("Unlocks at level");
+    // avatar.gen.beta-reel is the one locked avatar (no avatar sits behind a
+    // level any more); the pane must print its price rather than blur it or
+    // drop it.
+    expect(html).toContain("Earned with the Beta Test Screener achievement.");
     expect(html).not.toContain("Coming soon");
+    expect(html).not.toContain("canister");
     // Dimmed, never blurred: the art of a locked item stays readable. (The
     // only blur on the page is the mirror's own translucent card, which is
     // ProfileCanvas's, so the test asks for the dim rather than against a

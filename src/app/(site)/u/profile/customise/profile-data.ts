@@ -27,6 +27,7 @@ import { resolveEquipped, type Equipped } from "@/lib/cosmetics/equipped";
 import { itemsForSlot } from "@/lib/cosmetics/catalogue";
 import { resolveTaglineText } from "@/lib/cosmetics/taglines";
 import type { TaglineItem } from "@/lib/cosmetics/types";
+import { loadTasteForProfile, tasteListsFromRows, type TasteProfile } from "@/lib/taste";
 
 /**
  * Everything the owner's two pages read.
@@ -55,7 +56,15 @@ interface DbList {
   visibility: string | null;
   created_at: string;
   theme_slug?: string | null;
-  list_movies: { title: string; poster_path: string | null; tmdb_id?: number }[] | null;
+  list_movies:
+    | {
+        title: string;
+        poster_path: string | null;
+        tmdb_id?: number;
+        release_year?: number | null;
+        final_rank?: number | null;
+      }[]
+    | null;
 }
 
 export interface OwnerProfileData {
@@ -88,6 +97,8 @@ export interface OwnerProfileData {
   statsLine: string;
   /** Month and year the profile row was created, e.g. "August 2026". */
   joined: string | null;
+  /** Number ones, decades and room agreement, from every finished list (see src/lib/taste.ts). */
+  taste: TasteProfile;
 }
 
 /**
@@ -148,7 +159,9 @@ export async function loadOwnerProfile(): Promise<OwnerProfileData> {
   // Top posters: final_rank first (done lists), then elo desc (drafts).
   const { data: lists } = await supabase
     .from("lists")
-    .select("id,title,participants,status,visibility,theme_slug,created_at,list_movies(title,poster_path,tmdb_id)")
+    .select(
+      "id,title,participants,status,visibility,theme_slug,created_at,list_movies(title,poster_path,tmdb_id,release_year,final_rank)",
+    )
     .eq("owner_id", auth.user.id)
     .order("created_at", { ascending: false })
     .order("final_rank", { foreignTable: "list_movies", ascending: true, nullsFirst: false })
@@ -294,10 +307,24 @@ export async function loadOwnerProfile(): Promise<OwnerProfileData> {
     publicDoneLists: doneCards.filter((c) => c.visibility === "public").length,
     hasHandle: Boolean(profile?.handle),
     isSignedIn: true,
+    earliestPublicDoneListAt:
+      doneCards
+        .filter((c) => c.visibility === "public")
+        .map((c) => c.createdAt)
+        .sort()[0] ?? null,
     ...standing,
   };
   const achievements = evaluateAchievements(achievementStats);
   const level = levelFor(progress.current);
+
+  // The Taste section, from the rows already in hand (release_year and
+  // final_rank ride along on the lists query above for exactly this) and the
+  // solve count already struck; only the room-consensus read is new.
+  const taste = await loadTasteForProfile(supabase, auth.user.id, {
+    publicOnly: false,
+    lists: tasteListsFromRows(rows),
+    connectionsCracked: solveCount ?? 0,
+  });
 
   // Same rows /api/profile's equip validator reads (owner_id + status=done,
   // oldest first): ownedItemIds replays canister drops in this order, so any
@@ -425,5 +452,6 @@ export async function loadOwnerProfile(): Promise<OwnerProfileData> {
       joined,
     }),
     joined,
+    taste,
   };
 }

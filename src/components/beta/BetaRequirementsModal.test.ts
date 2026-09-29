@@ -15,7 +15,7 @@ describe("BetaRequirementsModal", () => {
     expect(html).toContain("<dialog");
     expect(html).toContain('aria-labelledby="beta-requirements-title"');
     expect(html).toContain('id="beta-requirements-title"');
-    expect(html).toContain("Beta Requirements");
+    expect(html).toContain("Beta Test Screener");
     expect(html).toContain('aria-label="Close beta requirements dialog"');
   });
 
@@ -61,7 +61,7 @@ describe("BetaRequirementsModal", () => {
     expect(html).toContain('href="/u/profile#beta"');
   });
 
-  it("displays the Beta Canister rewards preview", () => {
+  it("displays what the Beta Test Screener wears", () => {
     const html = renderToStaticMarkup(
       h(BetaRequirementsModal, {
         isOpen: true,

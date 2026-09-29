@@ -19,16 +19,13 @@ describe("ownedItemIds", () => {
     for (const s of starters) expect(owned.has(s.id)).toBe(true);
   });
 
-  it("purchase items are never derived while grants are empty", () => {
-    const owned = ownedItemIds(stats({ level: 100, unlockedAchievementKeys: ["cryptologist"] }));
-    for (const item of CATALOGUE.filter((i) => i.unlock.kind === "purchase")) {
-      expect(owned.has(item.id), `${item.id} was derived`).toBe(false);
-    }
-  });
-
-  it("grants add purchased items without touching anything else", () => {
-    const withGrant = ownedItemIds(stats(), ["frame.vhs"]);
-    expect(withGrant.has("frame.vhs")).toBe(true);
+  it("grants add a real item without touching anything else, and ignore an id that is gone", () => {
+    const withGrant = ownedItemIds(stats(), ["frame.prism", "frame.vhs"]);
+    expect(withGrant.has("frame.prism")).toBe(true);
+    // frame.vhs left the catalogue on 2026-09-28. A stale grant must not put
+    // an unrenderable id into `owned`.
+    expect(withGrant.has("frame.vhs")).toBe(false);
+    expect(withGrant.size).toBe(ownedItemIds(stats()).size + 1);
   });
 
   it("level unlocks appear at their threshold and not before", () => {
@@ -45,7 +42,7 @@ describe("ownedItemIds", () => {
     ).toBe(true);
   });
 
-  it("unlocks the complete Beta Canister bundle (avatar, frame, tagline) when beta_pioneer challenge is met", () => {
+  it("unlocks the Beta Test Screener avatar, frame and tagline together when beta_pioneer is met", () => {
     const owned = ownedItemIds({
       userId: "test-user",
       level: 1,
@@ -65,6 +62,13 @@ describe("ownedItemIds", () => {
       for (const id of previous) expect(now.has(id), `lost ${id} at ${level}`).toBe(true);
       previous = now;
     }
+  });
+
+  it("a new profile owns nothing that needs earning", () => {
+    // The wardrobe's opening state, pinned by count so a starter creeping in
+    // (or a level-gated avatar creeping back) is visible here.
+    const owned = ownedItemIds(stats());
+    expect(owned.size).toBe(33); // 2 frames, 1 background, 1 overlay, 3 lines, 18 faces, 8 gradients
   });
 
   it("each finished Marquee yields exactly one drop", () => {
@@ -104,17 +108,21 @@ describe("ownedItemIds", () => {
     expect([...ownedItemIds(args)].sort()).toEqual([...ownedItemIds(args)].sort());
   });
 
-  it("draws the exact same canisters it drew before avatars existed", () => {
+  it("draws the exact same Marquee drops it drew after the 2026-09-28 cut", () => {
     // A PINNED SEQUENCE, AND IT IS SUPPOSED TO BE BRITTLE.
     //
-    // These ids were captured from the catalogue as it stood at 53fb725, before
-    // the avatar slot was added. `drawFrom` scales its seeded ticket by the
-    // pool's TOTAL rarity weight, so adding, removing, reordering or
-    // re-rarity-ing ANY droppable item silently re-rolls every past week for
-    // every user — an item someone has been shown as owned becomes unowned, and
-    // /u/profile (live redraw) starts disagreeing with /u/[handle] (stored
-    // snapshot). The whole 651-test suite once stayed green through exactly
-    // that change; nothing else in it can see this.
+    // `drawFrom` scales its seeded ticket by the pool's TOTAL rarity weight,
+    // so adding, removing, reordering or re-rarity-ing ANY droppable item
+    // silently re-rolls every past week for every user — an item someone has
+    // been shown as owned becomes unowned, and /u/profile (live redraw) starts
+    // disagreeing with /u/[handle] (stored snapshot). The whole test suite
+    // once stayed green through exactly that change; nothing else in it can
+    // see this.
+    //
+    // These ids were RE-CAPTURED on 2026-09-28, when the catalogue cut removed
+    // 24 drop items (four decade tagline sets, one Small Print line, Velvet,
+    // Toxic, the two Neons) and re-rolled every draw once, on purpose. The
+    // previous capture, at 53fb725, is gone with the pool it described.
     //
     // If this test fails, the catalogue change that broke it is retroactive.
     // Do not re-capture these values to make it pass unless that is a decision
@@ -130,19 +138,16 @@ describe("ownedItemIds", () => {
     // user: adding a single item left the first two of these untouched while
     // moving most others. One seed is a coin flip; ten is a net.
     const expected: [string, string[]][] = [
-      // These two were captured against the pre-avatar catalogue at 53fb725.
-      // The eight below were captured after the fix, from a pool these two
-      // prove is identical to it.
-      ["regression-user", ["tagline.00s.commentary", "tagline.print.aspect-ratio", "tagline.00s.deleted-scenes", "tagline.print.on-location", "frame.neon-magenta"]],
-      ["second-user", ["tagline.80s.sp-mode", "tagline.90s.new-release", "tagline.00s.unrated", "tagline.print.on-location", "tagline.80s.rewind"]],
-      ["pinned-1", ["tagline.10s.exclusive", "tagline.00s.unrated", "background.velvet", "tagline.trailer.personal", "tagline.10s.still-watching"]],
-      ["pinned-2", ["tagline.80s.videocassette", "tagline.10s.because-you-watched", "tagline.80s.taped-over", "frame.toxic", "tagline.trailer.unprepared"]],
-      ["pinned-3", ["tagline.print.on-location", "tagline.90s.widescreen", "tagline.90s.last-copy", "tagline.print.live-audience", "tagline.00s.remastered"]],
-      ["pinned-4", ["overlay.dust", "tagline.print.aspect-ratio", "tagline.90s.new-release", "tagline.10s.skip-intro", "tagline.90s.two-discs"]],
-      ["pinned-5", ["tagline.print.on-location", "tagline.print.no-animals", "tagline.80s.taped-over", "tagline.print.fictitious", "tagline.90s.two-discs"]],
-      ["pinned-6", ["tagline.80s.rewind", "tagline.trailer.personal", "tagline.print.live-audience", "tagline.90s.new-release", "tagline.print.aspect-ratio"]],
-      ["pinned-7", ["frame.toxic", "tagline.trailer.personal", "tagline.print.no-animals", "background.velvet", "frame.neon-magenta"]],
-      ["pinned-8", ["tagline.trailer.one-last-job", "tagline.00s.commentary", "tagline.print.no-animals", "tagline.90s.staff-pick", "tagline.10s.skip-intro"]],
+      ["regression-user", ["tagline.print.on-location", "tagline.trailer.personal", "tagline.print.aspect-ratio", "tagline.trailer.one-last-job", "overlay.dust"]],
+      ["second-user", ["tagline.trailer.unprepared", "tagline.print.no-animals", "tagline.print.on-location", "tagline.trailer.one-last-job", "tagline.trailer.personal"]],
+      ["pinned-1", ["tagline.print.aspect-ratio", "tagline.print.no-animals", "overlay.flicker", "tagline.trailer.one-last-job", "tagline.print.fictitious"]],
+      ["pinned-2", ["tagline.trailer.never-the-same", "tagline.print.aspect-ratio", "tagline.trailer.unprepared", "overlay.dust", "tagline.trailer.one-last-job"]],
+      ["pinned-3", ["tagline.trailer.personal", "tagline.print.no-animals", "tagline.print.on-location", "tagline.trailer.one-last-job", "tagline.print.aspect-ratio"]],
+      ["pinned-4", ["overlay.flicker", "tagline.trailer.personal", "tagline.print.no-animals", "tagline.print.aspect-ratio", "tagline.trailer.never-the-same"]],
+      ["pinned-5", ["tagline.trailer.personal", "tagline.trailer.one-last-job", "tagline.print.no-animals", "tagline.trailer.unprepared", "tagline.print.on-location"]],
+      ["pinned-6", ["tagline.trailer.unprepared", "tagline.trailer.one-last-job", "tagline.trailer.personal", "tagline.print.on-location", "tagline.trailer.never-the-same"]],
+      ["pinned-7", ["overlay.dust", "tagline.trailer.one-last-job", "tagline.trailer.personal", "overlay.flicker", "tagline.trailer.unprepared"]],
+      ["pinned-8", ["tagline.trailer.one-last-job", "tagline.print.on-location", "tagline.trailer.personal", "tagline.print.no-animals", "tagline.print.aspect-ratio"]],
     ];
 
     for (const [userId, picks] of expected) {
@@ -150,7 +155,7 @@ describe("ownedItemIds", () => {
     }
   });
 
-  it("adds claimed poster avatars to owned set without perturbing canister drop sequence", () => {
+  it("adds claimed poster avatars to owned set without perturbing the drop sequence", () => {
     const withoutClaims = ownedItemIds(stats({ finishedThemeSlugs: ["w1", "w2", "w3"] }));
     const withClaims = ownedItemIds(
       stats({ finishedThemeSlugs: ["w1", "w2", "w3"], avatarClaims: [155, 680] }),
@@ -160,7 +165,7 @@ describe("ownedItemIds", () => {
     expect(withClaims.has("avatar.poster.680")).toBe(true);
     expect(withoutClaims.has("avatar.poster.155")).toBe(false);
 
-    // Canister drop sequence invariant: the non-claim items in both sets must be strictly identical
+    // Drop sequence invariant: the non-claim items in both sets must be strictly identical
     const withClaimsNonPoster = [...withClaims].filter((id) => !id.startsWith("avatar.poster."));
     expect(withClaimsNonPoster.sort()).toEqual([...withoutClaims].sort());
   });
@@ -171,7 +176,7 @@ describe("canEquip", () => {
     const owned = ownedItemIds(stats({ avatarClaims: [155] }));
     const starter = itemsForSlot("frame").find((i) => i.unlock.kind === "starter")!;
     expect(canEquip(starter.id, owned)).toBe(true);
-    expect(canEquip("frame.neon-cyan", owned)).toBe(false);
+    expect(canEquip("frame.prism", owned)).toBe(false);
     expect(canEquip("frame.not-a-real-id", owned)).toBe(false);
     expect(canEquip("avatar.poster.155", owned)).toBe(true);
     expect(canEquip("avatar.poster.999", owned)).toBe(false);

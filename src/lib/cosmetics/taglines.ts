@@ -20,9 +20,16 @@ const STARTER: Unlock = { kind: "starter" };
  * weights positionally over the droppable slice of `CATALOGUE`, so a line's
  * position and rarity in the TAGLINES array are part of what every user has
  * already drawn. Adding, removing, reordering or re-rarity-ing an existing
- * `DROP` line retroactively rewrites their whole canister history. Full
+ * `DROP` line retroactively rewrites their whole Marquee drop history. Full
  * explanation on `CATALOGUE` in catalogue.ts. New lines go at the end of their
  * set; the sets themselves must keep their current order too.
+ *
+ * EIGHT DROP LINES, IN TWO SETS. The four decade sets (twenty lines of "Skip
+ * intro." and "Staff pick.") were cut on 2026-09-28: a drop that lands one of
+ * forty near-identical fragments is a drop nobody notices, and a wardrobe of
+ * forty dimmed lines read as a shop. That cut re-rolled every past draw once,
+ * knowingly; the pinned sequence in ownership.test.ts was re-captured against
+ * this pool and must not move again by accident.
  */
 const DROP: Unlock = { kind: "drop" };
 
@@ -120,7 +127,7 @@ export const TAGLINES: TaglineItem[] = [
   line("trailer.one-last-job", "The Trailer", "One man. One last job.", DROP),
   // Documented as the marketing tagline of Jaws: The Revenge (1987) — a real
   // film's copy, not a generic trailer cliché — so it may be a free drop but
-  // never purchasable. See the rights invariant in taglines.test.ts.
+  // never sold. See the rights invariant in taglines.test.ts.
   line("trailer.personal", "The Trailer", "This time, it's personal.", DROP, "common", "referential"),
   line("trailer.unprepared", "The Trailer", "Nothing could prepare them.", DROP),
   line("trailer.never-the-same", "The Trailer", "You'll never look at it the same way again.", DROP, "rare"),
@@ -129,37 +136,8 @@ export const TAGLINES: TaglineItem[] = [
   line("print.true-story", "The Small Print", "Based on a true story.", STARTER),
   line("print.no-animals", "The Small Print", "No animals were harmed.", DROP),
   line("print.on-location", "The Small Print", "Filmed on location.", DROP),
-  line("print.live-audience", "The Small Print", "Filmed before a live studio audience.", DROP),
   line("print.aspect-ratio", "The Small Print", "Presented in the original aspect ratio.", DROP),
   line("print.fictitious", "The Small Print", "All persons fictitious.", DROP, "rare"),
-
-  // The 80s
-  line("80s.rewind", "The 80s", "Please rewind before returning.", DROP),
-  line("80s.tracking", "The 80s", "Tracking adjusted.", DROP),
-  line("80s.sp-mode", "The 80s", "Recorded in SP mode.", DROP),
-  line("80s.videocassette", "The 80s", "Coming soon to videocassette.", DROP),
-  line("80s.taped-over", "The 80s", "Taped over a wedding.", DROP, "rare"),
-
-  // The 90s
-  line("90s.new-release", "The 90s", "New release wall.", DROP),
-  line("90s.widescreen", "The 90s", "Widescreen edition.", DROP),
-  line("90s.two-discs", "The 90s", "Two discs. One vision.", DROP),
-  line("90s.staff-pick", "The 90s", "Staff pick.", DROP),
-  line("90s.last-copy", "The 90s", "Last copy on the shelf.", DROP, "rare"),
-
-  // The 2000s
-  line("00s.unrated", "The 2000s", "Unrated extended cut.", DROP),
-  line("00s.remastered", "The 2000s", "Digitally remastered.", DROP),
-  line("00s.commentary", "The 2000s", "With commentary.", DROP),
-  line("00s.deleted-scenes", "The 2000s", "Deleted scenes included.", DROP),
-  line("00s.explain", "The 2000s", "The director would like to explain.", DROP, "rare"),
-
-  // The 2010s
-  line("10s.skip-intro", "The 2010s", "Skip intro.", DROP),
-  line("10s.because-you-watched", "The 2010s", "Because you watched.", DROP),
-  line("10s.exclusive", "The 2010s", "Streaming exclusive.", DROP),
-  line("10s.leaving", "The 2010s", "Leaving at the end of the month.", DROP),
-  line("10s.still-watching", "The 2010s", "Are you still watching?", DROP, "rare"),
 
   ...MARQUEE_LINES,
   ...EARNED_TAGLINES,
@@ -208,8 +186,8 @@ function interpolate(template: TaglineItem, stats: AchievementStats): TaglineIte
  * decides eligibility, this function only fills in the `{count}` placeholder.
  * It must never re-derive its own thresholds: two places encoding one rule is
  * exactly the drift that leaves the tagline offered while equip logic (which
- * checks the same achievement) refuses it. Never purchasable and never
- * droppable: the point is that they cannot be obtained any other way.
+ * checks the same achievement) refuses it. Never droppable: the point is that
+ * they cannot be obtained any other way.
  */
 export function earnedTaglines(stats: AchievementStats): TaglineItem[] {
   const unlocked = new Set(

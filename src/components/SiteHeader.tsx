@@ -26,18 +26,22 @@ export default async function SiteHeader() {
   // that already point someone at the walkthrough on /u/profile#beta.
   let betaIncomplete = false;
   if (data.user) {
-    const [{ data: profile }, { count: publicDoneCount }] = await Promise.all([
+    const [{ data: profile }, { count: publicDoneCount, data: earliestPublic }] = await Promise.all([
       supabase
         .from("profiles")
         .select("handle")
         .eq("id", data.user.id)
         .maybeSingle<{ handle: string | null }>(),
+      // Count plus the earliest row in one read: the beta laurel is
+      // time-boxed, so the first public finish's date matters too.
       supabase
         .from("lists")
-        .select("id", { count: "exact", head: true })
+        .select("created_at", { count: "exact" })
         .eq("owner_id", data.user.id)
         .eq("status", "done")
-        .eq("visibility", "public"),
+        .eq("visibility", "public")
+        .order("created_at", { ascending: true })
+        .limit(1),
     ]);
     handle = profile?.handle ?? null;
 
@@ -50,6 +54,8 @@ export default async function SiteHeader() {
       publicDoneLists: publicDoneCount ?? 0,
       hasHandle: Boolean(handle),
       isSignedIn: true,
+      earliestPublicDoneListAt:
+        (earliestPublic as { created_at?: string }[] | null)?.[0]?.created_at ?? null,
     };
     betaIncomplete =
       !evaluateAchievements(betaStats).find((a) => a.key === "beta_pioneer")?.unlocked;

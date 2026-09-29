@@ -1,5 +1,5 @@
 import manifest from "../../../public/avatars/manifest.json";
-import type { CosmeticItem, Unlock } from "./types";
+import type { CosmeticItem } from "./types";
 
 /**
  * Avatars come in three kinds. Generated and gradient avatars are a FIXED
@@ -50,18 +50,20 @@ export function syntheticPosterAvatar(id: string): CosmeticItem | undefined {
  * `droppablePool` is a single pool spanning every slot, and `drawFrom` scales
  * its seeded ticket by the pool's TOTAL rarity weight. Adding even one
  * droppable item therefore re-scales every draw for every user and rewrites
- * their whole canister history — measured at 38 of 40 users when `cyan` and
+ * their whole drop history — measured at 38 of 40 users when `cyan` and
  * `magenta` briefly shipped as drops. See the capitalised note in catalogue.ts.
  *
- * Giving avatars a canister path means giving them their OWN pool, drawn from
- * its own seed, so the two sequences cannot perturb each other. Until that
- * exists, avatars are earned by level and challenge only. `catalogue.test.ts`
+ * Giving avatars a drop path means giving them their OWN pool, drawn from its
+ * own seed, so the two sequences cannot perturb each other. Until that exists,
+ * avatars are starters or achievement rewards only. `catalogue.test.ts`
  * enforces this.
  */
 /**
- * ORDERED STARTERS FIRST, THEN BY UNLOCK COST. This array is the display order
- * in the collection gallery and the customise picker, so a new profile opening
- * the avatar list sees what it can wear before what it cannot.
+ * ALL STARTERS, AND EIGHT OF THEM. An avatar says nothing about the player
+ * beyond taste, so there is nothing for a level to certify by withholding one;
+ * a gradient behind a padlock was a dimmed square in a wardrobe that read as a
+ * shop. These are the eight that read as cinema — an ember, a curtain, a
+ * sepia print, a noir key light — and a new profile may wear any of them.
  *
  * Each of these needs THREE entries to render everywhere, and only two of them
  * fail loudly:
@@ -77,19 +79,9 @@ const GRADIENTS: CosmeticItem[] = [
   { id: "avatar.grad.sepia", slot: "avatar", name: "Sepia", unlock: { kind: "starter" }, rarity: "common" },
   { id: "avatar.grad.noir", slot: "avatar", name: "Noir", unlock: { kind: "starter" }, rarity: "common" },
   { id: "avatar.grad.technicolor", slot: "avatar", name: "Technicolor", unlock: { kind: "starter" }, rarity: "common" },
-  { id: "avatar.grad.chroma", slot: "avatar", name: "Chroma", unlock: { kind: "starter" }, rarity: "common" },
-  { id: "avatar.grad.popcorn", slot: "avatar", name: "Popcorn", unlock: { kind: "starter" }, rarity: "common" },
   { id: "avatar.grad.proscenium", slot: "avatar", name: "Proscenium", unlock: { kind: "starter" }, rarity: "common" },
   { id: "avatar.grad.matinee", slot: "avatar", name: "Matinee", unlock: { kind: "starter" }, rarity: "common" },
-  { id: "avatar.grad.midnight", slot: "avatar", name: "Midnight", unlock: { kind: "starter" }, rarity: "common" },
-  { id: "avatar.grad.dusk", slot: "avatar", name: "Dusk", unlock: { kind: "starter" }, rarity: "common" },
   { id: "avatar.grad.celluloid", slot: "avatar", name: "Celluloid", unlock: { kind: "starter" }, rarity: "common" },
-  { id: "avatar.grad.aurora", slot: "avatar", name: "Aurora", unlock: { kind: "starter" }, rarity: "common" },
-  { id: "avatar.grad.ultraviolet", slot: "avatar", name: "Ultraviolet", unlock: { kind: "starter" }, rarity: "common" },
-  { id: "avatar.grad.nitrate", slot: "avatar", name: "Nitrate", unlock: { kind: "level", level: 5 }, rarity: "common" },
-  { id: "avatar.grad.cyan", slot: "avatar", name: "Cyan", unlock: { kind: "level", level: 10 }, rarity: "rare" },
-  { id: "avatar.grad.magenta", slot: "avatar", name: "Magenta", unlock: { kind: "level", level: 20 }, rarity: "rare" },
-  { id: "avatar.grad.toxic", slot: "avatar", name: "Toxic", unlock: { kind: "challenge", key: "cryptologist" }, rarity: "legendary" },
 ];
 
 /**
@@ -97,7 +89,8 @@ const GRADIENTS: CosmeticItem[] = [
  * credit on every page that shows them, so they must never ship here.
  * `scripts/generate-avatars.mjs` reads each style's own licence metadata and
  * refuses to write a non-CC0 one, so this list is a second lock rather than
- * the only one.
+ * the only one. It is the LICENCE allowlist, not the shipped set: the
+ * manifest ships three of these.
  */
 export const CC0_STYLES = [
   "identicon",
@@ -126,73 +119,28 @@ const titleCase = (s: string) =>
  * Generated art, committed as SVGs rather than produced at request time — an
  * avatar that could be conjured on demand could not be an unlockable.
  *
- * NONE ARE DROPPABLE, for the reason spelled out above `GRADIENTS`: the
- * canister pool is shared across every slot, so 24 droppable items would
- * rewrite every user's drop history far more violently than the two that
- * already did it once. They pace by level instead.
- *
- * MOST OF THESE START UNLOCKED, and the split is BY STYLE rather than by
- * position. Three starters meant a new profile chose between three faces and a
- * wall of padlocks, and the wall was the first thing it saw — the collection
- * read as a list of things withheld rather than as a wardrobe.
- *
- * Taking the first N of the array instead would have been simpler and wrong:
- * `manifest.json` is grouped style-by-style, so "the first 16 of 24" is every
- * seed of the first four styles and none of the last two. The opening choice
- * would have spanned four looks while claiming to span six. Counting within
- * each style means every style is represented on day one, whatever the
- * manifest's length or order turns out to be.
- *
- * What is left over is one seed per style, priced across the level range
- * rather than bunched at the bottom, so something is still worth reaching for
- * after the gradients have run out. All of it sits inside the level 100
- * ceiling; `avatars.test.ts` holds that bound.
+ * EVERY ONE IS A STARTER. Three styles by six seeds is eighteen faces, which
+ * is a choice rather than a wall; the thirty-six that used to sit behind
+ * levels 2 through 100 were the same illustrations at a different seed, and a
+ * level that pays out an interchangeable face is levelling awarding clutter —
+ * exactly what the design spec's §1.1 forbids. What a level or an achievement
+ * earns now is a frame, a room or a line, each of which says something.
  *
  * NONE ARE DROPPABLE, for the reason spelled out above `GRADIENTS`.
+ *
+ * Order follows the manifest, which is grouped style-by-style with the seeds
+ * in generator order, so the first entry — lorelei-reel — is the default face
+ * of every profile that has not picked one (`starterFor("avatar")` takes the
+ * first positional starter). avatars.test.ts pins that id.
  */
-const FREE_SEEDS_PER_STYLE = 6;
-
-const STYLE_ORDER = ["lorelei", "notionists", "open-peeps", "pixel-art", "shapes", "thumbs"];
-
-const GATED_LEVELS = [
-  2, 4, 6, 8, 12, 14,
-  16, 18, 22, 24, 26, 28,
-  32, 34, 36, 38, 42, 44,
-  48, 50, 52, 56, 58, 62,
-  66, 68, 70, 74, 76, 80,
-  84, 86, 92, 94, 96, 100,
-];
-
 function generatedAvatars(): CosmeticItem[] {
-  const out: CosmeticItem[] = [];
-  const seenInStyle = new Map<string, number>();
-
-  for (const entry of manifest) {
-    const nth = seenInStyle.get(entry.style) ?? 0;
-    seenInStyle.set(entry.style, nth + 1);
-    const isStarter = nth < FREE_SEEDS_PER_STYLE;
-
-    let unlock: Unlock;
-    if (isStarter) {
-      unlock = { kind: "starter" };
-    } else {
-      const tier = nth - FREE_SEEDS_PER_STYLE;
-      const styleIdx = Math.max(0, STYLE_ORDER.indexOf(entry.style));
-      const level = GATED_LEVELS[tier * 6 + styleIdx];
-      unlock = { kind: "level", level };
-    }
-
-    out.push({
-      id: `avatar.gen.${entry.id}`,
-      slot: "avatar",
-      name: `${titleCase(entry.style)} ${titleCase(entry.seed)}`,
-      unlock,
-      // Keyed off the unlock, not the index. Calling an avatar that every
-      // profile starts with "rare" contradicted the word on its own tile.
-      rarity: isStarter ? "common" : "rare",
-    });
-  }
-  return out;
+  return manifest.map((entry) => ({
+    id: `avatar.gen.${entry.id}`,
+    slot: "avatar",
+    name: `${titleCase(entry.style)} ${titleCase(entry.seed)}`,
+    unlock: { kind: "starter" },
+    rarity: "common",
+  }));
 }
 
 const GENERATED: CosmeticItem[] = generatedAvatars();

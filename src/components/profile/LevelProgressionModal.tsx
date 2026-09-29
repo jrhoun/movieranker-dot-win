@@ -85,15 +85,24 @@ export function careerSummary(currentLevel: number, currentXp: number): string {
  */
 export function CareerPanes({
   currentLevel,
+  currentXp,
   breakdown,
   ladderRef,
   earnRef,
 }: {
   currentLevel: number;
+  /**
+   * The XP the header shows: the banked lifetime peak after the ratchet, not
+   * `breakdown.total`. The two disagree whenever a list has been deleted, and
+   * the footer used to quote the fresh total under a header quoting the banked
+   * one — two numbers for "your XP" in the same dialog.
+   */
+  currentXp: number;
   breakdown: XpBreakdown;
   ladderRef?: React.Ref<HTMLElement>;
   earnRef?: React.Ref<HTMLElement>;
 }) {
+  const keptXp = Math.max(0, currentXp - breakdown.total);
   const sources: Source[] = [
     {
       name: "Rank a film",
@@ -124,9 +133,9 @@ export function CareerPanes({
       earned: breakdown.coCuration,
     },
     {
-      name: "A friend claims their spot",
+      name: "A friend finishes their first ranking",
       price: `+${REFERRAL_XP_BONUS} XP`,
-      detail: "Someone you credited on a list joins and takes their name.",
+      detail: "Someone who joined through your link or a credit on your list finishes a ranking.",
       earned: breakdown.referrals,
     },
   ];
@@ -240,7 +249,12 @@ export function CareerPanes({
           </tbody>
         </table>
 
-        <p className="mt-3 text-sm text-muted">That is {breakdown.total} XP in total.</p>
+        <p className="mt-3 text-sm text-muted">{currentXp} XP in total.</p>
+        {keptXp > 0 && (
+          <p className="mt-1 max-w-[70ch] text-xs leading-relaxed text-muted">
+            Includes {keptXp} XP kept from rankings you have since deleted.
+          </p>
+        )}
       </section>
     </div>
   );
@@ -338,6 +352,7 @@ export default function LevelProgressionModal({
             <div className="flex-1 overflow-y-auto p-5 sm:p-6">
               <CareerPanes
                 currentLevel={currentLevel}
+                currentXp={currentXp}
                 breakdown={breakdown}
                 ladderRef={ladderRef}
                 earnRef={earnRef}

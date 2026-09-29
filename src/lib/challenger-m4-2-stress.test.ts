@@ -365,8 +365,8 @@ describe("Milestone M4 Empirical Challenger Stress Tests", () => {
 
       const highlightsText = (betaUpdate?.highlights || []).join("\n");
 
-      // 1. Beta Test Screening & Cosmetics
-      expect(highlightsText).toContain("Beta Test Screening");
+      // 1. Beta Test Screener & Cosmetics
+      expect(highlightsText).toContain("Beta Test Screener");
       expect(highlightsText).toContain("Beta Reel Avatar");
       expect(highlightsText).toContain("Cassette Frame");
       expect(highlightsText).toContain("Betamax was better");
@@ -442,7 +442,7 @@ describe("Milestone M4 Empirical Challenger Stress Tests", () => {
       expect(html).toContain("Milestone");
 
       // Highlights rendered
-      expect(html).toContain("Beta Test Screening");
+      expect(html).toContain("Beta Test Screener");
 
       // Timeline marker dots rendered
       expect(html).toContain("bg-gold ring-4 ring-bg");

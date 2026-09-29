@@ -188,6 +188,55 @@ export async function patchShowcase(
   }
 }
 
+/**
+ * The slice of a Supabase client that countCorrectSolves touches. `from` is
+ * typed as returning `unknown` on purpose: matching the real client's
+ * generic builder structurally sends tsc into "excessively deep" territory,
+ * and the count query below only needs the four calls in SolveQuery.
+ */
+export interface SolveCountClient {
+  from(table: string): unknown;
+}
+
+interface SolveQuery {
+  select(
+    columns: string,
+    opts: { count: "exact"; head: true },
+  ): {
+    eq(column: string, value: unknown): {
+      eq(column: string, value: unknown): PromiseLike<{ count: number | null }>;
+    };
+  };
+}
+
+/**
+ * How many Marquee connections the profile OWNER has cracked — the number
+ * behind the Codebreaker/Cryptologist laurels on /u/[handle].
+ *
+ * `marquee_solves` is RLS-scoped to its own reader: a visitor querying it
+ * through the session client is told about THEIR solves filtered to the
+ * owner's id, which is always zero, so those laurels never showed on anyone's
+ * public profile. The count is owner data, not viewer data, so it is read
+ * through the privileged client when one is available (the same key that
+ * already writes profiles.showcase). Without one — local dev with no
+ * SUPABASE_SECRET_KEY set — it falls back to the session query, which is
+ * still correct for the owner previewing their own page.
+ */
+export async function countCorrectSolves(
+  profileId: string,
+  session: SolveCountClient,
+  admin?: SolveCountClient | null,
+): Promise<number> {
+  const client = admin ?? session;
+  const { count } = await (client.from("marquee_solves") as SolveQuery)
+    .select("theme_slug", { count: "exact", head: true })
+    .eq("user_id", profileId)
+    // The table records every attempt, including wrong guesses and peeks, so
+    // the badge must count only the ones that were actually cracked.
+    .eq("correct", true);
+  return count ?? 0;
+}
+
 export interface DbPublicList {
   id: string;
   title: string;

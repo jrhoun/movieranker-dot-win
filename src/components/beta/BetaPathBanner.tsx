@@ -30,7 +30,7 @@ export default function BetaPathBanner({
       className="mb-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gold/30 bg-gold/10 px-4 py-3 text-sm text-text sm:text-base"
     >
       <p>
-        You&apos;re in the beta. {stepsCopy} unlock your Beta Screener cosmetics.
+        You&apos;re in the beta. {stepsCopy} earn the Beta Test Screener laurel and its cosmetics.
       </p>
       <Link
         href="/u/profile#beta"
