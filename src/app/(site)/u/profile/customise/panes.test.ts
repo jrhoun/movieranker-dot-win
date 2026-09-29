@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { labelFor, unlockLabel } from "@/lib/cosmetics/labels";
 import { isEarnedTagline } from "@/lib/cosmetics/taglines";
+import { isLiveMarqueeTheme } from "@/lib/marquee-title";
 import { CATALOGUE, itemsForSlot, SLOTS } from "@/lib/cosmetics/catalogue";
 import { collectionCategories } from "@/lib/cosmetics/categories";
 import { posterAvatarId, syntheticPosterAvatar } from "@/lib/cosmetics/avatars";
@@ -109,22 +110,39 @@ describe("dressing room panes", () => {
   });
 
   it("orders the level row by what it costs, cheapest first", () => {
-    const rows = unlockGroups(itemsForSlot("avatar"), NOTHING_OWNED);
+    const rows = unlockGroups(itemsForSlot("frame"), NOTHING_OWNED);
     const levels = rows
-      .find((g) => g.key === "avatar-by-level")!
+      .find((g) => g.key === "frame-by-level")!
       .items.map((i) => (i.unlock.kind === "level" ? i.unlock.level : 0));
+    expect(levels.length).toBeGreaterThan(1);
     expect([...levels]).toEqual([...levels].sort((a, b) => a - b));
   });
 
   it("files a locked item under the act that earns it, never nowhere", () => {
-    const rows = unlockGroups(itemsForSlot("frame"), NOTHING_OWNED);
-    const byKey = new Map(rows.map((g) => [g.key, g.items.map((i) => i.id)]));
+    // A real new profile: the starters are owned (unlockGroups files an
+    // unowned starter under "Still to earn", which no real account can hit).
+    const newProfile = new Set(CATALOGUE.filter((i) => i.unlock.kind === "starter").map((i) => i.id));
+    const frames = unlockGroups(itemsForSlot("frame"), newProfile);
+    const byKey = new Map(frames.map((g) => [g.key, g.items.map((i) => i.id)]));
     expect(byKey.get("frame-by-level")).toContain("frame.projector"); // level 15
     expect(byKey.get("frame-by-achievement")).toContain("frame.prism"); // cryptologist
-    // Drops and the never-purchasable share the last row rather than each
-    // getting a heading of its own.
-    expect(byKey.get("frame-other")).toContain("frame.toxic");
-    expect(byKey.get("frame-other")).toContain("frame.vhs");
+    // No frame is a drop any more, so the frame pane has no "Still to earn"
+    // row at all — a heading over nothing is worse than no heading.
+    expect(byKey.has("frame-other")).toBe(false);
+    // Drops (the atmospheres) still get the last row, without a heading each.
+    const overlays = unlockGroups(itemsForSlot("overlay"), newProfile);
+    const other = overlays.find((g) => g.key === "overlay-other")!.items.map((i) => i.id);
+    expect(other).toEqual(["overlay.dust", "overlay.flicker"]);
+  });
+
+  it("no avatar needs a level, so the avatar pane files nothing under one", () => {
+    // Spec §1.1: levelling does not award cosmetic clutter. Thirty-six
+    // level-paced illustrations were exactly that, and they are gone.
+    const rows = unlockGroups(itemsForSlot("avatar"), NOTHING_OWNED);
+    expect(rows.find((g) => g.key === "avatar-by-level")).toBeUndefined();
+    expect(rows.find((g) => g.key === "avatar-by-achievement")!.items.map((i) => i.id)).toEqual([
+      "avatar.gen.beta-reel",
+    ]);
   });
 
   it("puts a claimed poster avatar first, in its own row", () => {
@@ -186,8 +204,16 @@ describe("unlockLabel", () => {
     expect(unlockLabel({ kind: "starter" })).toBe("Yours from the start");
     expect(unlockLabel({ kind: "level", level: 25 })).toBe("Level 25");
     expect(unlockLabel({ kind: "marquee", themeSlug: "w1" })).toMatch(/Marquee/);
-    expect(unlockLabel({ kind: "drop" })).toMatch(/canister/);
-    expect(unlockLabel({ kind: "purchase" })).toMatch(/Not yet/);
+    expect(unlockLabel({ kind: "drop" })).toBe("From a weekly Marquee");
+  });
+
+  it("never says canister, legendary or rare — the wardrobe is not a shop", () => {
+    for (const item of CATALOGUE) {
+      const label = unlockLabel(item.unlock).toLowerCase();
+      expect(label, item.id).not.toContain("canister");
+      expect(label, item.id).not.toMatch(/\b(legendary|rare)\b/);
+      expect(label, item.id).not.toMatch(/not (yet )?available/);
+    }
   });
 
   it("resolves a challenge to the achievement's real name", () => {
@@ -240,12 +266,44 @@ describe("labelFor", () => {
 
   it("still shows a locked STATIC line's words — that is the point of a collection", () => {
     // Regression guard: an earlier draft keyed withholding off the absence of
-    // a taglineTexts entry, which turned all 84 static lines into
-    // "An earned line" whenever a caller passed an incomplete map.
+    // a taglineTexts entry, which turned every static line into "An earned
+    // line" whenever a caller passed an incomplete map.
+    //
+    // `now` is pinned to a fixed instant so the one live-week souvenir (masked
+    // below, on purpose) is a known line rather than whichever theme happens
+    // to be running on the day the suite is run.
+    const now = new Date("2026-09-28T12:00:00Z");
+    const live = staticLines.filter(
+      (t) => t.unlock.kind === "marquee" && isLiveMarqueeTheme(t.unlock.themeSlug, now),
+    );
+    expect(live.length, "exactly one souvenir line is this week's").toBe(1);
     for (const t of staticLines) {
-      expect(labelFor(t, {}), t.id).not.toBe("An earned line");
-      expect(labelFor(t, {}), t.id).toContain(t.name);
+      if (live.includes(t)) continue;
+      expect(labelFor(t, {}, false, now), t.id).not.toBe("An earned line");
+      expect(labelFor(t, {}, false, now), t.id).toContain(t.name);
     }
+  });
+
+  it("masks the live week's Marquee souvenir until it is earned — the title is the quiz answer", () => {
+    // THE SPOILER RULE (marquee-title.ts), applied to the wardrobe. A souvenir
+    // line IS the theme title, and the theme title paraphrases the answer to
+    // that week's connection quiz. Listing it as a locked line put the answer
+    // in front of everyone who had not finished yet.
+    const now = new Date("2026-09-28T12:00:00Z");
+    const live = staticLines.find(
+      (t) => t.unlock.kind === "marquee" && isLiveMarqueeTheme(t.unlock.themeSlug, now),
+    )!;
+    const masked = labelFor(live, { [live.id]: live.text }, false, now);
+    expect(masked).toMatch(/^Weekly Marquee #\d+$/);
+    expect(masked).not.toContain(live.text);
+    // Finishing the week lifts the mask: the player has seen the title.
+    expect(labelFor(live, { [live.id]: live.text }, true, now)).toBe(`“${live.text}”`);
+    // And the same line, viewed after its week is over, reads in full —
+    // browsing surfaces reveal past weeks (the NYT Games rule).
+    const nextWeek = new Date("2026-10-05T12:00:00Z");
+    expect(labelFor(live, { [live.id]: live.text }, false, nextWeek)).toBe(`“${live.text}”`);
+    // The default is the safe one: a caller that forgets `owned` masks.
+    expect(labelFor(live, {}, undefined, now)).toMatch(/^Weekly Marquee #/);
   });
 
   it("leaves non-tagline items as their plain name", () => {

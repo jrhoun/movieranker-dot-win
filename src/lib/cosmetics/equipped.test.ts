@@ -86,7 +86,7 @@ describe("resolveEquipped", () => {
   it("drops an equipped id the user does not own", () => {
     // Re-checked at render, not only at write: this is what makes changing an
     // unlock threshold safe, and what stops a revoked grant still rendering.
-    const r = resolveEquipped({ frame: "frame.neon-cyan" }, newUser());
+    const r = resolveEquipped({ frame: "frame.prism" }, newUser());
     expect(r.frame).toBe(starterFor("frame").id);
   });
 
@@ -142,7 +142,7 @@ describe("sanitizeEquipped", () => {
   });
 
   it("drops an id that exists but belongs to a different slot", () => {
-    const r = sanitizeEquipped({ frame: "background.velvet" });
+    const r = sanitizeEquipped({ frame: "background.filmstrip" });
     expect(r.frame).toBe(starterFor("frame").id);
   });
 

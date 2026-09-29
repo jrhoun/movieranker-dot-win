@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  countCorrectSolves,
   mergeShowcase,
   parseShowcase,
   shapePublicProfile,
   type DbPublicList,
+  type SolveCountClient,
 } from "./public-profile";
 import { levelFor } from "./gamification";
 
@@ -177,6 +179,59 @@ describe("shapePublicProfile", () => {
 
   it("handles empty input", () => {
     expect(shapePublicProfile([])).toEqual({ cards: [], moviesRanked: 0, level: expect.objectContaining({ level: 1 }) });
+  });
+});
+
+describe("countCorrectSolves", () => {
+  function fakeClient(count: number | null, log: string[], name: string): SolveCountClient {
+    return {
+      from(table: string) {
+        log.push(`${name}:${table}`);
+        return {
+          select(_cols: string, opts: unknown) {
+            expect(opts).toEqual({ count: "exact", head: true });
+            return {
+              eq(col: string, val: unknown) {
+                log.push(`${name}:${col}=${String(val)}`);
+                return {
+                  eq(col2: string, val2: unknown) {
+                    log.push(`${name}:${col2}=${String(val2)}`);
+                    return Promise.resolve({ count });
+                  },
+                };
+              },
+            };
+          },
+        };
+      },
+    };
+  }
+
+  it("counts the owner's correct solves through the admin client when one is given", async () => {
+    // The visitor's session client would answer 0 here (RLS scopes the table
+    // to its reader); the privileged client sees the owner's real rows.
+    const log: string[] = [];
+    const session = fakeClient(0, log, "session");
+    const admin = fakeClient(7, log, "admin");
+    await expect(countCorrectSolves("owner-1", session, admin)).resolves.toBe(7);
+    expect(log).toEqual([
+      "admin:marquee_solves",
+      "admin:user_id=owner-1",
+      "admin:correct=true",
+    ]);
+  });
+
+  it("falls back to the session client without an admin client", async () => {
+    const log: string[] = [];
+    const session = fakeClient(3, log, "session");
+    await expect(countCorrectSolves("owner-1", session, null)).resolves.toBe(3);
+    await expect(countCorrectSolves("owner-1", session)).resolves.toBe(3);
+    expect(log[0]).toBe("session:marquee_solves");
+  });
+
+  it("treats a null count as zero", async () => {
+    const session = fakeClient(null, [], "session");
+    await expect(countCorrectSolves("owner-1", session)).resolves.toBe(0);
   });
 });
 

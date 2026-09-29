@@ -1,0 +1,11 @@
+-- New profiles are public by default.
+--
+-- Every handle claimed so far landed as 'private' (schema.sql: `visibility
+-- text not null default 'private'`), so a share link to a fresh profile hit
+-- the not-found page until the owner found the toggle in settings. The claim
+-- step now asks (public is preselected; see
+-- src/components/profile/ClaimHandleCard.tsx) and POST /api/profile writes the
+-- choice on first claim, so the column default is only the safety net for a
+-- row created some other way. Existing rows are deliberately untouched: a
+-- profile someone chose to keep private stays private.
+alter table public.profiles alter column visibility set default 'public';

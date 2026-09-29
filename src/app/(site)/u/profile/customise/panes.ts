@@ -62,9 +62,9 @@ const titleCase = (s: string) =>
  * that earns it, cheapest level first. Nothing is hidden and nothing is
  * blurred — a locked row still draws its art and prints its price.
  *
- * `drop`, `marquee` and `purchase` share a final row: their prices are neither
- * a number nor an achievement name, and three rows of one item each would be
- * filing for its own sake. Each item still carries its own sentence.
+ * `drop` and `marquee` share a final row: their prices are neither a number
+ * nor an achievement name, and two rows of one item each would be filing for
+ * its own sake. Each item still carries its own sentence.
  */
 export function unlockGroups(items: CosmeticItem[], owned: ReadonlySet<string>): ItemGroup[] {
   const mine = items.filter((i) => owned.has(i.id));

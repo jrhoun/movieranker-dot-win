@@ -24,7 +24,7 @@ describe("SITE_UPDATES", () => {
     expect(beta?.highlights).toBeDefined();
     const highlights = beta?.highlights ?? [];
 
-    expect(highlights.some((h) => h.includes("Beta Test Screening"))).toBe(true);
+    expect(highlights.some((h) => h.includes("Beta Test Screener"))).toBe(true);
     expect(highlights.some((h) => h.includes("Curated Weekly Themes"))).toBe(true);
     expect(highlights.some((h) => h.includes("Community Stats"))).toBe(true);
     expect(highlights.some((h) => h.includes("In-App Feedback") || h.includes("Feedback"))).toBe(true);

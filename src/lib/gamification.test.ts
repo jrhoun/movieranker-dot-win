@@ -11,6 +11,7 @@ import {
   MAX_XP_PER_LIST,
   MIN_PIN_LIST_LEVEL,
   MIN_PROPOSAL_LEVEL,
+  PUBLIC_BETA_ENDS_AT,
   REFERRAL_XP_BONUS,
   UNLOCKS,
   calculateTotalXp,
@@ -22,6 +23,7 @@ import {
   levelFor,
   movieXp,
   nameplateTier,
+  qualifiesForBeta,
   unlockedAt,
   xpForLevel,
   xpProgress,
@@ -341,6 +343,48 @@ describe("achievements", () => {
       expect(a.description.toLowerCase()).not.toContain("consensus");
       expect(a.description.trim()).not.toMatch(/\.$/);
     }
+  });
+
+  describe("Beta Test Screener closes with public beta", () => {
+    const qualified = {
+      doneLists: 1,
+      moviesRanked: 6,
+      publicDoneLists: 1,
+      hasHandle: true,
+      isSignedIn: true,
+    };
+    const betaPioneer = (stats: Parameters<typeof evaluateAchievements>[0]) =>
+      evaluateAchievements(stats).find((a) => a.key === "beta_pioneer")?.unlocked;
+    const dayBefore = new Date(Date.parse(PUBLIC_BETA_ENDS_AT) - 86_400_000).toISOString();
+    const dayAfter = new Date(Date.parse(PUBLIC_BETA_ENDS_AT) + 86_400_000).toISOString();
+
+    test("the switch is a parseable instant", () => {
+      expect(Number.isFinite(Date.parse(PUBLIC_BETA_ENDS_AT))).toBe(true);
+    });
+
+    test("a public ranking created before the end date qualifies", () => {
+      expect(betaPioneer({ ...qualified, earliestPublicDoneListAt: dayBefore })).toBe(true);
+    });
+
+    test("a public ranking created after the end date does not", () => {
+      expect(betaPioneer({ ...qualified, earliestPublicDoneListAt: dayAfter })).toBe(false);
+      expect(betaPioneer({ ...qualified, earliestPublicDoneListAt: PUBLIC_BETA_ENDS_AT })).toBe(
+        false,
+      );
+    });
+
+    test("callers that do not pass the date keep the badge they had", () => {
+      expect(betaPioneer(qualified)).toBe(true);
+      expect(betaPioneer({ ...qualified, earliestPublicDoneListAt: null })).toBe(true);
+    });
+
+    test("an unparseable date never qualifies", () => {
+      expect(qualifiesForBeta("not a date")).toBe(false);
+    });
+
+    test("the date alone cannot unlock it", () => {
+      expect(betaPioneer({ ...qualified, publicDoneLists: 0, earliestPublicDoneListAt: dayBefore })).toBe(false);
+    });
   });
 
   test("the challenge tier rewards difficulty, never speed", () => {

@@ -22,13 +22,13 @@ import { createAvatar } from "@dicebear/core";
 import * as collection from "@dicebear/collection";
 
 /** Kebab id (used in filenames and catalogue ids) -> collection export name. */
+// Three styles, not six: the wardrobe is a handful of faces a person can tell
+// apart, not a wall of interchangeable illustrations. Every one ships as a
+// starter, so nothing here is paced by level.
 const STYLES = {
   lorelei: "lorelei",
   notionists: "notionists",
   "open-peeps": "openPeeps",
-  "pixel-art": "pixelArt",
-  shapes: "shapes",
-  thumbs: "thumbs",
 };
 
 // Fixed seeds: the same seed always yields the same art, so re-running this
@@ -41,19 +41,14 @@ const SEEDS = [
   "double-feature",
   "spotlight",
   "celluloid",
-  "marquee",
-  "curtain",
-  "premiere",
-  "noir",
-  "technicolor",
-  "director",
 ];
 
 const OUT = new URL("../public/avatars/", import.meta.url);
 await mkdir(OUT, { recursive: true });
 
 // Clear stale SVGs so a removed style cannot leave an orphan asset behind that
-// the catalogue no longer lists. beta-reel.svg is a special Pioneer challenge reward and must be preserved.
+// the catalogue no longer lists. beta-reel.svg is the hand-drawn Beta Test
+// Screener reward, not DiceBear output, and must be preserved.
 for (const f of await readdir(OUT).catch(() => [])) {
   if (f.endsWith(".svg") && f !== "beta-reel.svg") await unlink(new URL(f, OUT));
 }

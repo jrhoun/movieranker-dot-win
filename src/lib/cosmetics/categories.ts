@@ -33,9 +33,10 @@ export interface CollectionCategory {
 /**
  * Every catalogue item, grouped into the sets a user browses.
  *
- * Taglines are split by set rather than kept as one category: there are ~88 of
- * them and a single list of that length is an index, not a collection. Every
- * other slot is one category.
+ * Taglines are split by set rather than kept as one category: every weekly
+ * theme carries a souvenir line, so there are dozens of them, and a single
+ * list of that length is an index, not a collection. Every other slot is one
+ * category.
  *
  * `extraAvatars` carries claimed poster avatars, which are per-user and never
  * in CATALOGUE — they are appended to the avatar category so a claim a user

@@ -130,14 +130,14 @@ export default function ShareButton({
     try {
       const success = await copyPremierePassToClipboard(passOptions);
       if (success) {
-        showToast("Premiere Pass copied to clipboard!");
+        showToast("Ticket Stub copied to clipboard!");
       } else {
         await downloadPremierePass(passOptions);
-        showToast("Downloaded Premiere Pass PNG");
+        showToast("Downloaded Ticket Stub PNG");
       }
     } catch {
       await downloadPremierePass(passOptions);
-      showToast("Downloaded Premiere Pass PNG");
+      showToast("Downloaded Ticket Stub PNG");
     }
   }
 
@@ -205,7 +205,7 @@ export default function ShareButton({
                 className={menuItem}
               >
                 <span aria-hidden="true" className="text-gold font-display text-sm">✦</span>
-                <span className="font-semibold text-gold">Copy Premiere Pass</span>
+                <span className="font-semibold text-gold">Copy Ticket Stub</span>
               </button>
             )}
             <button type="button" role="menuitem" onClick={() => void copyResult()} className={menuItem}>

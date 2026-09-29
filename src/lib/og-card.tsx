@@ -106,19 +106,9 @@ export const GRADIENT_AVATAR_BACKGROUND: Record<string, string> = {
   "avatar.grad.sepia": "linear-gradient(145deg,#d9a86c,#6b4a2a 55%,#2a1a10)",
   "avatar.grad.noir": "linear-gradient(145deg,#e8e8ec,#5a5a63 50%,#0d0d10)",
   "avatar.grad.technicolor": "linear-gradient(145deg,#ff4d4d,#ffd24d 45%,#4d9bff)",
-  "avatar.grad.chroma": "linear-gradient(145deg,#2b6cff,#10203f 65%,#0d0d10)",
-  "avatar.grad.popcorn": "linear-gradient(145deg,#ffe08a,#d9a02b 55%,#4a2f0b)",
   "avatar.grad.proscenium": "linear-gradient(145deg,#b0202e,#5a0f18 60%,#14070a)",
   "avatar.grad.matinee": "linear-gradient(145deg,#ffd0b0,#d98f6b 50%,#3a5a5e)",
-  "avatar.grad.midnight": "linear-gradient(145deg,#3a4fa8,#16204a 60%,#08080f)",
-  "avatar.grad.dusk": "linear-gradient(145deg,#ff8a3d,#a23c78 55%,#2a1038)",
   "avatar.grad.celluloid": "linear-gradient(145deg,#f0c07a,#a8763a 55%,#241608)",
-  "avatar.grad.aurora": "linear-gradient(145deg,#35e0c0,#2f7fb8 50%,#4a2a8a)",
-  "avatar.grad.ultraviolet": "linear-gradient(145deg,#a56bff,#3a1d6b 60%,#0d0d10)",
-  "avatar.grad.nitrate": "linear-gradient(145deg,#c9ccd4,#7f7f8c 50%,#15151a)",
-  "avatar.grad.cyan": "linear-gradient(145deg,#22e0ff,#0b2a2e 70%,#0d0d10)",
-  "avatar.grad.magenta": "linear-gradient(145deg,#ff3ba7,#2a0b22 70%,#0d0d10)",
-  "avatar.grad.toxic": "linear-gradient(145deg,#7cff4d,#122a10 70%,#0d0d10)",
 };
 
 /**
@@ -480,22 +470,6 @@ export const FRAME_STYLE: Record<string, React.CSSProperties> = {
   "frame.projector": {
     background: "linear-gradient(180deg,#fff3cd,#f5c518 40%,#9a6f06)",
     boxShadow: "0 0 22px 5px rgba(245,197,24,0.65)",
-  },
-  "frame.toxic": {
-    backgroundColor: "#122a10",
-    boxShadow: "0 0 0 2px #7cff4d, 0 0 14px 2px rgba(124,255,77,0.6)",
-  },
-  "frame.neon-cyan": {
-    backgroundColor: "#0b2a2e",
-    boxShadow: "0 0 0 2px #22e0ff, 0 0 14px 2px rgba(34,224,255,0.75)",
-  },
-  "frame.neon-magenta": {
-    backgroundColor: "#2a0b22",
-    boxShadow: "0 0 0 2px #ff3ba7, 0 0 16px 3px rgba(255,59,167,0.7)",
-  },
-  "frame.vhs": {
-    backgroundColor: "#111111",
-    boxShadow: "-3px 0 0 0 #ff2e63, 3px 0 0 0 #21d4fd, 0 0 0 1px #333333",
   },
   // Animated in the app (a spinning conic-gradient hue-rotate). Satori's
   // conic-gradient parser rejects this exact syntax outright — not a silent

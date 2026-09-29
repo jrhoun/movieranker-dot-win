@@ -319,8 +319,16 @@ export const MARQUEE_COMPLETION_XP = 10;
 /** Finishing a ranking that credits co-curators. */
 export const CO_CURATION_XP = 5;
 /** Cracking a weekly connection. Pays for thinking, which nothing else did. */
+// Ceiling: marquee_solves is keyed (user_id, theme_slug) and themes recycle, so
+// a returning theme cannot be solved for XP twice — total solve XP is bounded
+// by the number of distinct themes, not the number of weeks.
 export const CONNECTION_SOLVE_XP = 10;
-/** An invited participant registers and claims their spot. */
+/**
+ * A friend finishes their first ranking. Someone who joined through your link
+ * (profiles.referred_by) or a credit on your list (participant_attributions)
+ * and has at least one finished ranking — see getReferralStats in referrals.ts.
+ * Registering alone pays nothing.
+ */
 export const REFERRAL_XP_BONUS = 15;
 
 export interface XpList {
@@ -417,10 +425,32 @@ export interface AchievementStats {
   top100Marquee?: boolean;
   /** Publicly contributed finished lists. */
   publicDoneLists?: number;
+  /**
+   * ISO timestamp of the EARLIEST public finished list (`lists.created_at`),
+   * for the Beta Test Screener's date check. Absent or null means the caller
+   * did not look it up, and the check is treated as satisfied — every call
+   * site compiled before the date existed, and a missing date must not strip
+   * a badge from someone who earned it. Callers that can pass it should.
+   */
+  earliestPublicDoneListAt?: string | null;
   /** Whether the user has claimed a handle. */
   hasHandle?: boolean;
   /** Whether the user is signed in. */
   isSignedIn?: boolean;
+}
+
+/**
+ * When public beta ends. THIS IS THE SWITCH TO FLIP: a public ranking created
+ * at or after this instant no longer qualifies for Beta Test Screener. Move it
+ * earlier to close beta sooner; nothing else needs to change.
+ */
+export const PUBLIC_BETA_ENDS_AT = "2026-12-31T23:59:59Z";
+
+/** True when the earliest public finished list was created before beta ended. */
+export function qualifiesForBeta(earliestPublicDoneListAt: string | null | undefined): boolean {
+  if (earliestPublicDoneListAt == null) return true;
+  const at = Date.parse(earliestPublicDoneListAt);
+  return Number.isFinite(at) && at < Date.parse(PUBLIC_BETA_ENDS_AT);
 }
 
 export interface Achievement {
@@ -577,7 +607,11 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: "📼",
     rarity: "legendary",
     challenge: true,
-    check: (s) => (s.publicDoneLists ?? 0) >= 1 && Boolean(s.hasHandle) && Boolean(s.isSignedIn),
+    check: (s) =>
+      (s.publicDoneLists ?? 0) >= 1 &&
+      Boolean(s.hasHandle) &&
+      Boolean(s.isSignedIn) &&
+      qualifiesForBeta(s.earliestPublicDoneListAt),
   },
 ];
 

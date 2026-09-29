@@ -6,19 +6,20 @@ import { SHORTLIST_THEMES } from "@/lib/shortlist-themes";
 import { ACHIEVEMENTS, evaluateAchievements } from "@/lib/gamification";
 
 describe("the rights invariant", () => {
-  it("no referential line is ever purchasable", () => {
+  it("no referential line is ever sold — there is no way to sell anything", () => {
     // Short phrases are usually not copyrightable, but "E.T. phone home!" was
     // held infringing because an ordinary observer recognises the source — and
     // charging is the aggravating fact. Referential lines may be earned or
-    // free, never sold.
-    const sold = TAGLINES.filter(
-      (t) => t.rights === "referential" && t.unlock.kind === "purchase",
-    );
-    expect(sold.map((t) => t.id)).toEqual([]);
+    // free, never sold. The `Unlock` union has no purchase kind at all, so
+    // the only way to break this is to add one; every referential line must
+    // be reachable by an unlock that costs nothing.
+    const FREE_KINDS = ["starter", "level", "challenge", "marquee", "drop"];
+    for (const t of TAGLINES.filter((t) => t.rights === "referential")) {
+      expect(FREE_KINDS, t.id).toContain(t.unlock.kind);
+    }
 
-    // Confirm this test actually has a subject — a referential item with no
-    // purchase unlock is a much weaker guarantee than "no referential item
-    // exists at all," which would make the assertion above vacuously true.
+    // Confirm this test actually has a subject — "no referential item exists
+    // at all" would make the assertion above vacuously true.
     expect(TAGLINES.some((t) => t.rights === "referential")).toBe(true);
   });
 
@@ -36,9 +37,20 @@ describe("the rights invariant", () => {
     }
   });
 
-  it("ships a library worth browsing", () => {
-    expect(TAGLINES.length).toBeGreaterThanOrEqual(24);
-    expect(new Set(TAGLINES.map((t) => t.set)).size).toBeGreaterThanOrEqual(5);
+  it("ships a library worth browsing, without the decade padding", () => {
+    // Three starters, eight drop lines, one souvenir per weekly theme, four
+    // earned lines and the beta line. The four decade sets were cut on
+    // 2026-09-28: forty dimmed fragments read as a shop, not a wardrobe.
+    expect(TAGLINES.length).toBe(3 + 8 + SHORTLIST_THEMES.length + EARNED_TAGLINES.length + 1);
+    expect([...new Set(TAGLINES.map((t) => t.set))]).toEqual([
+      "The Trailer",
+      "The Small Print",
+      "Marquee",
+      "Earned",
+      "Beta Test Screener",
+    ]);
+    expect(TAGLINES.filter((t) => t.unlock.kind === "drop").length).toBe(8);
+    expect(TAGLINES.filter((t) => t.unlock.kind === "starter").length).toBe(3);
   });
 
   it("every weekly theme has a souvenir line, unlocked by finishing that week", () => {
@@ -63,7 +75,7 @@ describe("earnedTaglines", () => {
     expect(lines.some((l) => l.id === "tagline.earned.solver")).toBe(true);
   });
 
-  it("earned lines are never purchasable — they are a receipt", () => {
+  it("earned lines are never dropped — they are a receipt", () => {
     const lines = earnedTaglines({
       ...base,
       doneLists: 60,
@@ -74,7 +86,6 @@ describe("earnedTaglines", () => {
     });
     expect(lines.length).toBeGreaterThan(0);
     for (const l of lines) {
-      expect(l.unlock.kind).not.toBe("purchase");
       expect(l.unlock.kind).not.toBe("drop");
       expect(l.rights).toBe("owned");
     }
@@ -138,7 +149,7 @@ describe("EARNED_TAGLINES — static catalogue entries backing earned lines", ()
     }
   });
 
-  it("every entry is a real, never-purchasable challenge unlock", () => {
+  it("every entry is a real challenge unlock", () => {
     const achievementKeys = new Set(ACHIEVEMENTS.map((a) => a.key));
     for (const t of EARNED_TAGLINES) {
       expect(t.unlock.kind).toBe("challenge");

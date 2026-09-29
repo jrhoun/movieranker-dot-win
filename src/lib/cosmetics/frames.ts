@@ -5,19 +5,15 @@ import type { CosmeticItem } from "./types";
  * Frames around the poster avatar. The early ones are CSS rings (globals.css
  * `.cf-*`); the illustrated ones below are inline SVG in FrameArt.tsx.
  *
- * APPEND-ONLY where `drop` items are concerned: their order and rarity here
- * feed `drawFrom`'s positional weight walk, so editing an existing one rewrites
- * every user's past canister history. Full explanation on `CATALOGUE` in
- * catalogue.ts. Add at the end; do not reorder, delete, or re-rarity.
+ * NONE IS A `drop`, deliberately: appending to the drop pool rewrites every
+ * past Marquee draw (see CATALOGUE in catalogue.ts). A frame is the one piece
+ * of the profile that certifies something, so every one here is either a
+ * starter, a level on the curve, or an achievement — never luck.
  */
 export const FRAMES: CosmeticItem[] = [
   { id: "frame.brass", slot: "frame", name: "Brass", unlock: { kind: "starter" }, rarity: "common" },
   { id: "frame.perforation", slot: "frame", name: "Perforation", unlock: { kind: "starter" }, rarity: "common" },
   { id: "frame.projector", slot: "frame", name: "Projector", unlock: { kind: "level", level: 15 }, rarity: "common" },
-  { id: "frame.toxic", slot: "frame", name: "Toxic", unlock: { kind: "drop" }, rarity: "common" },
-  { id: "frame.neon-cyan", slot: "frame", name: "Neon Cyan", unlock: { kind: "drop" }, rarity: "rare" },
-  { id: "frame.neon-magenta", slot: "frame", name: "Neon Magenta", unlock: { kind: "drop" }, rarity: "rare" },
-  { id: "frame.vhs", slot: "frame", name: "VHS Tracking", unlock: { kind: "purchase" }, rarity: "rare" },
   { id: "frame.prism", slot: "frame", name: "Prism", unlock: { kind: "challenge", key: "cryptologist" }, rarity: "legendary", animated: true },
 
   /**
@@ -26,10 +22,9 @@ export const FRAMES: CosmeticItem[] = [
    * and every one of them still needs a static twin in og-card.tsx's
    * FRAME_STYLE or the share card silently renders brass instead.
    *
-   * None of these is a `drop`, deliberately: appending to the drop pool
-   * rewrites every past canister draw (see catalogue.ts). They unlock on the
-   * level curve and on achievements, spread from level 5 to level 90 so the
-   * frame slot keeps giving something back for the whole career.
+   * They unlock on the level curve and on achievements, spread from level 5
+   * to level 90 so the frame slot keeps giving something back for the whole
+   * career.
    */
   { id: "frame.deco", slot: "frame", name: "Art Deco", unlock: { kind: "level", level: 5 }, rarity: "common" },
   { id: "frame.sprocket", slot: "frame", name: "Sprocket", unlock: { kind: "level", level: 12 }, rarity: "common" },

@@ -39,10 +39,12 @@ export default function ReferralInviteCard({
   const origin = useSyncExternalStore(emptySubscribe, getClientOrigin, getServerOrigin);
   const canShare = useSyncExternalStore(emptySubscribe, getCanShare, getServerCanShare);
 
-  const referralCode = handle || "join";
-  const inviteUrl = `${origin}/?ref=${encodeURIComponent(referralCode)}`;
+  // No handle, no link. This used to fall back to `?ref=join`, which resolves
+  // to nobody — every friend who followed it was credited to no one.
+  const inviteUrl = handle ? `${origin}/?ref=${encodeURIComponent(handle)}` : null;
 
   async function handleCopy() {
+    if (!inviteUrl) return;
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setCopied(true);
@@ -54,6 +56,7 @@ export default function ReferralInviteCard({
   }
 
   async function handleNativeShare() {
+    if (!inviteUrl) return;
     if (!navigator.share) {
       void handleCopy();
       return;
@@ -80,31 +83,45 @@ export default function ReferralInviteCard({
         {REFERRAL_XP_BONUS} XP.
       </p>
 
-      <p
-        suppressHydrationWarning
-        className="mt-4 max-w-[70ch] break-all text-base text-text select-all"
-      >
-        {inviteUrl}
-      </p>
-
-      <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2">
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="min-h-11 rounded text-base text-gold underline-offset-4 transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-gold"
-        >
-          {copied ? "Link copied" : "Copy link"}
-        </button>
-        {canShare && (
-          <button
-            type="button"
-            onClick={handleNativeShare}
-            className="min-h-11 rounded text-base text-gold underline-offset-4 transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-gold"
+      {inviteUrl ? (
+        <>
+          <p
+            suppressHydrationWarning
+            className="mt-4 max-w-[70ch] break-all text-base text-text select-all"
           >
-            Share
-          </button>
-        )}
-      </div>
+            {inviteUrl}
+          </p>
+
+          <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2">
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="min-h-11 rounded text-base text-gold underline-offset-4 transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-gold"
+            >
+              {copied ? "Link copied" : "Copy link"}
+            </button>
+            {canShare && (
+              <button
+                type="button"
+                onClick={handleNativeShare}
+                className="min-h-11 rounded text-base text-gold underline-offset-4 transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-gold"
+              >
+                Share
+              </button>
+            )}
+          </div>
+        </>
+      ) : (
+        <p className="mt-4 max-w-[70ch] text-base leading-relaxed text-text">
+          <a
+            href="#claim-heading"
+            className="text-gold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-gold"
+          >
+            Claim your handle
+          </a>{" "}
+          to get your invite link.
+        </p>
+      )}
 
       <p className="mt-3 max-w-[70ch] text-sm leading-relaxed text-muted">
         {stats.activeReferrals > 0 ? (

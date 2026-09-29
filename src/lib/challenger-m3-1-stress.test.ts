@@ -324,9 +324,9 @@ describe("Milestone M3 Empirical Challenger: Pioneer Challenge & Beta Canister S
   });
 
   // ==========================================================================
-  // SUITE 2: Beta Canister Cosmetics Unlock Gate & Integrity
+  // SUITE 2: Beta Test Screener cosmetics unlock gate & integrity
   // ==========================================================================
-  describe("Suite 2: Beta Canister Cosmetics Unlock Gate & Integrity", () => {
+  describe("Suite 2: Beta Test Screener cosmetics unlock gate & integrity", () => {
     const BETA_ITEMS = ["frame.beta", "tagline.betamax", "avatar.gen.beta-reel"] as const;
 
     it("verifies all 3 items exist in CATALOGUE with challenge: beta_pioneer unlock", () => {
@@ -740,11 +740,11 @@ describe("Milestone M3 Empirical Challenger: Pioneer Challenge & Beta Canister S
         })
       );
       expect(html).toContain("0 / 3");
-      expect(html).toContain("Sign In →");
-      expect(html).toContain("Claim Handle →");
-      expect(html).toContain("Start Ranking →");
-      expect(html).not.toContain("Challenge Complete!");
-      expect(html).not.toContain("Claim Beta Canister");
+      expect(html).toContain("Sign in");
+      expect(html).toContain("Claim a handle");
+      expect(html).toContain("Start a ranking");
+      expect(html).not.toContain("Wear them");
+      expect(html).not.toContain("is yours");
     });
 
     it("renders correctly with 1/3 steps complete (signed in only)", () => {
@@ -756,10 +756,10 @@ describe("Milestone M3 Empirical Challenger: Pioneer Challenge & Beta Canister S
         })
       );
       expect(html).toContain("1 / 3");
-      expect(html).toContain("Signed in &amp; authenticated");
-      expect(html).toContain("Claim Handle →");
-      expect(html).toContain("Start Ranking →");
-      expect(html).not.toContain("Challenge Complete!");
+      expect(html).toContain("Signed in");
+      expect(html).toContain("Claim a handle");
+      expect(html).toContain("Start a ranking");
+      expect(html).not.toContain("Wear them");
     });
 
     it("renders correctly with 2/3 steps complete (signed in + claimed handle)", () => {
@@ -771,9 +771,9 @@ describe("Milestone M3 Empirical Challenger: Pioneer Challenge & Beta Canister S
         })
       );
       expect(html).toContain("2 / 3");
-      expect(html).toContain("Curator handle claimed");
-      expect(html).toContain("Start Ranking →");
-      expect(html).not.toContain("Challenge Complete!");
+      expect(html).toContain("Handle claimed");
+      expect(html).toContain("Start a ranking");
+      expect(html).not.toContain("Wear them");
     });
 
     it("renders correctly with 3/3 steps complete (all done)", () => {
@@ -786,8 +786,8 @@ describe("Milestone M3 Empirical Challenger: Pioneer Challenge & Beta Canister S
       );
       expect(html).toContain("3 / 3");
       expect(html).toContain("1 public ranking settled");
-      expect(html).toContain("Challenge Complete!");
-      expect(html).toContain("Claim Beta Canister");
+      expect(html).toContain("Yours: the Beta Reel avatar");
+      expect(html).toContain("Wear them");
     });
 
     it("handles pluralization for multiple public rankings settled", () => {
@@ -815,19 +815,19 @@ describe("Milestone M3 Empirical Challenger: Pioneer Challenge & Beta Canister S
           },
         })
       );
-      expect(html).toContain("Beta Canister Cosmetics Unlocked");
+      expect(html).toContain("Wear them");
       expect(html).toContain("Beta Reel");
       expect(html).toContain("Beta Cassette");
-      expect(html).toContain("Betamax");
-      // All 3 items should show Equipped ✓
-      const equippedCount = (html.match(/Equipped ✓/g) || []).length;
+      expect(html).toContain("one tagline");
+      // All three items are named in the earned line
+      const equippedCount = ["Beta Reel", "Beta Cassette", "one tagline"].filter((s) => html.includes(s)).length;
       expect(equippedCount).toBe(3);
     });
 
     it("handles missing/undefined props gracefully without crashing", () => {
       const html = renderToStaticMarkup(h(BetaWalkthroughCard, {}));
       expect(html).toBeDefined();
-      expect(html).toContain("Beta Test Screening");
+      expect(html).toContain("Beta Test Screener");
     });
   });
 

@@ -29,9 +29,9 @@ const breakdown: XpBreakdown = {
   total: 175,
 };
 
-const render = (currentLevel: number) =>
+const render = (currentLevel: number, currentXp = breakdown.total) =>
   renderToStaticMarkup(
-    createElement(CareerPanes, { currentLevel, breakdown }),
+    createElement(CareerPanes, { currentLevel, currentXp, breakdown }),
   );
 
 describe("careerSummary", () => {
@@ -81,7 +81,28 @@ describe("CareerPanes", () => {
     expect(html).toContain("+15 XP");
     expect(html).toContain("You have earned 120 XP this way.");
     expect(html).toContain("Nothing from this one yet.");
-    expect(html).toContain("That is 175 XP in total.");
+    expect(html).toContain("175 XP in total.");
+    expect(html).not.toContain("kept from rankings");
+  });
+
+  it("quotes the same XP the header shows, and explains any XP the rows cannot account for", () => {
+    // The header shows the banked lifetime peak; the rows are the fresh
+    // sources. After a deleted list they disagree, and the footer used to
+    // print the fresh total under a header printing the banked one.
+    const html = render(18, 200);
+    expect(html).toContain("200 XP in total.");
+    expect(html).not.toContain("175 XP in total");
+    expect(html).toContain("Includes 25 XP kept from rankings you have since deleted.");
+  });
+
+  it("describes the referral rule the code enforces: a finished ranking, not a claimed spot", () => {
+    const html = render(18);
+    expect(html).toContain("A friend finishes their first ranking");
+    expect(html).toContain(
+      "Someone who joined through your link or a credit on your list finishes a ranking.",
+    );
+    expect(html).not.toContain("claims their spot");
+    expect(html).not.toContain("takes their name");
   });
 
   it("keeps the interface free of icons, emoji and stat tiles", () => {

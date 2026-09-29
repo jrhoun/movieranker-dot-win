@@ -62,13 +62,22 @@ export async function POST(request: Request) {
   );
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
-  let body: { handle?: unknown };
+  let body: { handle?: unknown; visibility?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
     return invalid("invalid JSON");
   }
   if (typeof body.handle !== "string") return invalid("handle must be a string");
+  // Optional: the claim step lets a new curator pick public or private up
+  // front. Validated here even though it is only written on a FIRST claim
+  // (see below), so a bad value is a 400 rather than something silently
+  // dropped.
+  if (
+    body.visibility !== undefined &&
+    (typeof body.visibility !== "string" || !VISIBILITIES.has(body.visibility))
+  )
+    return invalid("visibility must be 'private' or 'public'");
 
   const checked = checkHandle(body.handle);
   if (!checked.ok)
@@ -111,16 +120,28 @@ export async function POST(request: Request) {
     .eq("id", auth.user.id)
     .maybeSingle();
 
-  const profilePayload: { id: string; handle: string; referred_by?: string } = {
+  const profilePayload: {
+    id: string;
+    handle: string;
+    referred_by?: string;
+    visibility?: string;
+  } = {
     id: auth.user.id,
     handle: checked.handle,
   };
   if (!existingProfile?.referred_by && referrerId) {
     profilePayload.referred_by = referrerId;
   }
+  // First claim only: once a row exists, visibility belongs to PATCH (the
+  // settings toggle). A re-claim must never flip a profile someone has since
+  // made private back to public because the client still sent the default.
+  if (!existingProfile && typeof body.visibility === "string") {
+    profilePayload.visibility = body.visibility;
+  }
 
-  // Upsert keyed on id: creates the row on first claim, updates only the
-  // handle afterwards; existing visibility is never touched.
+  // Upsert keyed on id: creates the row on first claim (with the chosen
+  // visibility, or the column default), updates only the handle afterwards;
+  // existing visibility is never touched.
   const { error } = await supabase
     .from("profiles")
     .upsert(profilePayload, { onConflict: "id" });
@@ -235,8 +256,12 @@ export async function PATCH(request: Request) {
         theme_slug?: string | null;
         participants?: unknown;
         visibility?: string | null;
+        created_at?: string | null;
         list_movies?: { tmdb_id: number; poster_path: string | null }[];
       }[];
+      // Rows arrive oldest first, so the first public one is the earliest.
+      const earliestPublicDoneListAt =
+        doneRows.find((r) => r.visibility === "public")?.created_at ?? null;
 
       const finishedThemeSlugs = doneRows
         .map((r) => r.theme_slug)
@@ -323,6 +348,7 @@ export async function PATCH(request: Request) {
         publicDoneLists,
         hasHandle,
         isSignedIn: true,
+        earliestPublicDoneListAt,
         ...standing,
       };
       // The FULL post-merge claim set, matching what mergeShowcase will store.
