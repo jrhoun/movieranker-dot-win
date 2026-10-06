@@ -26,6 +26,9 @@ interface MarqueeConnectionGameProps {
   revealTitle?: string | null;
   onBonusEarned?: (xp: number) => void;
   className?: string;
+  /** Render the full quiz card in place, with no teaser and no dialog: the
+   * host screen (the play room's consensus screen) owns the way out. */
+  inline?: boolean;
 }
 
 interface GameState {
@@ -49,6 +52,7 @@ export default function MarqueeConnectionGame({
   revealTitle,
   onBonusEarned,
   className = "",
+  inline = false,
 }: MarqueeConnectionGameProps) {
   const storageKey = connectionStorageKey(themeSlug);
   const [gameState, setGameState] = useState<GameState>(() => {
@@ -181,7 +185,7 @@ export default function MarqueeConnectionGame({
 
   const card = (
     <div
-      className={`w-full max-w-xl mx-auto rounded-2xl border border-gold/30 bg-gradient-to-b from-surface to-surface/80 p-5 sm:p-6 shadow-2xl backdrop-blur-md ring-1 ring-gold/20 animate-fade-in ${className}`}
+      className={`w-full max-w-2xl mx-auto rounded-2xl border border-gold/30 bg-gradient-to-b from-surface to-surface/80 p-5 sm:p-6 text-left shadow-2xl backdrop-blur-md ring-1 ring-gold/20 animate-fade-in ${className}`}
     >
       {/* Header */}
       <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3.5">
@@ -239,14 +243,20 @@ export default function MarqueeConnectionGame({
               A correct guess is worth {CONNECTION_SOLVE_XP} XP.
             </span>
             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setModalOpen(false)}
-                className="text-xs text-muted hover:text-text transition-colors cursor-pointer"
-              >
-                Skip for now
-              </button>
-              <span className="text-white/20" aria-hidden="true">·</span>
+              {/* Inline, the host screen owns the way out; the modal's
+                  "Skip for now" would just close nothing. */}
+              {!inline && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setModalOpen(false)}
+                    className="text-xs text-muted hover:text-text transition-colors cursor-pointer"
+                  >
+                    Skip for now
+                  </button>
+                  <span className="text-white/20" aria-hidden="true">·</span>
+                </>
+              )}
               <button
                 type="button"
                 onClick={handleSkipToReveal}
@@ -268,7 +278,6 @@ export default function MarqueeConnectionGame({
                   : "bg-surface-raised text-muted border border-white/10"
               }`}
             >
-              <span className="text-base">{isCorrect ? "🏆" : "🔍"}</span>
               <span>
                 {isCorrect
                   ? "You cracked it."
@@ -322,6 +331,10 @@ export default function MarqueeConnectionGame({
       </div>
     </div>
   );
+
+  // Inline (the play room's consensus screen): the quiz is the next step of
+  // one flow, so it is always the full card — no teaser, no dialog.
+  if (inline) return card;
 
   return (
     <>

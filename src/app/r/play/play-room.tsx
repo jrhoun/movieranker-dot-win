@@ -76,6 +76,26 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
  */
 const preferenceListeners = new Set<() => void>();
 
+function subscribeToConnectionRevealed(onStoreChange: () => void): () => void {
+  window.addEventListener(CONNECTION_REVEALED_EVENT, onStoreChange);
+  window.addEventListener("storage", onStoreChange);
+  return () => {
+    window.removeEventListener(CONNECTION_REVEALED_EVENT, onStoreChange);
+    window.removeEventListener("storage", onStoreChange);
+  };
+}
+
+function readConnectionRevealed(themeSlug: string | null): boolean {
+  if (!themeSlug) return false;
+  try {
+    const raw = localStorage.getItem(connectionStorageKey(themeSlug));
+    if (!raw) return false;
+    return Boolean((JSON.parse(raw) as { revealed?: boolean }).revealed);
+  } catch {
+    return false;
+  }
+}
+
 function subscribeToPreferences(onStoreChange: () => void): () => void {
   preferenceListeners.add(onStoreChange);
   window.addEventListener("storage", onStoreChange);
@@ -180,6 +200,17 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
     subscribeToPreferences,
     isLightsDown,
     preferenceServerSnapshot,
+  );
+
+  // Has this device already revealed the week's connection? Read as an
+  // external store (localStorage + the reveal event the quiz fires), so the
+  // consensus screen can swap its quiet "skip" link for the gold door the
+  // moment the answer shows, without the quiz needing a callback.
+  const themeSlugForConnection = session?.themeSlug ?? null;
+  const connectionRevealed = useSyncExternalStore(
+    subscribeToConnectionRevealed,
+    () => readConnectionRevealed(themeSlugForConnection),
+    () => false,
   );
 
   function handleToggleSound() {
@@ -973,6 +1004,9 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
    * (see SHARPEN_COMFORT_GAP), so the stable screen is a consensus and says so.
    */
   const earlyResult = forceFinish && !stable;
+  // A Marquee holds the door until the connection is revealed; a custom list
+  // has no quiz, so the door is open from the start.
+  const connectionPending = Boolean(session.themeSlug) && !connectionRevealed;
 
   /*
    * ONE QUIET LINE INSTEAD OF TWO PILL BADGES. "6 too close to call" and
@@ -1240,45 +1274,57 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
            this screen is reached (the effect above this render), and the
            list page (/l/[id]) already shows the ranked list and the Premiere
            Pass once it's there. One screen, one door out. */
-        <section className="relative overflow-hidden bg-curtain flex flex-1 flex-col items-center justify-center gap-6 px-4 py-8 text-center">
+        <section className="relative overflow-hidden bg-curtain flex flex-1 flex-col items-center justify-center px-4 py-10 text-center sm:py-14">
           <CurtainCallCelebration title={earlyResult ? "Curtain Call · Early Result" : "Curtain Call · Consensus Reached"} />
           <div aria-hidden="true" className="spotlight-glow pointer-events-none absolute inset-0" />
-          <div className="animate-celebrate relative w-full max-w-md rounded bg-surface p-5 ring-1 ring-white/10">
-            <p className="text-sm uppercase tracking-widest text-accent">
-              {earlyResult ? "Early result" : "Consensus reached"}
-            </p>
-            <div className="mt-4">
-              <Podium movies={active} />
-            </div>
-            <p aria-live="polite" className="mt-4 text-center text-xs text-muted">
-              {active.length} movies · {doneVotes} head-to-heads
-              {session.participants.length > 0 &&
-                ` · ${session.participants.length} voter${session.participants.length === 1 ? "" : "s"}`}
-            </p>
-            {/* Auto-save state, signed in only — anonymous players never save
-                from here, they save by signing in via the button below. */}
-            {signedIn && (
-              <p aria-live="polite" className="mt-2 text-center text-xs font-medium text-muted">
-                {autoSaveState === "saving" && "Saving…"}
-                {autoSaveState === "saved" && <span className="text-gold">Saved to your profile</span>}
-                {autoSaveState === "error" && (
-                  <span className="text-accent-red">
-                    Couldn&apos;t save — check your connection.{" "}
-                    <button
-                      type="button"
-                      onClick={() => void runAutoSave()}
-                      className="font-semibold underline underline-offset-2 hover:text-gold"
-                    >
-                      Retry
-                    </button>
-                  </span>
-                )}
+          {/* ONE COLUMN, ONE WIDTH. The podium card, the connection quiz and
+              the door out all share max-w-2xl, so nothing on this screen is
+              wider than its neighbour and the posters are big enough to read
+              as the payoff (a quarter of 672px, not of 448px). */}
+          <div className="relative flex w-full max-w-2xl flex-col items-center gap-8">
+            <div className="animate-celebrate w-full rounded-lg bg-surface/95 px-6 py-7 ring-1 ring-white/10 sm:px-10 sm:py-9">
+              <h2 className="font-display text-3xl uppercase leading-none tracking-wide text-gold sm:text-4xl">
+                {earlyResult ? "Early result" : "Consensus reached"}
+              </h2>
+              <div className="mt-6">
+                <Podium movies={active} />
+              </div>
+              <p aria-live="polite" className="mt-6 text-sm text-muted">
+                {active.length} movies, {doneVotes} head-to-heads
+                {session.participants.length > 0 &&
+                  `, ${session.participants.length} voter${session.participants.length === 1 ? "" : "s"}`}
+                .
               </p>
-            )}
-          </div>
-          {session.themeSlug && (
-            <div className="w-full max-w-xl mx-auto">
+              {/* Auto-save state, signed in only — anonymous players never save
+                  from here, they save by signing in via the button below. */}
+              {signedIn && (
+                <p aria-live="polite" className="mt-1 text-sm font-medium text-muted">
+                  {autoSaveState === "saving" && "Saving…"}
+                  {autoSaveState === "saved" && <span className="text-gold">Saved to your profile.</span>}
+                  {autoSaveState === "error" && (
+                    <span className="text-accent-red">
+                      Couldn&apos;t save — check your connection.{" "}
+                      <button
+                        type="button"
+                        onClick={() => void runAutoSave()}
+                        className="font-semibold underline underline-offset-2 hover:text-gold"
+                      >
+                        Retry
+                      </button>
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
+
+            {/* ONE FLOW. For a Marquee the connection quiz IS the next step:
+                it renders inline (no teaser, no modal) and the door out stays
+                a quiet text link until the answer is revealed. Then the door
+                becomes the single gold button. A custom list skips straight
+                to the door. */}
+            {session.themeSlug && (
               <MarqueeConnectionGame
+                inline
                 themeSlug={session.themeSlug}
                 /* A room in play is always the current week's marquee, so "now"
                    is the right anchor here — unlike the saved list page, which
@@ -1286,61 +1332,69 @@ export default function PlayRoom({ initial }: { initial?: ResumedList }) {
                 marqueeNumber={marqueeNumber()}
                 game={getThemeConnectionGame({ slug: session.themeSlug, title: session.title })}
               />
-            </div>
-          )}
+            )}
 
-          {/* ONE PRIMARY ACTION, AND IT IS THE DOOR OUT. Saving (signed in:
-              "See your ranking"; anonymous: sign in) comes first and gold.
-              Sharpen is an optional bonus round and reads as one: a quiet
-              secondary button, no status pill above it, and no "N of M still
-              too close to call" line unless the number is informative. */}
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            {signedIn ? (
+            {connectionPending ? (
               <button
                 type="button"
-                onClick={handleSeeRanking}
-                disabled={autoSaveState !== "saved"}
-                className="min-h-11 rounded bg-accent px-6 font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:opacity-50"
+                onClick={signedIn ? handleSeeRanking : () => setSheetStatus("done")}
+                disabled={signedIn === true && autoSaveState !== "saved"}
+                className="min-h-11 px-2 text-sm text-muted underline-offset-4 transition-colors duration-200 ease-out hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
               >
-                {autoSaveState === "saving" ? "Saving…" : "See your ranking →"}
+                {signedIn ? "Skip to your ranking" : "Skip and save your ranking"}
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={() => setSheetStatus("done")}
-                className="min-h-11 rounded bg-accent px-6 font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
-              >
-                Save your ranking →
-              </button>
+              <div className="flex flex-col items-center gap-3">
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  {signedIn ? (
+                    <button
+                      type="button"
+                      onClick={handleSeeRanking}
+                      disabled={autoSaveState !== "saved"}
+                      className="min-h-12 rounded bg-accent px-8 text-lg font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:opacity-50"
+                    >
+                      {autoSaveState === "saving" ? "Saving…" : "See your ranking →"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setSheetStatus("done")}
+                      className="min-h-12 rounded bg-accent px-8 text-lg font-semibold text-bg transition-transform duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+                    >
+                      Save your ranking →
+                    </button>
+                  )}
+                  {canSharpen && (
+                    <button
+                      type="button"
+                      onClick={startSharpen}
+                      className="inline-flex min-h-11 items-center gap-2 rounded-full px-5 font-semibold text-muted ring-1 ring-white/10 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:text-gold hover:ring-gold/50 active:scale-[0.98]"
+                    >
+                      <span>Sharpen close calls</span>
+                      <span className="rounded bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-gold">+XP</span>
+                    </button>
+                  )}
+                </div>
+                {canSharpen && closeCallsAreInformative && (
+                  <p className="max-w-sm text-sm text-muted">
+                    {closePairs === 1
+                      ? "One pair is still a coin flip. Sharpen settles it."
+                      : `${closePairs} pairs are still coin flips. Sharpen settles them one at a time.`}
+                  </p>
+                )}
+                {!signedIn && (
+                  <p className="text-sm text-muted">
+                    Free account, ten seconds. Kept in this browser until you sign in.
+                  </p>
+                )}
+              </div>
             )}
-            {canSharpen && (
-              <button
-                type="button"
-                onClick={startSharpen}
-                className="inline-flex min-h-11 items-center gap-2 rounded-full px-5 font-semibold text-muted ring-1 ring-white/10 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:text-gold hover:ring-gold/50 active:scale-[0.98]"
-              >
-                <span>Sharpen close calls</span>
-                <span className="rounded bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-gold">+XP</span>
-              </button>
+            {sharpening && (
+              <p className="rounded-full bg-surface px-4 py-2 text-sm text-muted ring-1 ring-white/10">
+                Sharpening — closest call first…
+              </p>
             )}
           </div>
-          {canSharpen && closeCallsAreInformative && (
-            <p className="max-w-sm text-xs text-muted">
-              {closePairs === 1
-                ? "One pair is still a coin flip. Sharpen settles it."
-                : `${closePairs} pairs are still coin flips. Sharpen settles them one at a time.`}
-            </p>
-          )}
-          {!signedIn && (
-            <p className="text-xs text-muted">
-              Free account, ten seconds. Kept in this browser until you sign in.
-            </p>
-          )}
-          {sharpening && (
-            <p className="rounded-full bg-surface px-4 py-2 text-sm text-muted ring-1 ring-white/10">
-              Sharpening — closest call first…
-            </p>
-          )}
         </section>
       ) : active.length < 2 ? (
         <section className="flex flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
