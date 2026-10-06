@@ -1036,7 +1036,10 @@ body {
   filter: brightness(1);
 }
 
-/* Deep theater blackout on velvet curtains */
+/* Deep theater blackout on velvet curtains. `.bg-curtain` is the consensus
+   screen's full-strength curtain; without it here, Dim Lights did nothing
+   on the one screen a player sits on longest. */
+.cinema-lights-down .bg-curtain,
 .cinema-lights-down .bg-curtain-soft {
   background-color: #030305 !important;
   background-blend-mode: multiply;
