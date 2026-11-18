@@ -1,8 +1,7 @@
 # movieranker.win v1 — human QA checklist (Task 12)
 
-Headless-verification was done for code-level concerns (61/61 tests, tsc, eslint,
-build, static Lighthouse equivalents — see task-12-report.md). The items below
-need eyes and hands. Work top to bottom; check every box before sign-off.
+Code-level checks (`npm test`, `npx tsc --noEmit`, `npm run lint`, `npm run build`)
+are run separately and are not repeated here. The items below need eyes and hands. Work top to bottom; check every box before sign-off.
 
 Test envs: phone or DevTools 375×812, desktop 1440×900, and the widest screen
 you have (TV / 4K). Use Chrome for the reduced-motion toggle

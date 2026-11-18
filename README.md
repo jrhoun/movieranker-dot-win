@@ -44,7 +44,7 @@ MovieRanker is a pairwise ELO movie ranking platform designed with a theatrical 
 ## 2. Getting Started
 
 ### Prerequisites
-* Node.js 18+
+* Node.js 20.9 or newer (Next.js 16's `engines` field)
 * Supabase project
 * TMDB API Read Token
 
@@ -66,12 +66,18 @@ npm run dev
 
 ### Verification & Testing
 ```bash
-# Run unit & property test suite (290 tests)
+# Unit tests (vitest, node environment, src/**/*.test.ts): 118 files, 2005 tests
 npm test
 
-# Production build verification (Turbopack)
-npm run build
-
-# ESLint & TypeScript checks
+# Lint (0 errors; a few unused-variable warnings are expected)
 npm run lint
+
+# Type check. On a fresh checkout run `next typegen` first: it writes the
+# route types that src/app/layout.tsx uses (`LayoutProps`). Without it tsc
+# fails with "Cannot find name 'LayoutProps'". `next dev` and `next build`
+# also write them.
+npx next typegen && npx tsc --noEmit
+
+# Production build (Turbopack)
+npm run build
 ```
