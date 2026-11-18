@@ -48,13 +48,19 @@ and Safari if available for the beforeunload prompt.
 12. [ ] Vote with mouse: loser dims/slides up ~220ms, then next pair appears.
         No layout jump of the VS column.
 13. [ ] **Double-tap race test (critical):** tap the LEFT poster twice as fast
-        as possible. Second tap must be ignored (settle guard) — exactly one
-        vote registered (Undo button becomes enabled once, list count advances
-        by one comparison). Repeat tapping left-then-right within the settle
-        window; no double-count, no stuck dimmed poster.
-14. [ ] During settle animation both posters are briefly non-interactive
-        (`disabled` on losing side, guard on winner). Keyboard users: holding
-        Enter on a vote button must not queue multiple votes.
+        as possible. The first tap votes at once. The second lands inside the
+        ~380ms settle and is queued, then replayed on the NEXT pair, so two
+        votes register, one per pair, never two on the same pair (Undo
+        enables, the vote count goes up by two, and the same two films are
+        not voted twice in a row). Mash one poster ten times: one vote per
+        settle, no more. No stuck dimmed poster.
+14. [ ] During the settle both posters stay tappable (the buttons are not
+        `disabled`); only the losing column is `aria-hidden` and out of the tab
+        order. A tap on a poster or a press of A/D/←/→ during the settle is
+        queued as a side (the queue holds one) and replayed on the next pair.
+        Holding Enter on a vote button must still give one vote per settle,
+        not a pile of votes. "Haven't seen" on a poster on stage is queued the
+        same way; from the YOUR MOVIES tray it is dropped.
 15. [ ] Park/unpark: "Haven't seen" sends movie to bottom strip; strip item
         hover lifts + brightens, active scales down; click restores it.
 16. [ ] Progress bar fills smoothly (200ms ease-out); "~N votes left" live
